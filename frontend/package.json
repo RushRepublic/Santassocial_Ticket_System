@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0",
     "check": "node ../scripts/check-js.mjs frontend"
   },

@@ -46,6 +46,8 @@ The first demo startup creates all ten application tables, indexes, event settin
 
 Keep the whole repository and installed workspace dependencies, including `frontend/.next`, `frontend/public`, backend sources, migrations and assets. Do not let framework auto-detection replace the custom entry with `next start`: the root `server.js` is what combines the API and frontend. No standalone Next.js output is used. Let Hostinger supply its managed port; do not expose custom ports 3000/4000.
 
+The frontend build script uses `next build --webpack` for Hostinger compatibility. Keep hPanel's root build command as `npm run build`; it invokes this frontend script after checking the backend. Hostinger documents Turbopack CSS worker failures and a system-library limitation for Next.js 16.3.3 and newer. If an old build log still shows Turbopack, confirm the deployment uses the latest GitHub commit and redeploy.
+
 ## 5. Add environment variables
 
 Generate three different application secrets by running the following command three times on your computer:
@@ -122,3 +124,4 @@ Local syntax/build/workflow/browser tests do not establish that Hostinger runtim
 - [Hostinger environment variables](https://www.hostinger.com/support/how-to-add-environment-variables-during-node-js-application-deployment/)
 - [Hostinger Node.js cron jobs](https://www.hostinger.com/support/how-to-run-cron-jobs-for-node-js-websites-at-hostinger/)
 - [Next.js custom server](https://nextjs.org/docs/app/guides/custom-server)
+- [Hostinger Next.js Turbopack build compatibility](https://www.hostinger.com/support/how-to-fix-next-js-16-turbopack-build-errors-on-hostinger/)
