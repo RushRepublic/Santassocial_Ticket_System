@@ -2,6 +2,7 @@ import mysql from "mysql2/promise";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { databaseDriver } from "./config.js";
+import { mysqlOptions } from "./mysql-options.js";
 const tables = readFileSync(
   new URL("../migrations/001_initial.sql", import.meta.url),
   "utf8",
@@ -57,10 +58,8 @@ export async function openDatabase() {
       },
     };
   }
-  if (!process.env.DATABASE_URL)
-    throw Error("DATABASE_URL is required for MySQL storage.");
   const pool = mysql.createPool({
-    uri: process.env.DATABASE_URL,
+    ...mysqlOptions(),
     connectionLimit: 10,
     timezone: "Z",
     enableKeepAlive: true,

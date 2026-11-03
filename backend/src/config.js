@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import path from "node:path";
+import { mysqlOptions } from "./mysql-options.js";
 dotenv.config({ path: path.resolve(process.cwd(), ".env"), quiet: true });
 export const demo = process.env.APP_MODE !== "live";
 export const production = process.env.NODE_ENV === "production";
@@ -11,17 +12,7 @@ if (!["mysql", "sqlite"].includes(databaseDriver))
   throw Error("DB_DRIVER must be mysql or sqlite.");
 if ((production || !demo) && databaseDriver !== "mysql")
   throw Error("Hosted deployments and live mode require DB_DRIVER=mysql.");
-if (databaseDriver === "mysql") {
-  let valid = false;
-  try {
-    const url = new URL(process.env.DATABASE_URL || "");
-    valid =
-      url.protocol === "mysql:" &&
-      Boolean(url.hostname && url.username && url.pathname.length > 1);
-  } catch {}
-  if (!valid)
-    throw Error("Set a valid mysql:// DATABASE_URL when DB_DRIVER=mysql.");
-}
+if (databaseDriver === "mysql") mysqlOptions();
 if (hostedDemo && process.env.ALLOW_HOSTED_DEMO !== "true")
   throw new Error(
     "Production requires APP_MODE=live, or explicit ALLOW_HOSTED_DEMO=true for a test prototype.",

@@ -10,6 +10,11 @@ const settings = {
   FRONTEND_ORIGIN: "https://prototype.example.org",
   DB_DRIVER: "mysql",
   DATABASE_URL: "mysql://test:password@127.0.0.1/santa_hosted_test",
+  DB_HOST: "",
+  DB_PORT: "",
+  DB_USER: "",
+  DB_PASSWORD: "",
+  DB_NAME: "",
   SESSION_SECRET: "a".repeat(64),
   TICKET_SECRET: "b".repeat(64),
   OTP_SECRET: "c".repeat(64),
@@ -80,6 +85,13 @@ test("hosted prototype requires MySQL while retaining simulated providers and se
     SCANNER_PASSWORD: "",
   });
   assert.equal(adminOnly.status, 0, adminOnly.stderr);
+  const individual = load({
+    DATABASE_URL: "",
+    DB_USER: "user",
+    DB_PASSWORD: "synthetic@#%password",
+    DB_NAME: "santa_hosted_test",
+  });
+  assert.equal(individual.status, 0, individual.stderr);
 });
 
 test(

@@ -28,7 +28,7 @@ If the subdomain already hosts another app, back it up before changing or replac
 
 ## 3. Create the MySQL database
 
-Open **Databases → Management** in the hosting dashboard. Create a dedicated prototype database, user and password. Record the complete names, including Hostinger's account prefix. Use Hostinger's local MySQL host `127.0.0.1`, port `3306`. URL-encode special characters in the password when building `DATABASE_URL`; never put passwords into an online encoder.
+Open **Databases → Management** in the hosting dashboard. Create a database, user and password. Record the complete names, including Hostinger's account prefix. Use Hostinger's local MySQL host `127.0.0.1`, port `3306`. Prefer the individual environment fields below: paste the actual database password into `DB_PASSWORD` without encoding it. The previous `DATABASE_URL` format remains supported as an alternative, with a URL-encoded password.
 
 The first demo startup creates all ten application tables, indexes, event settings and staff accounts automatically. New MySQL tables use InnoDB. No manual SQL import or SQLite folder is required. Test records persist across app redeployments when the same database is used. Earlier local SQLite records are not automatically copied into MySQL.
 
@@ -63,7 +63,11 @@ NODE_ENV=production
 APP_MODE=demo
 ALLOW_HOSTED_DEMO=true
 DB_DRIVER=mysql
-DATABASE_URL=mysql://YOUR_FULL_DB_USER:URL_ENCODED_DB_PASSWORD@127.0.0.1:3306/YOUR_FULL_DB_NAME
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=YOUR_FULL_DB_USER
+DB_PASSWORD=YOUR_ACTUAL_DB_PASSWORD
+DB_NAME=YOUR_FULL_DB_NAME
 FRONTEND_ORIGIN=https://tickets.santassocial.com
 HOST=0.0.0.0
 MAINTENANCE_MODE=cron
@@ -76,6 +80,8 @@ ADMIN_PASSWORD=REPLACE_ADMIN_PASSWORD
 ```
 
 Replace every sample value. The admin password must contain at least 12 characters. The three secrets must differ and contain at least 32 characters each. Keep them unchanged between redeployments to retain session/ticket validity. `FRONTEND_ORIGIN` must exactly match the browser's HTTPS origin, without a trailing slash.
+
+Enter `DB_PASSWORD` directly into Hostinger's value field: no URL encoding, surrounding quotes or PowerShell command. The individual database fields take precedence over `DATABASE_URL`; remove the old URL row when switching to avoid confusion. The credentials remain private and must not be included in screenshots or GitHub. An `Access denied for user ...` runtime error means MySQL rejected the supplied login: verify the full database username, actual password, deployed environment and database user permissions.
 
 Only the admin account is required for full module access. If limited staff accounts are wanted later, add matching pairs `CASHIER_EMAIL`/`CASHIER_PASSWORD` and `SCANNER_EMAIL`/`SCANNER_PASSWORD`; their passwords also require at least 12 characters. They all use `/login`. Leave both values of an unused pair unset. Existing account passwords are not overwritten by seeding on subsequent startups.
 
