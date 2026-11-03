@@ -2,7 +2,9 @@
 
 # Santa Social · 9th Edition
 
-Next.js customer site, separate Express API, MySQL production storage, and mobile group-ticket verification for December 5–6, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–9 PM IST** as specified in the supplied brief.
+Next.js customer site, modular Express API, MySQL production storage, and mobile group-ticket verification for December 5–6, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–9 PM IST** as specified in the supplied brief.
+
+For Hostinger, deploy one Node.js app using the root `server.js`: `npm run build`, then `npm start`. It serves registration, staff modules and `/api/*` on one subdomain. Staff sign in once at `/login`; admins can use every module including the gate scanner, while limited roles retain their permissions. The old admin/scanner login URLs redirect to `/login`. Follow [the single-subdomain Hostinger guide](docs/HOSTINGER-SINGLE-SITE.md) for MySQL, simulated providers, environment variables and cron setup. Only admin credentials are required for access to all modules.
 
 Author application code in **JavaScript**: `.jsx` for React components and App Router pages/layouts, and `.js` for application logic, utilities, backend modules and tests. The backend runs directly with Node.js; there is no TypeScript compilation or `tsx` runner. Next.js configuration uses `.mjs`, and `frontend/jsconfig.json` preserves the `@/*` path alias. Project instructions are in `AGENTS.md`.
 
@@ -21,7 +23,7 @@ npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:3000**. Use this exact host because mutation requests are checked against `FRONTEND_ORIGIN`. The Express API runs on `127.0.0.1:4000`. Demo mode creates and seeds `backend/data/demo.sqlite` automatically. This local SQLite adapter is for development; **live mode uses MySQL**, never SQLite. No real payments, WhatsApp messages, emails, or admission tickets are produced in demo mode.
+Open **http://127.0.0.1:3000**. Use this exact host because mutation requests are checked against `FRONTEND_ORIGIN`. The Express API runs on `127.0.0.1:4000`. Local demo defaults to creating and seeding `backend/data/demo.sqlite`. Set `DB_DRIVER=mysql` and `DATABASE_URL` to use MySQL with the same simulated providers. Hosted demo and live deployments require MySQL; SQLite remains a local development adapter. `APP_MODE=demo` controls provider simulation independently of storage. No real payments, WhatsApp messages, emails, or admission tickets are produced in demo mode.
 
 Optional configuration: copy `.env.example` to `backend/.env`. Next.js proxies `/api` requests to Express using `frontend/next.config.mjs`; backend secrets never belong in frontend environment variables.
 
@@ -108,4 +110,4 @@ This validates the public destination and deployed form, generates the same publ
 
 The public registration QR opens `/` for every customer; it carries no booking or admission credential. Unique admission QR generation and scanner verification remain separate and unchanged.
 
-See [deployment](docs/DEPLOYMENT.md), [integration setup](docs/INTEGRATIONS.md), and [API documentation](docs/API.md). Supply real MySQL access, independent secrets, Razorpay credentials/webhook configuration, approved AskEva authentication/utility templates and a confirmed adapter, and SMTP configuration. Keep `backend/assets/` in the API deployment for branded PDF tickets. `NODE_ENV=production` refuses demo mode. Live integrations and MySQL concurrency have **not** been verified in this workspace; this is a working local implementation, not a claim of production readiness.
+See [deployment](docs/DEPLOYMENT.md), [integration setup](docs/INTEGRATIONS.md), and [API documentation](docs/API.md). Supply real MySQL access, independent secrets, Razorpay credentials/webhook configuration, approved AskEva authentication/utility templates and a confirmed adapter, and SMTP configuration for real sales. Keep `backend/assets/` in the deployment for branded PDF tickets. Production refuses demo mode unless explicitly opted into the isolated [Hostinger test prototype](docs/HOSTINGER-SINGLE-SITE.md) with `ALLOW_HOSTED_DEMO=true`, MySQL and strong credentials. That prototype simulates providers while storing real test records in MySQL. Actual event sales require `APP_MODE=live`. Live integrations and MySQL concurrency have **not** been verified in this workspace; this is a working implementation, not a claim of production readiness.

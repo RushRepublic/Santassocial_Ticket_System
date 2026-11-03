@@ -6,6 +6,7 @@
     "backend"
   ],
   "scripts": {
+    "start": "node server.js",
     "dev": "concurrently -k -n api,web \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w backend && npm run build -w frontend",
     "test": "npm run test -w backend",

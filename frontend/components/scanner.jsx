@@ -11,12 +11,15 @@ import {
   History,
   ArrowLeft,
   XCircle,
+  LayoutDashboard,
 } from "lucide-react";
 import { api, post, eventDate, dateTime } from "@/lib/api";
+import { staffDestination, staffLoginUrl } from "@/lib/staff";
 import { Wordmark, Loading, DemoBanner } from "./common";
 export function Scanner({ history = false }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [identity, setIdentity] = useState(null);
   const [camera, setCamera] = useState(false);
   const [token, setToken] = useState("");
   const [result, setResult] = useState(null);
@@ -33,16 +36,23 @@ export function Scanner({ history = false }) {
     api("/auth/me")
       .then((u) => {
         if (!["ADMIN", "SCANNER"].includes(u.role))
-          router.replace("/scanner/login");
-        else setReady(true);
+          router.replace(staffDestination(u.role));
+        else {
+          setIdentity(u);
+          setReady(true);
+        }
       })
-      .catch(() => router.replace("/scanner/login"));
+      .catch(() =>
+        router.replace(
+          staffLoginUrl(history ? "/scanner/history" : "/scanner"),
+        ),
+      );
     api("/events")
       .then((d) => {
         if (d.demo) setDemoDate(d.demoEventDate);
       })
       .catch(() => {});
-  }, [router]);
+  }, [router, history]);
   useEffect(() => {
     if (ready && history)
       api("/admin/checkins")
@@ -139,6 +149,11 @@ export function Scanner({ history = false }) {
           <Wordmark />
         </Link>
         <div>
+          {identity?.role === "ADMIN" && (
+            <Link href="/admin/dashboard" aria-label="Back to dashboard">
+              <LayoutDashboard size={20} />
+            </Link>
+          )}
           <Link
             aria-label="Entry history"
             href={history ? "/scanner" : "/scanner/history"}
@@ -148,7 +163,7 @@ export function Scanner({ history = false }) {
           <button
             aria-label="Sign out"
             onClick={() =>
-              post("/auth/logout", {}).then(() => router.push("/scanner/login"))
+              post("/auth/logout", {}).then(() => router.replace("/login"))
             }
           >
             <LogOut size={20} />

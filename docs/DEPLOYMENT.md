@@ -32,7 +32,9 @@ MySQL transactions lock the shared event row before capacity-affecting changes; 
 
 ## Hostinger Business Web Hosting
 
-Do not assume the shared Business plan can run two independent long-lived Node applications with MySQL access, reverse proxying, and background work. Check the actual account’s Node app features, port routing, environment support, process restarts, memory limits, persistent storage, database version/network access, HTTPS callbacks and logging with Hostinger. Static-only hosting cannot run this application. If two services and background processing are unsupported, test locally and use a VPS for integration/production. No shared-hosting deployment has been attempted or claimed here.
+For simulated OTP and payments on Business Web Hosting, follow [the single-subdomain walkthrough](HOSTINGER-SINGLE-SITE.md). It uses one custom Node.js app (`server.js`) serving Next.js and Express, one shared staff login at `/login`, a real MySQL database (`DB_DRIVER=mysql`), production HTTPS cookies and a finite maintenance cron job. One admin account accesses every staff module. Paid provider credentials are not needed for this prototype. This is separate from actual event sales.
+
+The combined deployment needs one managed Node.js application with the explicit root `server.js` entry, the complete built frontend/backend files, MySQL access and the finite maintenance cron job. Check the actual account's process routing, memory limits, database access, HTTPS and logs. Static-only hosting cannot run the application. Do not run the existing two-process PM2 configuration in managed Web Hosting. No shared-hosting deployment has been attempted or claimed here.
 
 ## Hostinger VPS
 
@@ -42,7 +44,7 @@ Use one maintained Linux VPS initially. Install Node 24 LTS, MySQL 8, Nginx, a p
 2. Supply Razorpay and AskEva integration settings and test approved templates. Configure SMTP for fallback. Follow INTEGRATIONS.md.
 3. Build with `npm run build`. This checks backend JavaScript syntax and builds Next.js. Frontend production uses `next start`; API production runs `backend/src/server.js` directly with Node.js. There is no backend compilation step or dependency on old `dist/` output. The PM2 example points to `src/server.js` from the backend working directory.
 4. Set the domain in `deploy/nginx.conf`, install it in Nginx, validate with `nginx -t`, and reload. Configure HTTPS with Certbot, redirect HTTP to HTTPS, and confirm renewals. The supplied example is an initial HTTP configuration, not a certificate.
-5. Start the two processes: `pm2 start deploy/ecosystem.config.cjs`. Both listen only on loopback. Run `pm2 save` and configure PM2 startup using the command it prints for your operating system/user.
+5. Start the two processes: `pm2 start deploy/ecosystem.config.cjs`. Set backend `HOST=127.0.0.1` in its environment so both listen only on loopback behind Nginx. The API otherwise defaults to `0.0.0.0` in production for managed hosting. Run `pm2 save` and configure PM2 startup using the command it prints for your operating system/user.
 6. Verify `/api/health`, registration, live test-mode Checkout, signed webhooks, ticket recovery, cash approval and gate check-in. Check PM2/Nginx logs for failures without enabling sensitive request-body logging.
 7. Use only **one API process** with the current process-local rate limiter and notification dispatcher. Multiple scanner devices are supported through that API; this does not require clustered Node processes. Before adding API instances, move rate limits and dispatcher ownership to coordinated durable infrastructure.
 

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { openDatabase, migrate } from "./db.js";
-import { demo } from "./config.js";
+import { demo, production } from "./config.js";
 import { passwordHash } from "./security.js";
 import { now } from "./services.js";
 import { pathToFileURL } from "node:url";
@@ -9,7 +9,8 @@ export async function seed(db) {
     const email =
       process.env[`${role}_EMAIL`] || `${role.toLowerCase()}@santasocial.local`;
     const password =
-      process.env[`${role}_PASSWORD`] || (demo ? "SantaDemo2026!" : "");
+      process.env[`${role}_PASSWORD`] ||
+      (demo && !production ? "SantaDemo2026!" : "");
     if (!password) {
       if (role === "ADMIN")
         throw Error("Set ADMIN_PASSWORD before seeding live users.");

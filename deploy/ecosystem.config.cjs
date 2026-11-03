@@ -8,7 +8,7 @@ module.exports = {
       script: "src/server.js",
       instances: 1,
       exec_mode: "fork",
-      env: { NODE_ENV: "production", APP_MODE: "live" },
+      env: { NODE_ENV: "production", APP_MODE: "live", HOST: "127.0.0.1" },
       max_memory_restart: "600M",
       time: true,
     },

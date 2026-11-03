@@ -7,7 +7,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
-import { config, demo, production } from "./config.js";
+import { config, demo, production, databaseDriver } from "./config.js";
 import {
   hmac,
   equal,
@@ -162,7 +162,11 @@ export function createApp(db) {
   });
   app.get("/api/health", async (_req, res) => {
     await db.all("SELECT 1 AS ok");
-    res.json({ ok: true, mode: demo ? "demo" : "live" });
+    res.json({
+      ok: true,
+      mode: demo ? "demo" : "live",
+      database: databaseDriver,
+    });
   });
   app.get("/api/events", async (_req, res) =>
     res.json({

@@ -4,6 +4,8 @@ const config = {
     return [
       { source: "/register", destination: "/", permanent: true },
       { source: "/verify-otp", destination: "/", permanent: true },
+      { source: "/admin/login", destination: "/login", permanent: true },
+      { source: "/scanner/login", destination: "/login", permanent: true },
     ];
   },
   async rewrites() {
@@ -38,6 +40,7 @@ const config = {
         "/booking-success",
         "/booking-pending",
         "/retrieve-ticket",
+        "/login",
       ].map((source) => ({
         source,
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],

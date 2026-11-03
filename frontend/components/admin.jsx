@@ -20,30 +20,43 @@ import {
   Menu,
 } from "lucide-react";
 import { api, post, money, dateTime, eventDate } from "@/lib/api";
+import { staffDestination, staffLoginUrl } from "@/lib/staff";
 import { Wordmark, Notice, Loading, Status, DemoBanner } from "./common";
-export function StaffLogin({ scanner = false }) {
+export function StaffLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [demo, setDemo] = useState(false);
   useEffect(() => {
-    api("/events")
-      .then((r) => setDemo(r.demo))
+    let active = true;
+    api("/auth/me")
+      .then((user) => {
+        if (active && ["ADMIN", "CASHIER", "SCANNER"].includes(user.role))
+          router.replace(
+            staffDestination(
+              user.role,
+              new URLSearchParams(window.location.search).get("next") || "",
+            ),
+          );
+      })
       .catch(() => {});
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [router]);
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
       const user = await post("/auth/login", { email, password });
-      if (scanner && !["ADMIN", "SCANNER"].includes(user.role)) {
-        setError("This account does not have scanner access.");
-        return;
-      }
-      router.push(scanner ? "/scanner" : "/admin/dashboard");
+      router.replace(
+        staffDestination(
+          user.role,
+          new URLSearchParams(window.location.search).get("next") || "",
+        ),
+      );
     } catch (e) {
       setError(e.message);
     } finally {
@@ -57,16 +70,11 @@ export function StaffLogin({ scanner = false }) {
       </Link>
       <div className="narrow-card">
         <div className="round-icon">
-          {scanner ? <ScanLine /> : <LayoutDashboard />}
+          <LayoutDashboard />
         </div>
         <p className="eyebrow">SANTA SOCIAL · EVENT OPERATIONS</p>
-        <h1>{scanner ? "Welcome, gate team." : "Hello, organiser."}</h1>
-        <p className="muted">
-          Sign in to{" "}
-          {scanner
-            ? "verify tickets and welcome guests."
-            : "manage the celebration."}
-        </p>
+        <h1>Staff login</h1>
+        <p className="muted">Sign in to access your event management tools.</p>
         <form onSubmit={submit}>
           <label>
             Email address
@@ -94,15 +102,6 @@ export function StaffLogin({ scanner = false }) {
             <ArrowUpRight size={17} />
           </button>
         </form>
-        {demo && (
-          <div className="demo-code">
-            Local demo account
-            <br />
-            <b>{scanner ? "scanner" : "admin"}@santasocial.local</b>
-            <br />
-            Password: <b>SantaDemo2026!</b>
-          </div>
-        )}
         <Link className="back-link" href="/">
           Back to the celebration
         </Link>
@@ -129,14 +128,14 @@ export function Admin() {
     api("/auth/me")
       .then((user) => {
         if (!["ADMIN", "CASHIER"].includes(user.role))
-          router.replace("/admin/login");
+          router.replace(staffDestination(user.role));
         else setIdentity(user);
       })
-      .catch(() => router.replace("/admin/login"));
-  }, [router]);
+      .catch(() => router.replace(staffLoginUrl(path)));
+  }, [router, path]);
   async function logout() {
     await post("/auth/logout", {});
-    router.push("/admin/login");
+    router.replace("/login");
   }
   if (!identity) return <Loading />;
   return (

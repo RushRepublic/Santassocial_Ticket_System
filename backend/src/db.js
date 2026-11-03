@@ -1,7 +1,7 @@
 import mysql from "mysql2/promise";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { demo } from "./config.js";
+import { databaseDriver } from "./config.js";
 const tables = readFileSync(
   new URL("../migrations/001_initial.sql", import.meta.url),
   "utf8",
@@ -10,7 +10,7 @@ const tables = readFileSync(
   .map((s) => s.trim())
   .filter(Boolean);
 export async function openDatabase() {
-  if (demo) {
+  if (databaseDriver === "sqlite") {
     const { DatabaseSync } = await import("node:sqlite");
     const file = process.env.DEMO_DB_PATH || resolve("data/demo.sqlite");
     mkdirSync(dirname(file), { recursive: true });
@@ -58,7 +58,7 @@ export async function openDatabase() {
     };
   }
   if (!process.env.DATABASE_URL)
-    throw Error("DATABASE_URL is required in live mode.");
+    throw Error("DATABASE_URL is required for MySQL storage.");
   const pool = mysql.createPool({
     uri: process.env.DATABASE_URL,
     connectionLimit: 10,
@@ -95,7 +95,12 @@ export async function openDatabase() {
   };
 }
 export async function migrate(db) {
-  for (const sql of tables) await db.run(sql);
+  for (const sql of tables)
+    await db.run(
+      databaseDriver === "mysql"
+        ? `${sql} ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+        : sql,
+    );
   for (const [table, index, cols] of [
     ["bookings", "idx_bookings_mobile", "mobile,createdAt"],
     [

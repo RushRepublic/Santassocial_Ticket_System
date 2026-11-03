@@ -1,5 +1,13 @@
 # Verification evidence
 
+## Single-subdomain server and shared staff login
+
+The current combined entry is root `server.js`, serving the built Next.js site and Express API on one port. `npm run check` passed for 41 authored files; `npm test` passed 15 scenarios with one MySQL integration scenario explicitly skipped because no test MySQL server/URL was available. `npm run build` passed. Routing tests verify raw webhook bytes and API cookies survive the shared listener, API misses remain JSON, and login return paths reject external/dot-segment destinations while respecting staff roles.
+
+The existing Chromium workflow passed against an isolated combined server on port 3107. It verified registration, inline OTP, simulated payment, one group QR/PDF, legacy login redirects to `/login`, one admin login across bookings/payments/check-ins/settings/scanner, returning from scanner to dashboard, authenticated login-page restoration, duplicate entry rejection and shared logout. Desktop 1440px and mobile 390px checks passed without browser JavaScript errors or horizontal overflow. The combined server used the local SQLite test adapter for this browser run; hosted deployments still require MySQL. Hostinger process routing, real MySQL connectivity/concurrency and physical camera access are not established by that run.
+
+Deployment instructions are in [the single-site guide](HOSTINGER-SINGLE-SITE.md). Earlier sections below retain historical verification evidence and counts.
+
 ## Inline mobile verification
 
 Registration now has two steps: Your booking and Checkout. OTP entry is part of the WhatsApp mobile field on `/`; the old `/verify-otp` route redirects to `/`. The Checkout button stays disabled without a verified matching mobile. The browser workflow covers an incorrect code, successful inline verification, editing the mobile, losing the server session, restoring a still-valid session, editing from checkout, demo payment, ticket download and staff entry. `scripts/inline-otp-qa.mjs` checks the five-minute UI deadline, resend cooldown and 390px/320px layouts. The backend suite now has 12 scenarios, including rejection of a correctly entered but expired OTP and prevention of unauthenticated booking creation. Live WhatsApp delivery remains unverified without provider credentials/templates.

@@ -18,7 +18,8 @@ export function Application() {
     if (
       path.startsWith("/admin") ||
       path.startsWith("/scanner") ||
-      path.startsWith("/ticket")
+      path.startsWith("/ticket") ||
+      path === "/login"
     ) {
       const meta = document.createElement("meta");
       meta.name = "robots";
@@ -27,9 +28,9 @@ export function Application() {
       return () => meta.remove();
     }
   }, [path]);
-  if (path === "/admin/login") return <StaffLogin />;
+  if (path === "/login" || path === "/admin/login" || path === "/scanner/login")
+    return <StaffLogin />;
   if (path.startsWith("/admin")) return <Admin />;
-  if (path === "/scanner/login") return <StaffLogin scanner />;
   if (path.startsWith("/scanner"))
     return <Scanner history={path === "/scanner/history"} />;
   let page;

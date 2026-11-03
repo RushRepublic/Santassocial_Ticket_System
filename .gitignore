@@ -2,7 +2,13 @@ node_modules/
 .next/
 dist/
 .env
-.env.local
+.env.*
+!.env.example
+!.env.*.example
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
 .npm-cache/
 backend/data/
 test-results/

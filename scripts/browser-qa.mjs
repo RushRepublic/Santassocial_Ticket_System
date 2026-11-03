@@ -173,6 +173,17 @@ try {
   if (!(await download).suggestedFilename().endsWith(".pdf"))
     throw Error("Missing PDF download");
   await page.goto(`${origin}/admin/login`);
+  await page.waitForURL(`${origin}/login`);
+  await page.goto(`${origin}/scanner/login`);
+  await page.waitForURL(`${origin}/login`);
+  let staffLogins = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/auth/login"
+    )
+      staffLogins++;
+  });
   await page
     .getByLabel("Email address", { exact: true })
     .fill("admin@santasocial.local");
@@ -183,7 +194,24 @@ try {
     .waitFor();
   await page.locator(".stat-card").first().waitFor();
   await page.screenshot({ path: "docs/admin-desktop.png", fullPage: true });
-  await page.goto(`${origin}/scanner`);
+  for (const [label, section] of [
+    ["Bookings", "bookings"],
+    ["Payments", "payments"],
+    ["Check-ins", "checkins"],
+    ["Event settings", "settings"],
+    ["Overview", "dashboard"],
+  ]) {
+    await page
+      .locator(".admin-sidebar")
+      .getByRole("link", { name: label, exact: true })
+      .click();
+    await page.waitForURL(`${origin}/admin/${section}`);
+    await page.locator(".admin-sidebar").waitFor();
+  }
+  await page.goto(`${origin}/login`);
+  await page.waitForURL(`${origin}/admin/dashboard`);
+  await page.getByRole("link", { name: "Open gate scanner" }).click();
+  await page.waitForURL(`${origin}/scanner`);
   await page
     .getByLabel("Or paste a secure ticket token / link")
     .fill(booking.qrToken);
@@ -202,6 +230,10 @@ try {
     .getByRole("button", { name: "Verify ticket", exact: true })
     .click();
   await page.getByText(/ALREADY CHECKED IN:/).waitFor();
+  await page.getByRole("link", { name: "Back to dashboard" }).click();
+  await page.waitForURL(`${origin}/admin/dashboard`);
+  if (staffLogins !== 1)
+    throw Error("Admin modules and scanner must share one login session.");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(origin, { waitUntil: "networkidle" });
   await page.evaluate(async () => {
@@ -240,6 +272,12 @@ try {
   )
     throw Error("Admin mobile overflow");
   if (errors.length) throw Error(`Browser errors: ${errors.join("; ")}`);
+  await page.getByRole("button", { name: "Toggle menu", exact: true }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await page.waitForURL(`${origin}/login`);
+  const denied = await page.request.get(`${origin}/api/admin/bookings`);
+  if (denied.status() !== 401)
+    throw Error("Logout must revoke access to staff APIs.");
   console.log(
     "PASS: direct booking landing page, legacy redirect, desktop/mobile layouts, OTP, online demo payment, group QR, PDF download, admin authentication, scanner entry and duplicate rejection.",
   );
