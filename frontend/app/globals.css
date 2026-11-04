@@ -577,7 +577,7 @@ a.button,
   justify-content: center;
   gap: 0;
   margin: 35px auto 40px;
-  max-width: 640px;
+  max-width: 360px;
 }
 .steps > div {
   display: flex;
