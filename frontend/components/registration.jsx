@@ -660,7 +660,7 @@ export function Checkout() {
               </li>
               <li>
                 All {draft.adults + draft.kids} guests must arrive together.
-                Partial entry and re-entry are not supported.
+                Partial entry are not supported.
               </li>
               <li>
                 Children under 5 must be supervised by an adult, unless an
