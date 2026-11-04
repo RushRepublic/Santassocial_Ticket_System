@@ -93,17 +93,8 @@ export function BookingSidebar({ draft, children, showVenue = true }) {
             <span>Total</span>
             <strong>{money(draft.adults * 20000)}</strong>
           </p>
-          <small>{draft.adults + draft.kids} guests · 1 group QR ticket</small>
         </div>
         {children}
-        <div className="group-note">
-          <Users size={20} />
-          <p>
-            Your whole group enters together.
-            <br />
-            Keep your QR ticket handy at the gate.
-          </p>
-        </div>
       </div>
     </aside>
   );
