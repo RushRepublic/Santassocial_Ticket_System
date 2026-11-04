@@ -630,28 +630,6 @@ export function Checkout() {
               </button>
             ))}
           </div>
-          <div className="entry-rules">
-            <h3>A few things before the fun</h3>
-            <ul>
-              <li>
-                Your booking is valid only for {eventDate(draft.eventDate)}.
-              </li>
-              <li>
-                All {draft.adults + draft.kids} guests must arrive together.
-                Partial entry and re-entry are not supported.
-              </li>
-              <li>
-                Children under 5 must be supervised by an adult, unless an
-                approved event policy applies.
-              </li>
-              {draft.method === "CASH" && (
-                <li>
-                  Cash reservations expire. Complete payment before the time
-                  shown on your booking.
-                </li>
-              )}
-            </ul>
-          </div>
           <label className="checkbox-label">
             <input
               type="checkbox"
@@ -679,6 +657,28 @@ export function Checkout() {
             <ShieldCheck size={15} /> Payments are verified securely on our
             server.
           </p>
+          <div className="entry-rules">
+            <h3>A few things before the fun</h3>
+            <ul>
+              <li>
+                Your booking is valid only for {eventDate(draft.eventDate)}.
+              </li>
+              <li>
+                All {draft.adults + draft.kids} guests must arrive together.
+                Partial entry and re-entry are not supported.
+              </li>
+              <li>
+                Children under 5 must be supervised by an adult, unless an
+                approved event policy applies.
+              </li>
+              {draft.method === "CASH" && (
+                <li>
+                  Cash reservations expire. Complete payment before the time
+                  shown on your booking.
+                </li>
+              )}
+            </ul>
+          </div>
           <Link className="back-link" href="/">
             <ArrowLeft size={16} /> Edit booking
           </Link>
