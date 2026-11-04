@@ -689,7 +689,7 @@ a.button,
   background: #fff8f3;
 }
 .date-number {
-  font-size: 36px;
+  font-size: 26px;
   color: var(--red);
   font-weight: 600;
   line-height: 1;
@@ -2644,7 +2644,7 @@ td > a:hover {
     gap: 7px;
   }
   .date-option .date-number {
-    font-size: 31px;
+    font-size: 23px;
   }
   .date-option b {
     font-size: 12px;
