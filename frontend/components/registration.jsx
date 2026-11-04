@@ -581,8 +581,13 @@ export function Checkout() {
             <span>
               <Check size={16} />
             </span>
-            <div>
-              <h2>You’re verified, {draft.name.split(" ")[0]}.</h2>
+            <div className="checkout-verified-details">
+              <div className="checkout-verified-title">
+                <h2>You’re verified, {draft.name.split(" ")[0]}.</h2>
+                <Link className="back-link" href="/">
+                  <ArrowLeft size={16} /> Edit booking
+                </Link>
+              </div>
               <p>
                 +91 {draft.mobile} · {draft.email}
               </p>
@@ -670,9 +675,6 @@ export function Checkout() {
               )}
             </ul>
           </div>
-          <Link className="back-link" href="/">
-            <ArrowLeft size={16} /> Edit booking
-          </Link>
         </div>
       </div>
       {demoBooking && (

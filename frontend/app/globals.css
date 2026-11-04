@@ -631,6 +631,24 @@ a.button,
   position: static;
   margin-bottom: 30px;
 }
+.checkout-verified-details {
+  flex: 1;
+  min-width: 0;
+}
+.checkout-verified-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.checkout-verified-title .back-link {
+  margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.checkout-verified-details p {
+  overflow-wrap: anywhere;
+}
 .form-card,
 .narrow-card {
   background: #fff;
