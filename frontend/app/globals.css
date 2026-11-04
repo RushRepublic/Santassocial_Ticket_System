@@ -631,6 +631,9 @@ a.button,
   position: static;
   margin-bottom: 30px;
 }
+.checkout-layout .secure-note + .entry-rules {
+  margin-top: 28px;
+}
 .checkout-verified-details {
   flex: 1;
   min-width: 0;

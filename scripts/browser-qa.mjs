@@ -144,7 +144,7 @@ try {
     summaryBounds.y + summaryBounds.height > paymentBounds.y
   )
     throw Error("Checkout summary must appear above payment choices.");
-  await page.getByRole("link", { name: "Edit booking" }).waitFor();
+  await page.getByRole("link", { name: "Edit", exact: true }).waitFor();
   if (
     await page
       .locator(
@@ -163,7 +163,7 @@ try {
   )
     throw Error("Checkout mobile overflow.");
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole("link", { name: "Edit booking" }).click();
+  await page.getByRole("link", { name: "Edit", exact: true }).click();
   await page.waitForURL(origin + "/");
   await page.locator(".mobile-verified").waitFor();
   await page.getByRole("button", { name: "Checkout", exact: true }).click();

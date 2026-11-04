@@ -585,7 +585,7 @@ export function Checkout() {
               <div className="checkout-verified-title">
                 <h2>You’re verified, {draft.name.split(" ")[0]}.</h2>
                 <Link className="back-link" href="/">
-                  <ArrowLeft size={16} /> Edit booking
+                  <ArrowLeft size={16} /> Edit
                 </Link>
               </div>
               <p>
