@@ -584,7 +584,7 @@ export function Checkout() {
   return (
     <main className="booking-page">
       <Steps step={2} />
-      <div className="booking-layout">
+      <div className="booking-layout checkout-layout">
         <div className="form-card">
           <div className="section-label">
             <span>
@@ -597,6 +597,7 @@ export function Checkout() {
               </p>
             </div>
           </div>
+          <BookingSidebar draft={draft} showVenue={false} />
           <div className="form-section">
             <h2>How would you like to pay?</h2>
             <p className="muted">Choose what works for you.</p>
@@ -682,7 +683,6 @@ export function Checkout() {
             <ArrowLeft size={16} /> Edit booking
           </Link>
         </div>
-        <BookingSidebar draft={draft} showVenue={false} />
       </div>
       {demoBooking && (
         <div

@@ -130,7 +130,20 @@ try {
   await page.locator(".mobile-verified").waitFor();
   await page.getByRole("button", { name: "Checkout", exact: true }).click();
   await page.waitForURL("**/checkout");
-  await page.locator(".booking-sidebar").getByRole("heading", { name: "Booking summary" }).waitFor();
+  await page
+    .locator(".booking-sidebar")
+    .getByRole("heading", { name: "Booking summary" })
+    .waitFor();
+  const summaryBounds = await page.locator(".booking-sidebar").boundingBox();
+  const paymentBounds = await page
+    .getByRole("heading", { name: "How would you like to pay?" })
+    .boundingBox();
+  if (
+    !summaryBounds ||
+    !paymentBounds ||
+    summaryBounds.y + summaryBounds.height > paymentBounds.y
+  )
+    throw Error("Checkout summary must appear above payment choices.");
   await page.getByRole("link", { name: "Edit booking" }).waitFor();
   if (
     await page

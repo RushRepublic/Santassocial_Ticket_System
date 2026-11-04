@@ -621,10 +621,15 @@ a.button,
   align-items: start;
   gap: 30px;
 }
-.booking-layout.registration-layout {
+.booking-layout.registration-layout,
+.booking-layout.checkout-layout {
   grid-template-columns: minmax(0, 1fr);
   max-width: 800px;
   margin-inline: auto;
+}
+.checkout-layout .booking-sidebar {
+  position: static;
+  margin-bottom: 30px;
 }
 .form-card,
 .narrow-card {
