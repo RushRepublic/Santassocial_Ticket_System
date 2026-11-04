@@ -1,5 +1,6 @@
 import { chromium } from "@playwright/test";
 import { existsSync } from "node:fs";
+import QRCode from "qrcode";
 const executable =
   process.env.PLAYWRIGHT_EXECUTABLE ||
   "C:/Users/aaa/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe";
@@ -10,7 +11,45 @@ const browser = await chromium.launch({
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1000 },
 });
+// Exercise the real QR decoder with a synthetic camera stream, without adding
+// manual token controls or test hooks to the application.
+await context.addInitScript(() => {
+  navigator.mediaDevices.getUserMedia = async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 640;
+    const drawing = canvas.getContext("2d");
+    const qr = new Image();
+    qr.src = window.__qaCameraQr;
+    await qr.decode();
+    const draw = () => {
+      drawing.fillStyle = "white";
+      drawing.fillRect(0, 0, 640, 640);
+      drawing.drawImage(qr, 160, 160, 320, 320);
+    };
+    draw();
+    const stream = canvas.captureStream(10);
+    const timer = setInterval(() => {
+      if (!stream.getVideoTracks().some((track) => track.readyState === "live"))
+        clearInterval(timer);
+      else draw();
+    }, 100);
+    return stream;
+  };
+});
 const page = await context.newPage();
+async function scanCameraToken(token) {
+  if (await page.locator(".manual-token").count())
+    throw Error("Manual scanner token entry must not be visible.");
+  await page.evaluate(
+    (data) => {
+      window.__qaCameraQr = data;
+    },
+    await QRCode.toDataURL(token, { width: 320, margin: 4 }),
+  );
+  await page
+    .getByRole("button", { name: "Start camera scanner", exact: true })
+    .click();
+}
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const origin = process.env.QA_ORIGIN || "http://127.0.0.1:3000";
@@ -285,12 +324,7 @@ try {
   await page.waitForURL(`${origin}/admin/dashboard`);
   await page.getByRole("link", { name: "Open gate scanner" }).click();
   await page.waitForURL(`${origin}/scanner`);
-  await page
-    .getByLabel("Or paste a secure ticket token / link")
-    .fill(booking.qrToken);
-  await page
-    .getByRole("button", { name: "Verify ticket", exact: true })
-    .click();
+  await scanCameraToken(booking.qrToken);
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
   await page
     .getByRole("heading", { name: "Paid Rs. 200. Approve the Ticket." })
@@ -303,12 +337,7 @@ try {
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
     .waitFor();
-  await page
-    .getByLabel("Or paste a secure ticket token / link")
-    .fill(booking.qrToken);
-  await page
-    .getByRole("button", { name: "Verify ticket", exact: true })
-    .click();
+  await scanCameraToken(booking.qrToken);
   await page.getByText(/ALREADY CHECKED IN:/).waitFor();
   const cashResponse = await page.request.post(`${origin}/api/bookings`, {
     headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
@@ -339,12 +368,7 @@ try {
     .click();
   await page.getByText(/CASH DUE.*APPROVAL REQUIRED/).waitFor();
   await page.goto(`${origin}/scanner`);
-  await page
-    .getByLabel("Or paste a secure ticket token / link")
-    .fill(cashBooking.qrToken);
-  await page
-    .getByRole("button", { name: "Verify ticket", exact: true })
-    .click();
+  await scanCameraToken(cashBooking.qrToken);
   await page
     .getByRole("heading", { name: "Collect Rs. 400 & Approve the Ticket." })
     .waitFor();

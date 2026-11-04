@@ -105,7 +105,7 @@ export function Scanner({ history = false }) {
         if (!cancelled) {
           setCamera(false);
           setError(
-            `Camera unavailable. Allow camera access and use HTTPS or localhost. You can also paste the QR token. ${e.message || ""}`,
+            `Camera unavailable. Allow camera access and use HTTPS or localhost, then start the camera again. ${e.message || ""}`,
           );
         }
       }
@@ -235,30 +235,6 @@ export function Scanner({ history = false }) {
                   <Camera size={19} />
                   {camera ? "Stop camera" : "Start camera scanner"}
                 </button>
-                <form
-                  className="manual-token"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void verify(token);
-                  }}
-                >
-                  <label>
-                    Or paste a secure ticket token / link
-                    <input
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      placeholder="ss_… or secure ticket link"
-                      required
-                      autoComplete="off"
-                    />
-                  </label>
-                  <button
-                    className="button outline full"
-                    disabled={busy || !token.trim()}
-                  >
-                    {busy ? "Verifying…" : "Verify ticket"}
-                  </button>
-                </form>
               </>
             )}
             {result && (
