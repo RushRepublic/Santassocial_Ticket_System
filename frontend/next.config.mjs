@@ -6,6 +6,16 @@ const config = {
       { source: "/verify-otp", destination: "/", permanent: true },
       { source: "/admin/login", destination: "/login", permanent: true },
       { source: "/scanner/login", destination: "/login", permanent: true },
+      {
+        source: "/admin/payments/:path*",
+        destination: "/admin/dashboard",
+        permanent: false,
+      },
+      {
+        source: "/admin/settings/:path*",
+        destination: "/admin/dashboard",
+        permanent: false,
+      },
     ];
   },
   async rewrites() {

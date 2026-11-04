@@ -5,9 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Ticket,
-  CreditCard,
   ScanLine,
-  Settings,
   LogOut,
   ArrowUpRight,
   Search,
@@ -112,9 +110,7 @@ export function StaffLogin() {
 const navigation = [
   ["dashboard", "Overview", LayoutDashboard],
   ["bookings", "Bookings", Ticket],
-  ["payments", "Payments", CreditCard],
   ["checkins", "Check-ins", ScanLine],
-  ["settings", "Event settings", Settings],
 ];
 export function Admin() {
   const path = usePathname();
@@ -146,19 +142,17 @@ export function Admin() {
         </Link>
         <p className="eyebrow">EVENT MANAGEMENT</p>
         <nav>
-          {navigation
-            .filter(([key]) => key !== "settings" || identity.role === "ADMIN")
-            .map(([key, label, Icon]) => (
-              <Link
-                onClick={() => setOpen(false)}
-                key={key}
-                href={`/admin/${key}`}
-                className={section === key ? "active" : ""}
-              >
-                <Icon size={19} />
-                {label}
-              </Link>
-            ))}
+          {navigation.map(([key, label, Icon]) => (
+            <Link
+              onClick={() => setOpen(false)}
+              key={key}
+              href={`/admin/${key}`}
+              className={section === key ? "active" : ""}
+            >
+              <Icon size={19} />
+              {label}
+            </Link>
+          ))}
           {identity.role === "ADMIN" && (
             <Link href="/scanner">
               <ScanLine size={19} />
@@ -207,10 +201,10 @@ export function Admin() {
             ) : (
               <Bookings />
             )
-          ) : section === "settings" ? (
-            <EventSettingsForm />
+          ) : section === "checkins" ? (
+            <OperationsTable />
           ) : (
-            <OperationsTable kind={section} />
+            <Dashboard />
           )}
         </div>
       </div>
@@ -803,26 +797,24 @@ function BookingDetail({ id, role }) {
     </>
   );
 }
-function OperationsTable({ kind }) {
+function OperationsTable() {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
   const load = useCallback(() => {
     setError("");
-    return api(`/admin/${kind === "payments" ? "payments" : "checkins"}`)
+    return api("/admin/checkins")
       .then(setRows)
       .catch((e) => setError(e.message));
-  }, [kind]);
+  }, []);
   useEffect(() => {
     setRows(null);
     void load();
   }, [load]);
   return (
     <div className="admin-card">
-      <h1>{kind === "payments" ? "Payment records" : "Group entry history"}</h1>
+      <h1>Group entry history</h1>
       <p className="muted">
-        {kind === "payments"
-          ? "Captured payments and pending orders. Amounts shown in INR."
-          : "All recorded group entries, displayed in Asia/Kolkata."}
+        All recorded group entries, displayed in Asia/Kolkata.
       </p>
       {error && <Notice>{error}</Notice>}
       {!rows ? (
@@ -834,11 +826,9 @@ function OperationsTable({ kind }) {
               <tr>
                 <th>Booking</th>
                 <th>Guest</th>
-                <th>{kind === "payments" ? "Amount" : "People"}</th>
-                <th>{kind === "payments" ? "Status" : "Entered at"}</th>
-                <th>
-                  {kind === "payments" ? "Receipt / payment ID" : "Staff ID"}
-                </th>
+                <th>People</th>
+                <th>Entered at</th>
+                <th>Staff ID</th>
               </tr>
             </thead>
             <tbody>
@@ -850,158 +840,15 @@ function OperationsTable({ kind }) {
                     </Link>
                   </td>
                   <td>{r.name}</td>
-                  <td>{kind === "payments" ? money(r.amount) : r.people}</td>
-                  <td>
-                    {kind === "payments" ? (
-                      <Status value={r.status} />
-                    ) : (
-                      dateTime(r.createdAt)
-                    )}
-                  </td>
-                  <td>
-                    {kind === "payments"
-                      ? r.receipt || r.paymentId || r.orderId || "—"
-                      : r.staffId}
-                  </td>
+                  <td>{r.people}</td>
+                  <td>{dateTime(r.createdAt)}</td>
+                  <td>{r.staffId}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {!rows.length && <div className="empty">No records yet.</div>}
         </div>
-      )}
-    </div>
-  );
-}
-function EventSettingsForm() {
-  const [values, setValues] = useState(null);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const load = useCallback(() => {
-    setError("");
-    return api("/admin/settings")
-      .then(setValues)
-      .catch((e) => setError(e.message));
-  }, []);
-  useEffect(() => {
-    void load();
-  }, [load]);
-  async function submit(e) {
-    e.preventDefault();
-    if (!values) return;
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      const {
-        capacity,
-        day5Capacity,
-        day6Capacity,
-        maxGroup,
-        holdMinutes,
-        cashHoldMinutes,
-        allowKidsOnly,
-      } = values;
-      await api("/admin/settings", {
-        method: "PUT",
-        body: JSON.stringify({
-          capacity,
-          day5Capacity,
-          day6Capacity,
-          maxGroup,
-          holdMinutes,
-          cashHoldMinutes,
-          allowKidsOnly,
-        }),
-      });
-      setMessage("Event settings saved.");
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="admin-card settings-card">
-      <h1>A little planning goes a long way.</h1>
-      <p className="muted">
-        Manage attendance limits and reservation policies.
-      </p>
-      {error && <Notice>{error}</Notice>}
-      {message && <Notice success>{message}</Notice>}
-      {!values ? (
-        <ResourceLoading error={error} retry={load} />
-      ) : (
-        <form onSubmit={submit}>
-          {[
-            ["capacity", "Total capacity across both days", false],
-            [
-              "day5Capacity",
-              "December 5 capacity (blank = no daily limit)",
-              true,
-            ],
-            [
-              "day6Capacity",
-              "December 6 capacity (blank = no daily limit)",
-              true,
-            ],
-            ["maxGroup", "Maximum guests per booking", false],
-            ["holdMinutes", "Online reservation expiry (minutes)", false],
-            ["cashHoldMinutes", "Cash reservation expiry (minutes)", false],
-          ].map(([key, label, optional]) => (
-            <label key={key}>
-              {label}
-              <input
-                type="number"
-                min={key.includes("Minutes") ? 5 : 1}
-                max={
-                  key === "capacity"
-                    ? 1000000
-                    : key === "maxGroup"
-                      ? 100
-                      : key === "cashHoldMinutes"
-                        ? 10080
-                        : key === "holdMinutes"
-                          ? 1440
-                          : 1000000
-                }
-                required={!optional}
-                value={values[key] ?? ""}
-                onChange={(e) =>
-                  setValues({
-                    ...values,
-                    [key]:
-                      e.target.value === "" && optional
-                        ? null
-                        : Number(e.target.value),
-                  })
-                }
-              />
-            </label>
-          ))}
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={!!values.allowKidsOnly}
-              onChange={(e) =>
-                setValues({
-                  ...values,
-                  allowKidsOnly: e.target.checked ? 1 : 0,
-                })
-              }
-            />{" "}
-            Allow children-only free bookings under an approved supervision
-            policy
-          </label>
-          <p className="field-hint">
-            Disabled by default. Enable only after confirming an appropriate
-            supervised-entry policy.
-          </p>
-          <button className="button" disabled={busy}>
-            {busy ? "Saving…" : "Save event settings"}
-          </button>
-        </form>
       )}
     </div>
   );

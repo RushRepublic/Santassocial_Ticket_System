@@ -61,7 +61,14 @@ test("one staff login routes admins across modules and restricts unsafe return U
     staffDestination("ADMIN", "/scanner/history"),
     "/scanner/history",
   );
-  assert.equal(staffDestination("ADMIN", "/admin/settings"), "/admin/settings");
+  assert.equal(
+    staffDestination("ADMIN", "/admin/settings"),
+    "/admin/dashboard",
+  );
+  assert.equal(
+    staffDestination("ADMIN", "/admin/payments"),
+    "/admin/dashboard",
+  );
   assert.equal(staffDestination("SCANNER", "/admin/settings"), "/scanner");
   assert.equal(staffDestination("CASHIER", "/scanner"), "/admin/dashboard");
   assert.equal(

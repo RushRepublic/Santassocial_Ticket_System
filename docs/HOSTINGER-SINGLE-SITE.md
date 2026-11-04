@@ -8,9 +8,7 @@ Deploy the entire JavaScript project as **one Node.js app** at `https://tickets.
 | Shared staff login | `/login` |
 | Admin dashboard | `/admin/dashboard` |
 | Bookings and cash approval | `/admin/bookings` |
-| Payments | `/admin/payments` |
 | Check-in history | `/admin/checkins` |
-| Event settings | `/admin/settings` |
 | Scanner and scanner history | `/scanner`, `/scanner/history` |
 | API | `/api/*` |
 
@@ -117,7 +115,7 @@ Verify the environment/script paths in File Manager. Cron does not inherit the a
 
 Use synthetic guest details. Verify the displayed demo OTP within five minutes, proceed to checkout, complete simulated payment and download the test group QR/PDF. No WhatsApp messages, emails or real charges are sent. Create a separate cash booking: its QR should appear immediately. Scan it as admin to see cash due in red, confirm exact collection and approve group entry. Online-paid bookings show green. Scanner-only accounts cannot collect cash. Entry remains blocked for expired, cancelled, wrong-date or previously entered bookings.
 
-Customer mobile verification and staff login use independent cookies, so registration in another tab does not replace staff access. Sign in at `/login` with the admin account, approve cash, view bookings/payments/settings/history, open the scanner, then use its dashboard return link. No second staff login should appear. Staff logout revokes admin/scanner access while preserving a separate verified customer session. Old staff sessions migrate automatically to the staff cookie without extending their signed expiry. On phones use HTTPS and allow camera permission.
+Customer mobile verification and staff login use independent cookies, so registration in another tab does not replace staff access. Sign in at `/login` with the admin account, approve cash, view bookings and check-in history, open the scanner, then use its dashboard return link. Payments and Event settings pages have been removed; their legacy URLs redirect to Overview. Payment records remain in booking details and backend configuration still applies. No second staff login should appear. Staff logout revokes admin/scanner access while preserving a separate verified customer session. Old staff sessions migrate automatically to the staff cookie without extending their signed expiry. On phones use HTTPS and allow camera permission.
 
 The simulated scanner event day is `DEMO_EVENT_DATE`. Use `2026-12-05` for Saturday tickets and `2026-12-06` for Sunday; restart after changing it. Verify duplicate scans and wrong-day tickets are rejected. Check records in MySQL and restart/redeploy to verify persistence.
 

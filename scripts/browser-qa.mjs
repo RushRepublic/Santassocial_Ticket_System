@@ -308,9 +308,7 @@ try {
     throw Error("Customer verification replaced the admin session.");
   for (const [label, section] of [
     ["Bookings", "bookings"],
-    ["Payments", "payments"],
     ["Check-ins", "checkins"],
-    ["Event settings", "settings"],
     ["Overview", "dashboard"],
   ]) {
     await page
@@ -322,6 +320,18 @@ try {
   }
   await page.goto(`${origin}/login`);
   await page.waitForURL(`${origin}/admin/dashboard`);
+  for (const name of ["Payments", "Event settings"])
+    if (
+      await page
+        .locator(".admin-sidebar")
+        .getByRole("link", { name, exact: true })
+        .count()
+    )
+      throw Error("Removed admin sections must not appear in navigation.");
+  for (const path of ["payments", "settings"]) {
+    await page.goto(`${origin}/admin/${path}`);
+    await page.waitForURL(`${origin}/admin/dashboard`);
+  }
   await page.getByRole("link", { name: "Open gate scanner" }).click();
   await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(booking.qrToken);

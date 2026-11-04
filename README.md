@@ -40,7 +40,7 @@ The demo OTP is generated randomly and displayed on the verification screen. The
 | Experience | Routes                                                                                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Customer   | `/`, `/checkout`, `/booking-pending`, `/booking-success`, `/ticket/[bookingId]`, `/retrieve-ticket` (legacy `/register` and `/verify-otp` redirect to `/`) |
-| Organiser  | `/admin/login`, `/admin/dashboard`, `/admin/bookings`, `/admin/bookings/[id]`, `/admin/payments`, `/admin/checkins`, `/admin/settings`                     |
+| Organiser  | `/login`, `/admin/dashboard`, `/admin/bookings`, `/admin/bookings/[id]`, `/admin/checkins` |
 | Gate staff | `/scanner/login`, `/scanner`, `/scanner/history`                                                                                                           |
 
 Customer and staff interfaces use the same API/database. `/admin` also opens the dashboard. Staff permissions are enforced in Express, not just hidden in the UI. Signing in as staff replaces the customer session in the same browser; use separate browser profiles for concurrent roles.
