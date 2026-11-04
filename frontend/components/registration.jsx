@@ -18,6 +18,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { z } from "zod";
+import QRCode from "qrcode";
 import { api, post, money, eventDate } from "@/lib/api";
 import { VenueLocation, Notice, Loading, Status } from "./common";
 import { MobileVerification } from "./mobile-verification";
@@ -622,7 +623,7 @@ export function Checkout() {
                   <small>
                     {method === "RAZORPAY"
                       ? "UPI, cards, netbanking · Powered by Razorpay"
-                      : "Your entry QR activates after cashier approval"}
+                      : "Get your QR now. Pay cash and get approval at the counter"}
                   </small>
                 </span>
                 <span className="radio-dot" />
@@ -726,6 +727,25 @@ export function Confirmation() {
   const [booking, setBooking] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [qr, setQr] = useState("");
+  useEffect(() => {
+    let active = true;
+    setQr("");
+    if (booking?.qrToken && booking.status === "PENDING_CASH")
+      QRCode.toDataURL(booking.qrToken, { width: 600, margin: 4 })
+        .then((value) => {
+          if (active) setQr(value);
+        })
+        .catch(() => {
+          if (active)
+            setError(
+              "Unable to display your QR. Refresh booking status to retry.",
+            );
+        });
+    return () => {
+      active = false;
+    };
+  }, [booking]);
   async function load() {
     setBusy(true);
     setError("");
@@ -776,7 +796,9 @@ export function Confirmation() {
               <p>
                 {active
                   ? "A little joy, a lot of memories. We can’t wait to see you."
-                  : "Your entry QR will become available once payment is verified."}
+                  : booking.status === "PENDING_CASH"
+                    ? "Your group QR is ready. Show it at the counter to pay and get approval."
+                    : "Your entry QR will become available once payment is verified."}
               </p>
               <Status value={booking.status} />
               <div className="confirmation-reference">
@@ -801,7 +823,31 @@ export function Confirmation() {
                   {new Date(booking.holdUntil).toLocaleString("en-IN", {
                     timeZone: "Asia/Kolkata",
                   })}{" "}
-                  IST. Bring your booking reference.
+                  IST. Show your group QR. Entry requires payment approval.
+                </div>
+              )}
+              {booking.status === "PENDING_CASH" && qr && (
+                <div className="ticket-qr">
+                  <img
+                    src={qr}
+                    alt="Cash booking group QR — payment approval required"
+                    width={210}
+                    height={210}
+                  />
+                  <p>
+                    One QR for all {booking.people} guests. Cash payment
+                    pending.
+                  </p>
+                  <a
+                    className="button outline"
+                    href={qr}
+                    download={`${booking.reference}-qr.png`}
+                  >
+                    Save QR image
+                  </a>
+                  <Link className="back-link" href={`/ticket/${booking.id}`}>
+                    View or download group ticket
+                  </Link>
                 </div>
               )}
               {booking.status === "PAYMENT_REVIEW" && (

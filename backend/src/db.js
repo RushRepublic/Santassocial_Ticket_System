@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { databaseDriver } from "./config.js";
 import { mysqlOptions } from "./mysql-options.js";
+import { hash, qrToken } from "./security.js";
 const tables = readFileSync(
   new URL("../migrations/001_initial.sql", import.meta.url),
   "utf8",
@@ -127,4 +128,12 @@ export async function migrate(db) {
       "Santa Social 9th Edition",
       20000,
     ]);
+  // Existing cash reservations keep the same deterministic token after approval.
+  for (const b of await db.all(
+    "SELECT * FROM bookings WHERE method = 'CASH' AND status IN ('PENDING_CASH','EXPIRED') AND qrHash IS NULL",
+  ))
+    await db.run(
+      "UPDATE bookings SET qrHash = ? WHERE id = ? AND qrHash IS NULL",
+      [hash(qrToken(b)), b.id],
+    );
 }

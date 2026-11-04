@@ -61,7 +61,7 @@ export function GroupTicket({ id }) {
         "11:00 AM - 9:00 PM IST",
         "Park Grounds - CODISSIA, Coimbatore",
         `${booking.adults} adults + ${booking.kids} kids | ${booking.people} guests`,
-        `Paid: INR ${booking.amount / 100}`,
+        `${booking.status === "PENDING_CASH" ? "CASH DUE" : "Paid"}: INR ${booking.amount / 100}`,
       ];
       lines.forEach((s, i) => doc.text(s, 74, 49 + i * 7, { align: "center" }));
       doc.addImage(qr, "PNG", 44, 98, 60, 60);
@@ -69,9 +69,16 @@ export function GroupTicket({ id }) {
       doc.text("One QR. Your whole group. Please arrive together.", 74, 172, {
         align: "center",
       });
-      doc.text("Single entry only. No partial entry or re-entry.", 74, 180, {
-        align: "center",
-      });
+      doc.text(
+        booking.status === "PENDING_CASH"
+          ? "Pay cash at the counter. Approval required before entry."
+          : "Single entry only. No partial entry or re-entry.",
+        74,
+        180,
+        {
+          align: "center",
+        },
+      );
       if (booking.demo) {
         doc.setTextColor("#8A1D23");
         doc.text("DEMO ONLY - NOT VALID FOR ADMISSION", 74, 193, {
@@ -125,9 +132,9 @@ export function GroupTicket({ id }) {
         <div className="ticket-top">
           <Wordmark />
           <span>
-            GROUP
+            {booking.status === "PENDING_CASH" ? "CASH" : "GROUP"}
             <br />
-            ADMISSION
+            {booking.status === "PENDING_CASH" ? "PENDING" : "ADMISSION"}
           </span>
         </div>
         {booking.demo && (
@@ -161,9 +168,11 @@ export function GroupTicket({ id }) {
           </div>
           <div className="ticket-status">
             <CheckCircle size={15} />
-            {booking.checkedInAt
-              ? "CHECKED IN · NO RE-ENTRY"
-              : `CONFIRMED · ${money(booking.amount)} PAID`}
+            {booking.status === "PENDING_CASH"
+              ? `CASH DUE · ${money(booking.amount)} · APPROVAL REQUIRED`
+              : booking.checkedInAt
+                ? "CHECKED IN · NO RE-ENTRY"
+                : `CONFIRMED · ${money(booking.amount)} PAID`}
           </div>
         </div>
         <div className="ticket-perforation" />

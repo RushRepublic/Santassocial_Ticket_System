@@ -3,7 +3,13 @@ import nodemailer from "nodemailer";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { demo, config } from "./config.js";
-import { AppError, getBooking, now, settleCaptured } from "./services.js";
+import {
+  AppError,
+  getBooking,
+  hasBookingQr,
+  now,
+  settleCaptured,
+} from "./services.js";
 import { qrToken } from "./security.js";
 let messaging;
 export async function getMessaging() {
@@ -62,7 +68,7 @@ async function emailFallback(b, type) {
     `Date: ${b.eventDate}`,
     `Adults: ${b.adults} | Kids: ${b.kids} | Guests: ${b.people}`,
     `Amount: INR ${b.amount / 100}`,
-    active
+    hasBookingQr(b)
       ? `Secure ticket: ${config.origin}/ticket/${b.id}#${qrToken(b)}`
       : `Status: ${b.status}. This is not an entry ticket.`,
     "Please ensure your entire group arrives together.",
@@ -97,7 +103,7 @@ export async function dispatchNotifications(db, provider) {
         eventDate: b.eventDate,
         adults: b.adults,
         kids: b.kids,
-        ticketLink: ["PAID", "FREE"].includes(b.status)
+        ticketLink: hasBookingQr(b)
           ? `${config.origin}/ticket/${b.id}#${qrToken(b)}`
           : undefined,
       });

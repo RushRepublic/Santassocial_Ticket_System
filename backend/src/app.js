@@ -10,6 +10,7 @@ import PDFDocument from "pdfkit";
 import { config, demo, production, databaseDriver } from "./config.js";
 import {
   hmac,
+  hash,
   equal,
   readSession,
   signSession,
@@ -29,7 +30,8 @@ import {
   publicBooking,
   settleCaptured,
   approveCash,
-  verifyTicket,
+  inspectTicket,
+  hasBookingQr,
   checkin,
   audit,
 } from "./services.js";
@@ -187,7 +189,7 @@ export function createApp(db) {
       ok: true,
       mode: demo ? "demo" : "live",
       database: databaseDriver,
-      release: "mysql-staff-filters-1",
+      release: "cash-gate-approval-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -486,14 +488,13 @@ export function createApp(db) {
     if (!bearer || bearer !== qrToken(b)) {
       await own(req, b.id);
     }
-    if (!["PAID", "FREE"].includes(b.status))
+    if (!hasBookingQr(b))
       fail(403, "Your ticket will be available after payment approval.");
     res.json(publicBooking(b));
   });
   app.get("/api/tickets/:id/download", auth(), async (req, res) => {
     const b = await own(req, param(req));
-    if (!["PAID", "FREE"].includes(b.status))
-      fail(403, "Ticket is not active.");
+    if (!hasBookingQr(b)) fail(403, "Ticket is not active.");
     const qr = await QRCode.toBuffer(qrToken(b), {
       width: 400,
       margin: 2,
@@ -525,13 +526,22 @@ export function createApp(db) {
       .text(`${b.eventDate} | 11:00 AM - 9:00 PM IST`)
       .text("Park Grounds - CODISSIA, Coimbatore")
       .text(`${b.adults} adults + ${b.kids} kids | ${b.people} guests`)
-      .text(`Paid: INR ${b.amount / 100}${demo ? " | DEMO" : ""}`);
+      .text(
+        `${b.status === "PENDING_CASH" ? "CASH DUE" : "Paid"}: INR ${b.amount / 100}${demo ? " | DEMO" : ""}`,
+      );
     pdf.image(qr, 105, 270, { width: 210 });
     pdf
       .fontSize(11)
-      .text("All group members must arrive together. No re-entry.", 35, 510, {
-        align: "center",
-      });
+      .text(
+        b.status === "PENDING_CASH"
+          ? "Pay cash at the counter. Approval required before entry."
+          : "All group members must arrive together. No re-entry.",
+        35,
+        510,
+        {
+          align: "center",
+        },
+      );
     pdf.end();
   });
   const staff = auth(["ADMIN", "CASHIER"]);
@@ -557,10 +567,11 @@ export function createApp(db) {
         if (a.days.find((d) => d.date === b.eventDate).remaining < b.people)
           fail(409, "Insufficient capacity.");
         await tx.run(
-          "UPDATE bookings SET status = 'PENDING_CASH', holdUntil = ?, updatedAt = ? WHERE id = ?",
+          "UPDATE bookings SET status = 'PENDING_CASH', holdUntil = ?, updatedAt = ?, qrHash = ? WHERE id = ?",
           [
             new Date(Date.now() + e.cashHoldMinutes * 60000).toISOString(),
             now(),
+            hash(qrToken(b)),
             b.id,
           ],
         );
@@ -810,7 +821,7 @@ export function createApp(db) {
     "/api/scanner/verify",
     auth(["ADMIN", "SCANNER"]),
     async (req, res) => {
-      const b = await verifyTicket(
+      const b = await inspectTicket(
         db,
         z
           .string()
@@ -825,6 +836,12 @@ export function createApp(db) {
         kids: b.kids,
         people: b.people,
         eventDate: b.eventDate,
+        amount: b.amount,
+        method: b.method,
+        status: b.status,
+        mobile: b.mobile,
+        email: b.email,
+        paymentStatus: b.status === "PENDING_CASH" ? "DUE" : "PAID",
         demo,
       });
     },
@@ -842,6 +859,9 @@ export function createApp(db) {
             .parse(req.body.token),
           req.identity.userId,
           requestKey(req),
+          req.body.amountReceived === undefined
+            ? undefined
+            : z.number().int().nonnegative().parse(req.body.amountReceived),
         ),
       ),
   );

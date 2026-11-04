@@ -2078,6 +2078,32 @@ td > a:hover {
   font-size: 30px;
   margin: 0 0 10px;
 }
+.cash-due .cash-due-banner {
+  background: var(--red);
+}
+.scan-payment-heading {
+  color: var(--green);
+  font-size: 22px;
+  margin: 0 0 22px;
+}
+.cash-due .scan-payment-heading {
+  color: var(--red);
+}
+.cash-due {
+  border-color: var(--red);
+}
+.cash-collection-confirm {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  margin: 20px 0;
+}
+.cash-collection-confirm input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
 .scan-result > p {
   font-size: 13px;
   color: var(--muted);

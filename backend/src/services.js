@@ -87,10 +87,13 @@ export function publicBooking(b) {
   const { ticketNonce, qrHash, ...safe } = b;
   return {
     ...safe,
-    qrToken: ["PAID", "FREE"].includes(b.status) ? qrToken(b) : null,
+    qrToken: hasBookingQr(b) ? qrToken(b) : null,
     demo,
   };
 }
+export const hasBookingQr = (b) =>
+  ["PAID", "FREE"].includes(b.status) ||
+  (b.method === "CASH" && b.status === "PENDING_CASH" && b.holdUntil > now());
 export async function getBooking(db, id) {
   const b = (
     await db.all("SELECT * FROM bookings WHERE id = ? OR reference = ?", [
@@ -150,6 +153,7 @@ export async function createBooking(db, input, mobile, key) {
       createdAt: now(),
       updatedAt: now(),
     };
+    if (status === "PENDING_CASH") b.qrHash = hash(qrToken(b));
     const cols = Object.keys(b);
     await tx.run(
       `INSERT INTO bookings (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`,
@@ -237,33 +241,36 @@ export async function approveCash(db, id, amount, userId) {
   return db.transaction(async (tx) => {
     await lockEvent(tx);
     await expire(tx);
-    const b = await getBooking(tx, id);
-    if (b.method !== "CASH")
-      fail(400, "Only cash bookings can be approved here.");
-    const p = (
-      await tx.all("SELECT * FROM payments WHERE bookingId = ?", [id])
-    )[0];
-    if (b.status === "PAID") return publicBooking(b);
-    if (b.status !== "PENDING_CASH")
-      fail(
-        409,
-        "Booking is no longer reserved. Restore it before collecting cash.",
-      );
-    if (amount !== b.amount)
-      fail(400, "Amount received must match the booking total in paise.");
-    await tx.run(
-      "UPDATE payments SET status = 'CAPTURED',receipt = ?,approvedBy = ?,approvedAt = ? WHERE id = ?",
-      [
-        `CASH-${randomBytes(6).toString("hex").toUpperCase()}`,
-        userId,
-        now(),
-        p.id,
-      ],
-    );
-    await activate(tx, b);
-    await audit(tx, userId, "CASH_APPROVED", id);
-    return publicBooking(await getBooking(tx, id));
+    return approveCashInTransaction(tx, id, amount, userId);
   });
+}
+async function approveCashInTransaction(tx, id, amount, userId) {
+  const b = await getBooking(tx, id);
+  if (b.method !== "CASH")
+    fail(400, "Only cash bookings can be approved here.");
+  const p = (
+    await tx.all("SELECT * FROM payments WHERE bookingId = ?", [id])
+  )[0];
+  if (b.status === "PAID") return publicBooking(b);
+  if (b.status !== "PENDING_CASH")
+    fail(
+      409,
+      "Booking is no longer reserved. Restore it before collecting cash.",
+    );
+  if (amount !== b.amount)
+    fail(400, "Amount received must match the booking total in paise.");
+  await tx.run(
+    "UPDATE payments SET status = 'CAPTURED',receipt = ?,approvedBy = ?,approvedAt = ? WHERE id = ?",
+    [
+      `CASH-${randomBytes(6).toString("hex").toUpperCase()}`,
+      userId,
+      now(),
+      p.id,
+    ],
+  );
+  await activate(tx, b);
+  await audit(tx, userId, "CASH_APPROVED", id);
+  return publicBooking(await getBooking(tx, id));
 }
 export function eventToday() {
   return demo
@@ -275,7 +282,7 @@ export function eventToday() {
         day: "2-digit",
       }).format(new Date());
 }
-export async function verifyTicket(db, token) {
+export async function inspectTicket(db, token) {
   const b = (
     await db.all("SELECT * FROM bookings WHERE qrHash = ?", [hash(token)])
   )[0];
@@ -285,13 +292,18 @@ export async function verifyTicket(db, token) {
       409,
       `ALREADY CHECKED IN: ${new Date(b.checkedInAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
     );
-  if (!["PAID", "FREE"].includes(b.status))
-    fail(403, "PAYMENT PENDING: Entry is not permitted.");
+  if (!hasBookingQr(b)) fail(403, "PAYMENT PENDING: Entry is not permitted.");
   if (b.eventDate !== eventToday())
     fail(400, "WRONG EVENT DATE: This ticket is not valid for today’s event.");
   return b;
 }
-export async function checkin(db, token, userId, key) {
+export async function verifyTicket(db, token) {
+  const b = await inspectTicket(db, token);
+  if (!["PAID", "FREE"].includes(b.status))
+    fail(403, "PAYMENT PENDING: Collect cash and approve before entry.");
+  return b;
+}
+export async function checkin(db, token, userId, key, amountReceived) {
   return db.transaction(async (tx) => {
     await lockEvent(tx);
     const previous = (
@@ -302,6 +314,21 @@ export async function checkin(db, token, userId, key) {
       if (b.qrHash !== hash(token) || previous.staffId !== userId)
         fail(409, "Idempotency key already used.");
       return previous;
+    }
+    if (amountReceived !== undefined) {
+      // Authorize collection here too, so direct service calls cannot bypass it.
+      const collector = (
+        await tx.all("SELECT role FROM users WHERE id = ? AND active = 1", [
+          userId,
+        ])
+      )[0];
+      if (collector?.role !== "ADMIN")
+        fail(403, "Only an admin can collect cash at the gate.");
+      const pending = await inspectTicket(tx, token);
+      if (pending.method !== "CASH")
+        fail(400, "Only cash bookings can be collected here.");
+      await expire(tx);
+      await approveCashInTransaction(tx, pending.id, amountReceived, userId);
     }
     const b = await verifyTicket(tx, token);
     const at = now();

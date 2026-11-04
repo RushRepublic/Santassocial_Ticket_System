@@ -17,7 +17,7 @@ import {
   availability,
   expire,
 } from "../src/services.js";
-import { equal, hmac, qrToken, signSession } from "../src/security.js";
+import { equal, hash, hmac, qrToken, signSession } from "../src/security.js";
 import { config } from "../src/config.js";
 import { dispatchNotifications } from "../src/providers.js";
 async function fixture(work) {
@@ -40,6 +40,136 @@ const booking = (extra = {}) => ({
   method: "CASH",
   ...extra,
 });
+
+test("cash QR is issued immediately but only admin collection can atomically approve and admit", () =>
+  fixture(async (db) => {
+    const app = createApp(db);
+    const adminId = await staff(db);
+    const scannerId = await staff(db, "SCANNER");
+    const headers = async (userId, role) =>
+      `santa_staff_session=${await signSession({ userId, role }, true)}`;
+    const adminCookie = await headers(adminId, "ADMIN");
+    const scannerCookie = await headers(scannerId, "SCANNER");
+    const b = await createBooking(db, booking(), "9876543210", randomUUID());
+    const token = publicBooking(b).qrToken;
+    assert.match(token, /^ss_[a-f0-9]{64}$/);
+    const customerCookie = `santa_session=${await signSession({ mobile: b.mobile })}`;
+    await request(app)
+      .get(`/api/tickets/${b.id}`)
+      .set("Cookie", customerCookie)
+      .expect(200);
+    await request(app)
+      .get(`/api/tickets/${b.id}/download?format=png`)
+      .set("Cookie", customerCookie)
+      .expect(200)
+      .expect("Content-Type", /png/);
+    await request(app)
+      .get(`/api/tickets/${b.id}/download`)
+      .set("Cookie", customerCookie)
+      .expect(200)
+      .expect("Content-Type", /pdf/);
+    const scan = (cookie, url, body, key = randomUUID()) =>
+      request(app)
+        .post(url)
+        .set("Origin", config.origin)
+        .set("Cookie", cookie)
+        .set("Idempotency-Key", key)
+        .send({ token, ...body });
+    const inspected = await scan(adminCookie, "/api/scanner/verify", {}).expect(
+      200,
+    );
+    assert.equal(inspected.body.paymentStatus, "DUE");
+    assert.equal(inspected.body.amount, 40000);
+    assert.equal(inspected.body.mobile, b.mobile);
+    await scan(customerCookie, "/api/scanner/verify", {}).expect(403);
+    await scan(scannerCookie, "/api/scanner/checkin", {}).expect(403);
+    await scan(scannerCookie, "/api/scanner/checkin", {
+      amountReceived: b.amount,
+    }).expect(403);
+    await scan(adminCookie, "/api/scanner/checkin", {
+      amountReceived: b.amount - 1,
+    }).expect(400);
+    assert.equal((await getBooking(db, b.id)).status, "PENDING_CASH");
+    const key = randomUUID();
+    const results = await Promise.all([
+      scan(
+        adminCookie,
+        "/api/scanner/checkin",
+        { amountReceived: b.amount },
+        key,
+      ),
+      scan(adminCookie, "/api/scanner/checkin", { amountReceived: b.amount }),
+    ]);
+    assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+    const winningKey = results[0].status === 200 ? key : null;
+    if (winningKey)
+      await scan(
+        adminCookie,
+        "/api/scanner/checkin",
+        { amountReceived: b.amount },
+        winningKey,
+      ).expect(200);
+    const paid = await getBooking(db, b.id);
+    assert.equal(paid.status, "PAID");
+    assert.equal(publicBooking(paid).qrToken, token);
+    assert.ok(paid.checkedInAt);
+    assert.equal(
+      (await db.all("SELECT * FROM checkins WHERE bookingId = ?", [b.id]))
+        .length,
+      1,
+    );
+    assert.equal(
+      (
+        await db.all(
+          "SELECT * FROM audit_logs WHERE entityId = ? AND action = 'CASH_APPROVED'",
+          [b.id],
+        )
+      ).length,
+      1,
+    );
+    await scan(adminCookie, "/api/scanner/verify", {}).expect(409);
+  }));
+
+test("expired, cancelled and wrong-day cash QR cannot collect money or admit; legacy QR is backfilled", () =>
+  fixture(async (db) => {
+    const adminId = await staff(db);
+    for (const kind of ["expired", "cancelled", "wrong-day"]) {
+      const b = await createBooking(
+        db,
+        booking(kind === "wrong-day" ? { eventDate: "2026-12-06" } : {}),
+        "9876543210",
+        randomUUID(),
+      );
+      if (kind === "expired")
+        await db.run("UPDATE bookings SET holdUntil = ? WHERE id = ?", [
+          "2000-01-01T00:00:00.000Z",
+          b.id,
+        ]);
+      if (kind === "cancelled")
+        await db.run("UPDATE bookings SET status = 'CANCELLED' WHERE id = ?", [
+          b.id,
+        ]);
+      await assert.rejects(
+        checkin(db, qrToken(b), adminId, randomUUID(), b.amount),
+      );
+      assert.notEqual((await getBooking(db, b.id)).status, "PAID");
+      assert.equal(
+        (await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id]))[0]
+          .status,
+        "PENDING",
+      );
+    }
+    const legacy = await createBooking(
+      db,
+      booking(),
+      "9876543210",
+      randomUUID(),
+    );
+    await db.run("UPDATE bookings SET qrHash = NULL WHERE id = ?", [legacy.id]);
+    await migrate(db);
+    const upgraded = await getBooking(db, legacy.id);
+    assert.equal(upgraded.qrHash, hash(qrToken(legacy)));
+  }));
 
 test("staff filters work without parameter-to-literal collation comparisons", () =>
   fixture(async (db) => {
@@ -263,8 +393,8 @@ async function staff(db, role = "ADMIN") {
 test("one QR per group; cash requires approval; simultaneous entry has exactly one winner", () =>
   fixture(async (db) => {
     const b = await createBooking(db, booking(), "9876543210", randomUUID());
-    assert.equal(publicBooking(b).qrToken, null);
-    await assert.rejects(verifyTicket(db, qrToken(b)), /INVALID TICKET/);
+    assert.equal(publicBooking(b).qrToken, qrToken(b));
+    await assert.rejects(verifyTicket(db, qrToken(b)), /PAYMENT PENDING/);
     await assert.rejects(approveCash(db, b.id, 1, await staff(db)), /match/);
     await approveCash(db, b.id, 40000, await staff(db));
     const paid = await getBooking(db, b.id);

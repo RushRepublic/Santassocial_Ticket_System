@@ -272,8 +272,15 @@ try {
   await page
     .getByRole("button", { name: "Verify ticket", exact: true })
     .click();
-  await page.getByText("VALID TICKET", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Confirm group entry" }).click();
+  await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
+  await page
+    .getByRole("heading", { name: "Paid Rs. 200. Approve the Ticket." })
+    .waitFor();
+  if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
+    throw Error("Paid ticket must use the green result state.");
+  await page
+    .getByRole("button", { name: "Approve ticket & group entry" })
+    .click();
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
     .waitFor();
@@ -284,6 +291,67 @@ try {
     .getByRole("button", { name: "Verify ticket", exact: true })
     .click();
   await page.getByText(/ALREADY CHECKED IN:/).waitFor();
+  const cashResponse = await page.request.post(`${origin}/api/bookings`, {
+    headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
+    data: {
+      name: "Cash QA Guest",
+      email: "cash-qa@example.com",
+      eventDate: "2026-12-05",
+      adults: 2,
+      kids: 1,
+      method: "CASH",
+    },
+  });
+  if (!cashResponse.ok()) throw Error("Cash QA booking creation failed.");
+  const cashBooking = await cashResponse.json();
+  if (!cashBooking.qrToken)
+    throw Error("Cash booking must immediately issue a QR.");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${origin}/booking-pending?id=${cashBooking.id}`);
+  await page
+    .getByAltText("Cash booking group QR — payment approval required")
+    .waitFor();
+  if (
+    await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
+  )
+    throw Error("Cash QR mobile layout overflow.");
+  await page
+    .getByRole("link", { name: "View or download group ticket" })
+    .click();
+  await page.getByText(/CASH DUE.*APPROVAL REQUIRED/).waitFor();
+  await page.goto(`${origin}/scanner`);
+  await page
+    .getByLabel("Or paste a secure ticket token / link")
+    .fill(cashBooking.qrToken);
+  await page
+    .getByRole("button", { name: "Verify ticket", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Collect Rs. 400 & Approve the Ticket." })
+    .waitFor();
+  await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
+  const approveCash = page.getByRole("button", {
+    name: "Approve cash payment & group entry",
+  });
+  if (!(await approveCash.isDisabled()))
+    throw Error("Cash collection must require explicit confirmation.");
+  await page.getByRole("checkbox").check();
+  await approveCash.click();
+  await page
+    .getByRole("heading", { name: "Welcome to Santa Social!" })
+    .waitFor();
+  const collected = await page.request
+    .get(`${origin}/api/bookings/${cashBooking.id}`)
+    .then((r) => r.json());
+  if (
+    collected.status !== "PAID" ||
+    !collected.checkedInAt ||
+    collected.qrToken !== cashBooking.qrToken
+  )
+    throw Error(
+      "Cash approval and entry must preserve the same QR and save together.",
+    );
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("link", { name: "Back to dashboard" }).click();
   await page.waitForURL(`${origin}/admin/dashboard`);
   if (staffLogins !== 1)

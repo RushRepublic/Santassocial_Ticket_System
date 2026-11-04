@@ -13,7 +13,7 @@ import {
   XCircle,
   LayoutDashboard,
 } from "lucide-react";
-import { api, post, eventDate, dateTime } from "@/lib/api";
+import { api, post, eventDate, dateTime, money } from "@/lib/api";
 import { staffDestination, staffLoginUrl } from "@/lib/staff";
 import { Wordmark, Loading, DemoBanner } from "./common";
 export function Scanner({ history = false }) {
@@ -28,6 +28,7 @@ export function Scanner({ history = false }) {
   const [entered, setEntered] = useState(false);
   const [rows, setRows] = useState([]);
   const [demoDate, setDemoDate] = useState("");
+  const [cashConfirmed, setCashConfirmed] = useState(false);
   const video = useRef(null);
   const scannerRef = useRef(null);
   const lock = useRef(false);
@@ -67,6 +68,7 @@ export function Scanner({ history = false }) {
     setResult(null);
     setError("");
     setEntered(false);
+    setCashConfirmed(false);
     scannerRef.current?.stop();
     setCamera(false);
     try {
@@ -128,7 +130,12 @@ export function Scanner({ history = false }) {
     try {
       await post(
         "/scanner/checkin",
-        { token },
+        {
+          token,
+          ...(result.paymentStatus === "DUE"
+            ? { amountReceived: result.amount }
+            : {}),
+        },
         { "Idempotency-Key": requestId.current },
       );
       setEntered(true);
@@ -270,14 +277,36 @@ export function Scanner({ history = false }) {
               </>
             )}
             {result && (
-              <div className="scan-result">
-                <div className="valid-ticket">
+              <div
+                className={`scan-result ${result.paymentStatus === "DUE" ? "cash-due" : "payment-paid"}`}
+              >
+                <div
+                  className={`valid-ticket ${result.paymentStatus === "DUE" ? "cash-due-banner" : ""}`}
+                >
                   <Check />
-                  VALID TICKET
+                  {result.paymentStatus === "DUE"
+                    ? "CASH PAYMENT PENDING"
+                    : "PAYMENT VERIFIED"}
                 </div>
+                <h3 className="scan-payment-heading">
+                  {result.paymentStatus === "DUE"
+                    ? `Collect Rs. ${result.amount / 100} & Approve the Ticket.`
+                    : `Paid Rs. ${result.amount / 100}. Approve the Ticket.`}
+                </h3>
                 <h2>{result.name}</h2>
                 <p>{result.reference}</p>
                 <p>{eventDate(result.eventDate)}</p>
+                <p>
+                  {result.mobile} · {result.email}
+                </p>
+                <p>
+                  {result.method === "CASH"
+                    ? "Cash"
+                    : result.method === "FREE"
+                      ? "Free admission"
+                      : "Online payment"}{" "}
+                  · {money(result.amount)}
+                </p>
                 <div className="scanner-counts">
                   <div>
                     <b>{result.adults}</b>
@@ -299,12 +328,37 @@ export function Scanner({ history = false }) {
                     must enter together.
                   </p>
                 </div>
+                {result.paymentStatus === "DUE" &&
+                  (identity?.role === "ADMIN" ? (
+                    <label className="cash-collection-confirm">
+                      <input
+                        type="checkbox"
+                        checked={cashConfirmed}
+                        onChange={(e) => setCashConfirmed(e.target.checked)}
+                      />
+                      I have collected {money(result.amount)} in cash and
+                      counted the whole group.
+                    </label>
+                  ) : (
+                    <p role="alert">
+                      An admin must collect cash and approve this ticket before
+                      entry.
+                    </p>
+                  ))}
                 <button
-                  className="button green full"
-                  disabled={busy}
+                  className={`button ${result.paymentStatus === "DUE" ? "" : "green"} full`}
+                  disabled={
+                    busy ||
+                    (result.paymentStatus === "DUE" &&
+                      (identity?.role !== "ADMIN" || !cashConfirmed))
+                  }
                   onClick={confirm}
                 >
-                  {busy ? "Confirming…" : "Confirm group entry"}
+                  {busy
+                    ? "Approving…"
+                    : result.paymentStatus === "DUE"
+                      ? "Approve cash payment & group entry"
+                      : "Approve ticket & group entry"}
                   <Check size={20} />
                 </button>
                 <button
