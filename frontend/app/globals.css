@@ -2602,6 +2602,7 @@ td > a:hover {
   }
   .steps {
     margin: 25px auto 30px;
+    max-width: 260px;
   }
   .steps > div {
     gap: 5px;
