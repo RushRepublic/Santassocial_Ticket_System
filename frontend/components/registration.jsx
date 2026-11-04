@@ -193,7 +193,7 @@ export function Register() {
                   <span className="date-number">{n}</span>
                   <span>
                     <small>{day}</small>
-                    <b>December 2026</b>
+                    <b>Dec 2026</b>
                     <em>11:00 AM – 9:00 PM</em>
                   </span>
                   <span className="radio-dot" />
