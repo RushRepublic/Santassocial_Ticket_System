@@ -167,7 +167,7 @@ export function Register() {
   return (
     <main className="booking-page">
       <Steps step={1} />
-      <div className="booking-layout">
+      <div className="booking-layout registration-layout">
         <form className="form-card" onSubmit={next}>
           <div className="form-section">
             <div className="section-label">
@@ -309,7 +309,6 @@ export function Register() {
             <ShieldCheck size={15} /> Your details are safe with us.
           </p>
         </form>
-        <BookingSidebar draft={draft} showVenue={false} />
       </div>
     </main>
   );

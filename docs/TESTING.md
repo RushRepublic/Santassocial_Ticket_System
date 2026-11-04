@@ -103,3 +103,7 @@ The hosted dashboard reported `ER_CANT_AGGREGATE_2COLLATIONS` (1267). Dashboard 
 ## Immediate cash QR and gate approval
 
 Cash bookings now expose the same unique QR before and after payment approval, with provisional PDF/PNG downloads and cash-due wording. Backend regressions cover immediate QR delivery, owner access, red-state lookup data, admin-only exact collection, atomic payment plus check-in, concurrent duplicate rejection, idempotent retries, legacy hash backfill and expired/cancelled/wrong-date rejection without recording payment. Existing online-payment and scanner restrictions remain covered. `npm run check`, `npm test` (23 passed, one MySQL integration test skipped), and `npm run build` passed. Extended browser QA passed on an isolated local combined server using SQLite: customer cash QR and pending ticket on mobile, cash-due red scanner result, explicit cash confirmation, same QR after approval/entry, green online-paid result, and the existing registration/admin/retrieval/scanner journey. Real WhatsApp/SMTP delivery and hosted MySQL transaction testing remain outside this local verification.
+
+## Centered booking form
+
+The registration landing page now uses a centered single-column form with no booking summary. Checkout retains the existing summary. Syntax checks, 23 backend tests (one MySQL integration test skipped), production build and existing desktop/mobile browser QA passed; browser checks explicitly verify desktop centering, no summary on registration and summary visibility on Checkout.

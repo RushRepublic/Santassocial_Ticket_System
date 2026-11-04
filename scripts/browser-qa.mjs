@@ -22,6 +22,11 @@ try {
     throw Error("Browser QA requires an isolated demo server.");
   await page.goto(origin, { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Checkout", exact: true }).waitFor();
+  if (await page.locator(".booking-sidebar").count())
+    throw Error("Your booking must not show the checkout summary.");
+  const formBounds = await page.locator(".registration-layout").boundingBox();
+  if (!formBounds || Math.abs(formBounds.x + formBounds.width / 2 - 720) > 2)
+    throw Error("Registration form must be centered on desktop.");
   if (
     !(await page
       .getByRole("button", { name: "Checkout", exact: true })
@@ -125,6 +130,7 @@ try {
   await page.locator(".mobile-verified").waitFor();
   await page.getByRole("button", { name: "Checkout", exact: true }).click();
   await page.waitForURL("**/checkout");
+  await page.locator(".booking-sidebar").getByRole("heading", { name: "Booking summary" }).waitFor();
   await page.getByRole("link", { name: "Edit booking" }).waitFor();
   if (
     await page

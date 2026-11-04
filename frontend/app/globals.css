@@ -621,6 +621,11 @@ a.button,
   align-items: start;
   gap: 30px;
 }
+.booking-layout.registration-layout {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 800px;
+  margin-inline: auto;
+}
 .form-card,
 .narrow-card {
   background: #fff;
