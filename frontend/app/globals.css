@@ -1751,6 +1751,9 @@ input::placeholder {
   align-items: center;
   gap: 5px;
 }
+.dashboard-panels.overview-panels {
+  grid-template-columns: minmax(0, 1fr);
+}
 .capacity-number {
   display: flex;
   gap: 8px;

@@ -313,47 +313,7 @@ function Dashboard() {
               );
             })}
           </div>
-          <div className="dashboard-panels">
-            <div className="admin-card">
-              <div className="card-heading">
-                <h2>The guest list is growing.</h2>
-                <span className="status status-paid">EVENT CAPACITY</span>
-              </div>
-              <div className="capacity-number">
-                <strong>
-                  {(
-                    data.availability.capacity - data.availability.remaining
-                  ).toLocaleString("en-IN")}
-                </strong>
-                <span>
-                  / {data.availability.capacity.toLocaleString("en-IN")} people
-                </span>
-              </div>
-              <div className="progress-bar">
-                <span
-                  style={{
-                    width: `${Math.min(100, (100 * (data.availability.capacity - data.availability.remaining)) / data.availability.capacity)}%`,
-                  }}
-                />
-              </div>
-              <p>
-                {data.availability.remaining.toLocaleString("en-IN")} spaces
-                remaining across both days
-              </p>
-              <div className="day-capacity">
-                {data.availability.days.map((d) => (
-                  <div key={d.date}>
-                    <CalendarIcon />
-                    <span>
-                      December {d.date.endsWith("05") ? "5" : "6"}
-                      <small>
-                        {d.remaining.toLocaleString("en-IN")} bookable spaces
-                      </small>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="dashboard-panels overview-panels">
             <div className="admin-card pending-card">
               <Clock size={26} />
               <h2>A little follow-up.</h2>
@@ -376,15 +336,6 @@ function Dashboard() {
         </>
       )}
     </>
-  );
-}
-function CalendarIcon() {
-  return (
-    <span className="calendar-mini">
-      DEC
-      <br />
-      <b>2026</b>
-    </span>
   );
 }
 function Bookings({ compact = false }) {
