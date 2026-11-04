@@ -146,7 +146,7 @@ export function Register() {
       );
     setOpeningCheckout(true);
     try {
-      const identity = await api("/auth/me");
+      const identity = await api("/auth/me?scope=customer");
       if (identity.mobile !== draft.mobile) {
         setVerifiedMobile("");
         setVerificationRevision((value) => value + 1);
@@ -479,7 +479,7 @@ export function Checkout() {
         router.replace("/");
         return;
       }
-      api("/auth/me")
+      api("/auth/me?scope=customer")
         .then((user) => {
           if (user.mobile !== d.mobile) router.replace("/");
           else setDraft(d);

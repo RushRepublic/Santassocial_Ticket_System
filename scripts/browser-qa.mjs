@@ -194,6 +194,60 @@ try {
     .waitFor();
   await page.locator(".stat-card").first().waitFor();
   await page.screenshot({ path: "docs/admin-desktop.png", fullPage: true });
+  for (const status of [403, 500]) {
+    const pattern = "**/api/admin/dashboard?*";
+    await page.route(pattern, (route) =>
+      route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Temporary admin request failure" }),
+      }),
+    );
+    await page.goto(`${origin}/admin`);
+    await page
+      .getByText("Temporary admin request failure", { exact: true })
+      .waitFor();
+    if (await page.locator(".admin-content .loading").count())
+      throw Error("Failed admin requests must stop showing a loading spinner.");
+    await page.unroute(pattern);
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await page.locator(".stat-card").first().waitFor();
+  }
+  const registrationTab = await context.newPage();
+  await registrationTab.goto(origin);
+  await registrationTab
+    .getByLabel("WhatsApp mobile number", { exact: false })
+    .fill("9012345678");
+  const secondOtpResponse = registrationTab.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/otp/send" &&
+      response.request().method() === "POST",
+  );
+  await registrationTab
+    .getByRole("button", { name: "Verify", exact: true })
+    .click();
+  const secondOtp = await (await secondOtpResponse).json();
+  if (!secondOtp.demoCode)
+    throw Error("Missing simulated OTP in second registration tab.");
+  const secondVerified = await registrationTab.request.post(
+    `${origin}/api/otp/verify`,
+    {
+      headers: { Origin: origin },
+      data: {
+        mobile: "9012345678",
+        challengeId: secondOtp.challengeId,
+        otp: secondOtp.demoCode,
+      },
+    },
+  );
+  if (!secondVerified.ok())
+    throw Error("Second-tab customer OTP verification failed.");
+  await registrationTab.close();
+  const preservedStaff = await page.request.get(
+    `${origin}/api/auth/me?scope=staff`,
+  );
+  if ((await preservedStaff.json()).role !== "ADMIN")
+    throw Error("Customer verification replaced the admin session.");
   for (const [label, section] of [
     ["Bookings", "bookings"],
     ["Payments", "payments"],
@@ -276,8 +330,10 @@ try {
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.waitForURL(`${origin}/login`);
   const denied = await page.request.get(`${origin}/api/admin/bookings`);
-  if (denied.status() !== 401)
+  if (denied.status() !== 403)
     throw Error("Logout must revoke access to staff APIs.");
+  if (!(await page.request.get(`${origin}/api/auth/me?scope=customer`)).ok())
+    throw Error("Staff logout must preserve the customer session.");
   console.log(
     "PASS: direct booking landing page, legacy redirect, desktop/mobile layouts, OTP, online demo payment, group QR, PDF download, admin authentication, scanner entry and duplicate rejection.",
   );

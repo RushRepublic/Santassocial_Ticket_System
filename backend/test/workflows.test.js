@@ -17,7 +17,7 @@ import {
   availability,
   expire,
 } from "../src/services.js";
-import { equal, hmac, qrToken } from "../src/security.js";
+import { equal, hmac, qrToken, signSession } from "../src/security.js";
 import { config } from "../src/config.js";
 import { dispatchNotifications } from "../src/providers.js";
 async function fixture(work) {
@@ -40,6 +40,94 @@ const booking = (extra = {}) => ({
   method: "CASH",
   ...extra,
 });
+
+test("staff and customer sessions coexist in one browser without replacing admin permissions", () =>
+  fixture(async (db) => {
+    const app = createApp(db);
+    const browser = request.agent(app);
+    const login = () =>
+      browser
+        .post("/api/auth/login")
+        .set("Origin", config.origin)
+        .send({ email: "admin@santasocial.local", password: "SantaDemo2026!" })
+        .expect(200);
+    await login();
+    const sent = await browser
+      .post("/api/otp/send")
+      .set("Origin", config.origin)
+      .send({ mobile: "9876543210" })
+      .expect(200);
+    await browser
+      .post("/api/otp/verify")
+      .set("Origin", config.origin)
+      .send({
+        mobile: "9876543210",
+        challengeId: sent.body.challengeId,
+        otp: sent.body.demoCode,
+      })
+      .expect(200);
+    await browser.get("/api/admin/dashboard").expect(200);
+    const staffIdentity = await browser
+      .get("/api/auth/me?scope=staff")
+      .expect(200);
+    assert.equal(staffIdentity.body.role, "ADMIN");
+    const customerIdentity = await browser
+      .get("/api/auth/me?scope=customer")
+      .expect(200);
+    assert.equal(customerIdentity.body.mobile, "9876543210");
+    const otherBooking = await createBooking(
+      db,
+      booking(),
+      "9123456789",
+      randomUUID(),
+    );
+    await browser.get(`/api/bookings/${otherBooking.id}`).expect(200);
+    await browser
+      .post("/api/auth/logout")
+      .set("Origin", config.origin)
+      .send({ scope: "staff" })
+      .expect(200);
+    await browser.get("/api/auth/me?scope=staff").expect(401);
+    await browser.get("/api/auth/me?scope=customer").expect(200);
+    await browser.get("/api/admin/dashboard").expect(403);
+    await browser.get(`/api/bookings/${otherBooking.id}`).expect(403);
+    await login();
+    await browser.get("/api/auth/me?scope=customer").expect(200);
+    await browser
+      .post("/api/auth/logout")
+      .set("Origin", config.origin)
+      .send({ scope: "customer" })
+      .expect(200);
+    await browser.get("/api/auth/me?scope=customer").expect(401);
+    await browser.get("/api/admin/dashboard").expect(200);
+  }));
+
+test("legacy staff cookies migrate without extending the signed session and staff logout revokes them", () =>
+  fixture(async (db) => {
+    const app = createApp(db);
+    const browser = request.agent(app);
+    const token = await signSession(
+      { userId: await staff(db), role: "ADMIN", name: "Legacy admin" },
+      true,
+    );
+    const result = await browser
+      .get("/api/auth/me?scope=staff")
+      .set("Cookie", `santa_session=${token}`)
+      .expect(200);
+    assert.ok(
+      result.headers["set-cookie"].some((cookie) =>
+        cookie.startsWith(`santa_staff_session=${token};`),
+      ),
+    );
+    await browser.get("/api/admin/dashboard").expect(200);
+    await browser
+      .post("/api/auth/logout")
+      .set("Origin", config.origin)
+      .set("Cookie", `santa_session=${token}`)
+      .send({ scope: "staff" })
+      .expect(200);
+    await browser.get("/api/auth/me?scope=staff").expect(401);
+  }));
 async function staff(db, role = "ADMIN") {
   return (await db.all("SELECT id FROM users WHERE role = ?", [role]))[0].id;
 }

@@ -110,29 +110,50 @@ export function createApp(db) {
       return res.status(403).json({ error: "Request origin is not allowed." });
     next();
   });
-  app.use("/api", async (req, _res, next) => {
-    try {
-      if (req.cookies.santa_session) {
-        req.identity = await readSession(req.cookies.santa_session);
-        if (req.identity.userId) {
+  app.use("/api", async (req, res, next) => {
+    async function identity(token) {
+      try {
+        if (!token) return undefined;
+        const value = await readSession(token);
+        if (value.userId) {
           const user = (
             await db.all(
               "SELECT id,role,name FROM users WHERE id = ? AND active = 1",
-              [req.identity.userId],
+              [value.userId],
             )
           )[0];
-          if (!user) req.identity = undefined;
-          else
-            req.identity = {
-              ...req.identity,
-              role: user.role,
-              name: user.name,
-            };
+          return user
+            ? { ...value, role: user.role, name: user.name }
+            : undefined;
         }
+        return value.mobile ? value : undefined;
+      } catch {
+        return undefined;
       }
-    } catch {
-      req.identity = undefined;
     }
+    const customerOrLegacyStaff = await identity(req.cookies.santa_session);
+    const staff = await identity(req.cookies.santa_staff_session);
+    req.legacyStaff = Boolean(customerOrLegacyStaff?.userId);
+    req.customerIdentity = customerOrLegacyStaff?.userId
+      ? undefined
+      : customerOrLegacyStaff;
+    req.staffIdentity = staff?.userId
+      ? staff
+      : req.legacyStaff
+        ? customerOrLegacyStaff
+        : undefined;
+    if (req.legacyStaff && !staff?.userId)
+      res.cookie("santa_staff_session", req.cookies.santa_session, {
+        ...cookieOptions,
+        maxAge: Math.max(
+          0,
+          Number(customerOrLegacyStaff.exp) * 1000 - Date.now(),
+        ),
+      });
+    const staffRoute = /^\/api\/(admin|scanner)(\/|$)/.test(req.originalUrl);
+    req.identity = staffRoute
+      ? req.staffIdentity || req.customerIdentity
+      : req.customerIdentity || req.staffIdentity;
     next();
   });
   const auth = (roles) => (req, _res, next) => {
@@ -150,7 +171,7 @@ export function createApp(db) {
     const b = await getBooking(db, id);
     if (
       req.identity?.mobile !== b.mobile &&
-      !["ADMIN", "CASHIER"].includes(req.identity?.role || "")
+      !["ADMIN", "CASHIER"].includes(req.staffIdentity?.role || "")
     )
       fail(403, "This booking belongs to another customer.");
     return b;
@@ -166,6 +187,7 @@ export function createApp(db) {
       ok: true,
       mode: demo ? "demo" : "live",
       database: databaseDriver,
+      release: "staff-session-isolation-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -285,22 +307,45 @@ export function createApp(db) {
       )[0];
       if (!user || !passwordMatches(input.password, user.passwordHash))
         fail(401, "Incorrect email or password.");
-      res
-        .cookie(
-          "santa_session",
-          await signSession(
-            { userId: user.id, role: user.role, name: user.name },
-            true,
-          ),
-          { ...cookieOptions, maxAge: 8 * 3600000 },
-        )
-        .json({ role: user.role, name: user.name });
+      res.cookie(
+        "santa_staff_session",
+        await signSession(
+          { userId: user.id, role: user.role, name: user.name },
+          true,
+        ),
+        { ...cookieOptions, maxAge: 8 * 3600000 },
+      );
+      if (req.legacyStaff) res.clearCookie("santa_session", cookieOptions);
+      res.json({ role: user.role, name: user.name });
     },
   );
-  app.post("/api/auth/logout", (_req, res) =>
-    res.clearCookie("santa_session", cookieOptions).json({ ok: true }),
+  app.post("/api/auth/logout", (req, res) => {
+    const scope = z
+      .enum(["staff", "customer", "all"])
+      .parse(req.body?.scope || "all");
+    if (scope !== "customer")
+      res.clearCookie("santa_staff_session", cookieOptions);
+    if (scope !== "staff" || req.legacyStaff)
+      res.clearCookie("santa_session", cookieOptions);
+    res.json({ ok: true });
+  });
+  app.get(
+    "/api/auth/me",
+    (req, _res, next) => {
+      const scope = z
+        .enum(["staff", "customer", "auto"])
+        .parse(req.query.scope || "auto");
+      req.identity =
+        scope === "staff"
+          ? req.staffIdentity
+          : scope === "customer"
+            ? req.customerIdentity
+            : req.staffIdentity || req.customerIdentity;
+      next();
+    },
+    auth(),
+    (req, res) => res.json(req.identity),
   );
-  app.get("/api/auth/me", auth(), (req, res) => res.json(req.identity));
   app.post("/api/bookings", auth(), async (req, res) => {
     if (!req.identity?.mobile) fail(403, "Verify your mobile number first.");
     const b = await createBooking(

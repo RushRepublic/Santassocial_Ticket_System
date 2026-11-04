@@ -15,10 +15,20 @@ export async function api(path, options = {}) {
   const data = await response
     .json()
     .catch(() => ({ error: "The service is temporarily unavailable." }));
-  if (!response.ok)
+  if (!response.ok) {
+    if (
+      response.status === 401 &&
+      typeof window !== "undefined" &&
+      /^\/(admin|scanner)(\/|$)/.test(window.location.pathname) &&
+      /^\/(admin|scanner)(\/|\?|$)/.test(path)
+    )
+      window.location.replace(
+        `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
     throw Object.assign(new Error(data.error || "The request failed."), {
       status: response.status,
     });
+  }
   return data;
 }
 export const post = (path, body, headers) =>

@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Admin permission and loading regression
+
+A regression test reproduced the admin dashboard's 403 after customer OTP verification replaced the shared session cookie. Staff now use `santa_staff_session`; customer verification retains `santa_session`. Backend tests cover concurrent identities, independent logout, owner/admin access and legacy-cookie migration without extending the signed session. Browser QA verifies registration in a second tab preserves admin permissions, and that dashboard 403/500 responses stop loading and recover through Try again. Staff-only expired requests return to the shared login rather than leaving a loading screen. The local browser run uses the SQLite test adapter; the MySQL integration scenario remains conditional on a dedicated test database.
+
 ## Single-subdomain server and shared staff login
 
 The current combined entry is root `server.js`, serving the built Next.js site and Express API on one port. `npm run check` passed for 41 authored files; `npm test` passed 15 scenarios with one MySQL integration scenario explicitly skipped because no test MySQL server/URL was available. `npm run build` passed. Routing tests verify raw webhook bytes and API cookies survive the shared listener, API misses remain JSON, and login return paths reject external/dot-segment destinations while respecting staff roles.

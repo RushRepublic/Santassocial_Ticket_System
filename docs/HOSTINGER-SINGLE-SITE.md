@@ -117,7 +117,7 @@ Verify the environment/script paths in File Manager. Cron does not inherit the a
 
 Use synthetic guest details. Verify the displayed demo OTP within five minutes, proceed to checkout, complete simulated payment and download the test group QR/PDF. No WhatsApp messages, emails or real charges are sent. Create a separate cash booking and verify its QR activates only after approval.
 
-Use a separate browser profile for staff so customer mobile verification does not replace the staff login cookie. Sign in at `/login` with the admin account, approve cash, view bookings/payments/settings/history, open the scanner, then use its dashboard return link. No second staff login should appear. Log out and confirm both admin/scanner API access is denied. On phones use HTTPS and allow camera permission.
+Customer mobile verification and staff login use independent cookies, so registration in another tab does not replace staff access. Sign in at `/login` with the admin account, approve cash, view bookings/payments/settings/history, open the scanner, then use its dashboard return link. No second staff login should appear. Staff logout revokes admin/scanner access while preserving a separate verified customer session. Old staff sessions migrate automatically to the staff cookie without extending their signed expiry. On phones use HTTPS and allow camera permission.
 
 The simulated scanner event day is `DEMO_EVENT_DATE`. Use `2026-12-05` for Saturday tickets and `2026-12-06` for Sunday; restart after changing it. Verify duplicate scans and wrong-day tickets are rejected. Check records in MySQL and restart/redeploy to verify persistence.
 

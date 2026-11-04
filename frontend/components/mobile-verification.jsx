@@ -42,7 +42,7 @@ export function MobileVerification({
     setError("");
     onVerified("");
     if (/^[6-9]\d{9}$/.test(mobile)) {
-      api("/auth/me")
+      api("/auth/me?scope=customer")
         .then((identity) => {
           const expiresAt = Number(identity.exp) * 1000;
           if (
@@ -106,7 +106,7 @@ export function MobileVerification({
     setError("");
     try {
       await post("/otp/verify", { mobile, challengeId: challenge.id, otp });
-      const identity = await api("/auth/me");
+      const identity = await api("/auth/me?scope=customer");
       if (current !== generation.current) return;
       const expiresAt = Number(identity.exp) * 1000;
       if (identity.mobile !== mobile || expiresAt <= Date.now())

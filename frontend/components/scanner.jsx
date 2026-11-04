@@ -33,7 +33,7 @@ export function Scanner({ history = false }) {
   const lock = useRef(false);
   const requestId = useRef("");
   useEffect(() => {
-    api("/auth/me")
+    api("/auth/me?scope=staff")
       .then((u) => {
         if (!["ADMIN", "SCANNER"].includes(u.role))
           router.replace(staffDestination(u.role));
@@ -163,7 +163,9 @@ export function Scanner({ history = false }) {
           <button
             aria-label="Sign out"
             onClick={() =>
-              post("/auth/logout", {}).then(() => router.replace("/login"))
+              post("/auth/logout", { scope: "staff" }).then(() =>
+                router.replace("/login"),
+              )
             }
           >
             <LogOut size={20} />

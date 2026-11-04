@@ -30,7 +30,7 @@ export function StaffLogin() {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    api("/auth/me")
+    api("/auth/me?scope=staff")
       .then((user) => {
         if (active && ["ADMIN", "CASHIER", "SCANNER"].includes(user.role))
           router.replace(
@@ -125,7 +125,7 @@ export function Admin() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    api("/auth/me")
+    api("/auth/me?scope=staff")
       .then((user) => {
         if (!["ADMIN", "CASHIER"].includes(user.role))
           router.replace(staffDestination(user.role));
@@ -134,7 +134,7 @@ export function Admin() {
       .catch(() => router.replace(staffLoginUrl(path)));
   }, [router, path]);
   async function logout() {
-    await post("/auth/logout", {});
+    await post("/auth/logout", { scope: "staff" });
     router.replace("/login");
   }
   if (!identity) return <Loading />;
@@ -236,17 +236,29 @@ function DateFilter({ value, onChange }) {
     </div>
   );
 }
+function ResourceLoading({ error, retry }) {
+  if (!error) return <Loading />;
+  return (
+    <div className="empty">
+      <button className="button outline" onClick={retry}>
+        Try again
+      </button>
+      <Link className="back-link" href="/login">
+        Staff login
+      </Link>
+    </div>
+  );
+}
 function Dashboard() {
   const [date, setDate] = useState("all");
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const load = useCallback(
-    () =>
-      api(`/admin/dashboard?date=${date}`)
-        .then(setData)
-        .catch((e) => setError(e.message)),
-    [date],
-  );
+  const load = useCallback(() => {
+    setError("");
+    return api(`/admin/dashboard?date=${date}`)
+      .then(setData)
+      .catch((e) => setError(e.message));
+  }, [date]);
   useEffect(() => {
     void load();
     const t = setInterval(load, 30000);
@@ -264,7 +276,7 @@ function Dashboard() {
       </div>
       {error && <Notice>{error}</Notice>}
       {!data ? (
-        <Loading />
+        <ResourceLoading error={error} retry={load} />
       ) : (
         <>
           <div className="stat-grid">
@@ -382,6 +394,7 @@ function CalendarIcon() {
   );
 }
 function Bookings({ compact = false }) {
+  const [revision, setRevision] = useState(0);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [date, setDate] = useState("all");
@@ -408,6 +421,7 @@ function Bookings({ compact = false }) {
   });
   useEffect(() => {
     let cancelled = false;
+    setError("");
     api(
       `/admin/bookings?${new URLSearchParams({ q: search, date, status, page: String(page) })}`,
     )
@@ -420,7 +434,7 @@ function Bookings({ compact = false }) {
     return () => {
       cancelled = true;
     };
-  }, [search, date, status, page]);
+  }, [search, date, status, page, revision]);
   return (
     <section className="admin-card bookings-card">
       {!compact && (
@@ -497,7 +511,10 @@ function Bookings({ compact = false }) {
       </div>
       {error && <Notice>{error}</Notice>}
       {!data ? (
-        <Loading />
+        <ResourceLoading
+          error={error}
+          retry={() => setRevision((value) => value + 1)}
+        />
       ) : (
         <>
           <div className="table-scroll">
@@ -591,13 +608,12 @@ function BookingDetail({ id, role }) {
   const [action, setAction] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
-  const load = useCallback(
-    () =>
-      api(`/admin/bookings/${id}`)
-        .then(setData)
-        .catch((e) => setError(e.message)),
-    [id],
-  );
+  const load = useCallback(() => {
+    setError("");
+    return api(`/admin/bookings/${id}`)
+      .then(setData)
+      .catch((e) => setError(e.message));
+  }, [id]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -636,7 +652,7 @@ function BookingDetail({ id, role }) {
       {error && <Notice>{error}</Notice>}
       {message && <Notice success>{message}</Notice>}
       {!b ? (
-        <Loading />
+        <ResourceLoading error={error} retry={load} />
       ) : (
         <>
           <div className="admin-page-heading">
@@ -790,11 +806,16 @@ function BookingDetail({ id, role }) {
 function OperationsTable({ kind }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
-  useEffect(() => {
-    api(`/admin/${kind === "payments" ? "payments" : "checkins"}`)
+  const load = useCallback(() => {
+    setError("");
+    return api(`/admin/${kind === "payments" ? "payments" : "checkins"}`)
       .then(setRows)
       .catch((e) => setError(e.message));
   }, [kind]);
+  useEffect(() => {
+    setRows(null);
+    void load();
+  }, [load]);
   return (
     <div className="admin-card">
       <h1>{kind === "payments" ? "Payment records" : "Group entry history"}</h1>
@@ -805,7 +826,7 @@ function OperationsTable({ kind }) {
       </p>
       {error && <Notice>{error}</Notice>}
       {!rows ? (
-        <Loading />
+        <ResourceLoading error={error} retry={load} />
       ) : (
         <div className="table-scroll">
           <table>
@@ -857,11 +878,15 @@ function EventSettingsForm() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    api("/admin/settings")
+  const load = useCallback(() => {
+    setError("");
+    return api("/admin/settings")
       .then(setValues)
       .catch((e) => setError(e.message));
   }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
   async function submit(e) {
     e.preventDefault();
     if (!values) return;
@@ -906,7 +931,7 @@ function EventSettingsForm() {
       {error && <Notice>{error}</Notice>}
       {message && <Notice success>{message}</Notice>}
       {!values ? (
-        <Loading />
+        <ResourceLoading error={error} retry={load} />
       ) : (
         <form onSubmit={submit}>
           {[

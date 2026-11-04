@@ -1,6 +1,6 @@
 # Express API
 
-All routes are under `/api`, proxied through Next.js on the same origin. JSON mutations require `Origin` equal to `FRONTEND_ORIGIN`. Cookies are HTTP-only, SameSite=Lax, restricted to `/api`, and Secure in production. Customer sessions last 30 minutes; staff sessions last eight hours. All responses avoid caching. Request bodies are limited to 32 KB; webhooks allow 256 KB.
+All routes are under `/api`, served directly by Express in the combined deployment (or proxied through Next.js during separate local development). JSON mutations require `Origin` equal to `FRONTEND_ORIGIN`. Cookies are HTTP-only, SameSite=Lax, restricted to `/api`, and Secure in production. Customer sessions use `santa_session` for 30 minutes; staff use `santa_staff_session` for eight hours. Customer verification does not replace staff access. Legacy staff cookies migrate without extending JWT expiry. All responses avoid caching. Request bodies are limited to 32 KB; webhooks allow 256 KB.
 
 Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentication, 403 = permission, 404 = missing resource, 409 = state/capacity conflict, 429 = rate limit, 503 = unconfigured provider. Booking amounts and approval amounts are integer **paise**.
 
@@ -12,8 +12,8 @@ Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentic
 | POST    | `/otp/send`                   | Public, rate limited; `{mobile}`; returns `challengeId`, expiry; `demoCode` only in demo                 |
 | POST    | `/otp/verify`                 | `{mobile, challengeId, otp}`; consumes code and issues customer session                                  |
 | POST    | `/auth/login`                 | `{email,password}`; issues staff session                                                                 |
-| POST    | `/auth/logout`                | Clears cookie                                                                                            |
-| GET     | `/auth/me`                    | Authenticated identity                                                                                   |
+| POST    | `/auth/logout`                | `{scope:"staff"|"customer"|"all"}`; default all; clears only the selected session(s)                       |
+| GET     | `/auth/me`                    | `?scope=staff` or `?scope=customer`; default auto prefers staff; returns only the selected identity         |
 | POST    | `/bookings`                   | Verified mobile; `Idempotency-Key` header required                                                       |
 | GET     | `/bookings/:id`               | Booking owner or admin/cashier                                                                           |
 | POST    | `/payments/razorpay/order`    | Owner; `{bookingId}`; returns public checkout parameters                                                 |
