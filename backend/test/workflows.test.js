@@ -41,6 +41,43 @@ const booking = (extra = {}) => ({
   ...extra,
 });
 
+test("admin database failures log safe diagnostics without exposing SQL or customer data", () =>
+  fixture(async (db) => {
+    const adminId = await staff(db);
+    const token = await signSession({ userId: adminId, role: "ADMIN" }, true);
+    const logs = [];
+    const originalError = console.error;
+    const failingDb = {
+      ...db,
+      all: async (sql, values) => {
+        if (sql.includes("p.status AS paymentStatus"))
+          throw Object.assign(new Error("private password and guest details"), {
+            code: "ER_BAD_FIELD_ERROR",
+            errno: 1054,
+            sqlState: "42S22",
+            sql: "private SQL and values",
+          });
+        return db.all(sql, values);
+      },
+    };
+    console.error = (...args) => logs.push(args.join(" "));
+    try {
+      const response = await request(createApp(failingDb))
+        .get("/api/admin/dashboard")
+        .set("Cookie", `santa_staff_session=${token}`)
+        .expect(500);
+      assert.match(response.body.requestId, /^[a-f0-9-]{36}$/);
+      assert.match(logs[0], /ER_BAD_FIELD_ERROR/);
+      assert.match(logs[0], /1054/);
+      assert.match(logs[0], /42S22/);
+      assert.ok(logs[0].includes(response.body.requestId));
+      assert.doesNotMatch(logs[0], /private|password|guest details/);
+      assert.doesNotMatch(JSON.stringify(response.body), /ER_BAD_FIELD_ERROR|private/);
+    } finally {
+      console.error = originalError;
+    }
+  }));
+
 test("staff and customer sessions coexist in one browser without replacing admin permissions", () =>
   fixture(async (db) => {
     const app = createApp(db);

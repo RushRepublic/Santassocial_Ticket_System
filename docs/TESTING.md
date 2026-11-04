@@ -93,3 +93,7 @@ These have not been demonstrated in this environment:
 - Screen-reader and physical-device accessibility review. Automated mobile viewport and form checks do not establish full accessibility compliance.
 
 No claim of supporting 20,000 attendees under production load is made from these local tests. The data model/limits support that configured capacity; acceptable production throughput requires measured staging results.
+# Hosted admin error diagnostics
+
+Unexpected API failures now log a request ID, route and allowlisted database error identifiers (`code`, `errno`, `sqlState`). Responses include only the generic error and request ID. A regression test verifies that SQL text, error messages and customer details are excluded. The hosted dashboard failure still needs its actual database error code; local SQLite tests cannot establish the hosted MySQL cause.
+

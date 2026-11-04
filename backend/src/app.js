@@ -187,7 +187,7 @@ export function createApp(db) {
       ok: true,
       mode: demo ? "demo" : "live",
       database: databaseDriver,
-      release: "staff-session-isolation-1",
+      release: "admin-diagnostics-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -833,7 +833,7 @@ export function createApp(db) {
   app.use("/api", (_req, res) =>
     res.status(404).json({ error: "API endpoint not found." }),
   );
-  app.use((error, _req, res, _next) => {
+  app.use((error, req, res, _next) => {
     if (error instanceof z.ZodError)
       return res.status(400).json({
         error: error.issues
@@ -844,12 +844,26 @@ export function createApp(db) {
       return res.status(error.status).json({ error: error.message });
     if (error instanceof SyntaxError)
       return res.status(400).json({ error: "Invalid request body." });
+    const requestId = randomUUID();
+    const diagnostic = (value) =>
+      typeof value === "string" && /^[A-Za-z0-9_]{1,80}$/.test(value)
+        ? value
+        : undefined;
     console.error(
       "API request failed:",
-      error instanceof Error ? error.name : "UnknownError",
+      JSON.stringify({
+        requestId,
+        method: req.method,
+        route: req.route?.path || "/api",
+        name: diagnostic(error?.name),
+        code: diagnostic(error?.code),
+        errno: Number.isInteger(error?.errno) ? error.errno : undefined,
+        sqlState: diagnostic(error?.sqlState),
+      }),
     );
     res.status(500).json({
       error: "The service could not complete your request. Please try again.",
+      requestId,
     });
   });
   return app;
