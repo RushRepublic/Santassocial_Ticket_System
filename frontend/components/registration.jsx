@@ -596,7 +596,6 @@ export function Checkout() {
           <BookingSidebar draft={draft} showVenue={false} />
           <div className="form-section">
             <h2>How would you like to pay?</h2>
-            <p className="muted">Choose what works for you.</p>
             {["RAZORPAY", "CASH"].map((method) => (
               <button
                 type="button"
