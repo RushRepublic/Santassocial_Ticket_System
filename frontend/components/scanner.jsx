@@ -199,7 +199,7 @@ export function Scanner({ history = false }) {
           </>
         ) : (
           <>
-            <p className="eyebrow">SANTA SOCIAL · GATE OPERATIONS</p>
+            <p className="eyebrow scanner-heading">SANTA SOCIAL · GATE OPERATIONS</p>
             {entered && (
               <div className="entry-success" role="status">
                 <Check size={48} />

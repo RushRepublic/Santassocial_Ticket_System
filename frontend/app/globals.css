@@ -2072,6 +2072,9 @@ td > a:hover {
   border-right-width: 2px;
   border-bottom-width: 2px;
 }
+.scanner-heading {
+  text-align: center;
+}
 .valid-ticket {
   background: var(--green);
   color: white;
