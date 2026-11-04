@@ -27,7 +27,6 @@ export function Scanner({ history = false }) {
   const [error, setError] = useState("");
   const [entered, setEntered] = useState(false);
   const [rows, setRows] = useState([]);
-  const [demoDate, setDemoDate] = useState("");
   const [cashConfirmed, setCashConfirmed] = useState(false);
   const video = useRef(null);
   const scannerRef = useRef(null);
@@ -48,11 +47,6 @@ export function Scanner({ history = false }) {
           staffLoginUrl(history ? "/scanner/history" : "/scanner"),
         ),
       );
-    api("/events")
-      .then((d) => {
-        if (d.demo) setDemoDate(d.demoEventDate);
-      })
-      .catch(() => {});
   }, [router, history]);
   useEffect(() => {
     if (ready && history)
@@ -206,15 +200,6 @@ export function Scanner({ history = false }) {
         ) : (
           <>
             <p className="eyebrow">SANTA SOCIAL · GATE OPERATIONS</p>
-            <h1>Let the good times in.</h1>
-            <p className="muted">Scan. Count the group. Welcome them in.</p>
-            {demoDate && (
-              <div className="demo-code">
-                Demo gate date: {eventDate(demoDate)}
-                <br />
-                December 6 tickets will correctly be rejected today.
-              </div>
-            )}
             {entered && (
               <div className="entry-success" role="status">
                 <Check size={48} />
