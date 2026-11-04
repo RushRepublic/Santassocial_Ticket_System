@@ -61,6 +61,7 @@ export async function openDatabase() {
   const pool = mysql.createPool({
     ...mysqlOptions(),
     connectionLimit: 10,
+    charset: "utf8mb4_unicode_ci",
     timezone: "Z",
     enableKeepAlive: true,
   });

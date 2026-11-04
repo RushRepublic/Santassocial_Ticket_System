@@ -187,7 +187,7 @@ export function createApp(db) {
       ok: true,
       mode: demo ? "demo" : "live",
       database: databaseDriver,
-      release: "admin-diagnostics-1",
+      release: "mysql-staff-filters-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -629,9 +629,19 @@ export function createApp(db) {
       .max(30)
       .parse(req.query.status || "all");
     const page = Math.max(1, Number(req.query.page) || 1);
-    const where =
-      "WHERE (reference LIKE ? OR name LIKE ? OR mobile LIKE ?) AND (? = 'all' OR eventDate = ?) AND (? = 'all' OR status = ?)";
-    const values = [`%${q}%`, `%${q}%`, `%${q}%`, date, date, status, status];
+    // Decide optional filters in JavaScript. Comparing a bound string with a
+    // SQL literal can conflict with the host's connection/literal collations.
+    const clauses = ["(reference LIKE ? OR name LIKE ? OR mobile LIKE ?)"];
+    const values = [`%${q}%`, `%${q}%`, `%${q}%`];
+    if (date !== "all") {
+      clauses.push("eventDate = ?");
+      values.push(date);
+    }
+    if (status !== "all") {
+      clauses.push("status = ?");
+      values.push(status);
+    }
+    const where = `WHERE ${clauses.join(" AND ")}`;
     const total = Number(
       (await db.all(`SELECT COUNT(*) AS n FROM bookings ${where}`, values))[0]
         .n,
@@ -686,8 +696,9 @@ export function createApp(db) {
       .enum(["all", "2026-12-05", "2026-12-06"])
       .parse(req.query.date || "all");
     const rows = await db.all(
-      "SELECT b.*,p.status AS paymentStatus FROM bookings b JOIN payments p ON p.bookingId = b.id WHERE (? = 'all' OR b.eventDate = ?)",
-      [date, date],
+      "SELECT b.*,p.status AS paymentStatus FROM bookings b JOIN payments p ON p.bookingId = b.id" +
+        (date === "all" ? "" : " WHERE b.eventDate = ?"),
+      date === "all" ? [] : [date],
     );
     const sum = (rs, key) => rs.reduce((s, r) => s + Number(r[key]), 0);
     const confirmed = rows.filter((r) => ["PAID", "FREE"].includes(r.status));
@@ -734,13 +745,17 @@ export function createApp(db) {
   app.get(
     "/api/admin/checkins",
     auth(["ADMIN", "CASHIER", "SCANNER"]),
-    async (req, res) =>
+    async (req, res) => {
+      const allStaff = ["ADMIN", "CASHIER"].includes(req.identity.role);
       res.json(
         await db.all(
-          "SELECT c.*,b.reference,b.name FROM checkins c JOIN bookings b ON b.id = c.bookingId WHERE (? = 'ADMIN' OR ? = 'CASHIER' OR c.staffId = ?) ORDER BY c.createdAt DESC LIMIT 100",
-          [req.identity.role, req.identity.role, req.identity.userId],
+          "SELECT c.*,b.reference,b.name FROM checkins c JOIN bookings b ON b.id = c.bookingId" +
+            (allStaff ? "" : " WHERE c.staffId = ?") +
+            " ORDER BY c.createdAt DESC LIMIT 100",
+          allStaff ? [] : [req.identity.userId],
         ),
-      ),
+      );
+    },
   );
   app.get("/api/admin/settings", auth(["ADMIN"]), async (_req, res) =>
     res.json(await settings(db)),

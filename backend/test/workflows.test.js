@@ -41,6 +41,95 @@ const booking = (extra = {}) => ({
   ...extra,
 });
 
+test("staff filters work without parameter-to-literal collation comparisons", () =>
+  fixture(async (db) => {
+    const adminId = await staff(db);
+    const scannerId = await staff(db, "SCANNER");
+    const record = await createBooking(
+      db,
+      booking(),
+      "9876543210",
+      randomUUID(),
+    );
+    const second = await createBooking(
+      db,
+      booking({ eventDate: "2026-12-06", name: "Sunday Guest" }),
+      "9876543211",
+      randomUUID(),
+    );
+    await approveCash(db, record.id, record.amount, adminId);
+    await checkin(
+      db,
+      publicBooking(await getBooking(db, record.id)).qrToken,
+      scannerId,
+      randomUUID(),
+    );
+    const guardedDb = {
+      ...db,
+      all: (sql, values) => {
+        if (/\?\s*=\s*'/.test(sql))
+          throw Object.assign(
+            new Error("Incompatible parameter/literal collations"),
+            {
+              code: "ER_CANT_AGGREGATE_2COLLATIONS",
+            },
+          );
+        return db.all(sql, values);
+      },
+    };
+    const app = createApp(guardedDb);
+    const cookie = async (id, role) =>
+      `santa_staff_session=${await signSession({ userId: id, role }, true)}`;
+    const adminCookie = await cookie(adminId, "ADMIN");
+    for (const [date, count] of [
+      ["all", 2],
+      ["2026-12-05", 1],
+      ["2026-12-06", 1],
+    ]) {
+      const result = await request(app)
+        .get(`/api/admin/dashboard?date=${date}`)
+        .set("Cookie", adminCookie)
+        .expect(200);
+      assert.equal(result.body.bookings, count);
+    }
+    for (const [query, ids] of [
+      ["", [record.id, second.id]],
+      ["?date=2026-12-05&status=PAID", [record.id]],
+      ["?date=2026-12-06&q=Sunday", [second.id]],
+      ["?status=PENDING_CASH", [second.id]],
+    ]) {
+      const result = await request(app)
+        .get(`/api/admin/bookings${query}`)
+        .set("Cookie", adminCookie)
+        .expect(200);
+      assert.deepEqual(result.body.rows.map((r) => r.id).sort(), ids.sort());
+    }
+    await request(app)
+      .get("/api/admin/bookings?format=csv&date=2026-12-05")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    const own = await request(app)
+      .get("/api/admin/checkins")
+      .set("Cookie", await cookie(scannerId, "SCANNER"))
+      .expect(200);
+    assert.equal(own.body.length, 1);
+    const otherScanner = randomUUID();
+    await db.run(
+      "INSERT INTO users (id,name,email,passwordHash,role,createdAt) SELECT ?,name,?,passwordHash,role,createdAt FROM users WHERE id = ?",
+      [otherScanner, "other-scanner@example.com", scannerId],
+    );
+    const other = await request(app)
+      .get("/api/admin/checkins")
+      .set("Cookie", await cookie(otherScanner, "SCANNER"))
+      .expect(200);
+    assert.equal(other.body.length, 0);
+    const all = await request(app)
+      .get("/api/admin/checkins")
+      .set("Cookie", adminCookie)
+      .expect(200);
+    assert.equal(all.body.length, 1);
+  }));
+
 test("admin database failures log safe diagnostics without exposing SQL or customer data", () =>
   fixture(async (db) => {
     const adminId = await staff(db);
@@ -72,7 +161,10 @@ test("admin database failures log safe diagnostics without exposing SQL or custo
       assert.match(logs[0], /42S22/);
       assert.ok(logs[0].includes(response.body.requestId));
       assert.doesNotMatch(logs[0], /private|password|guest details/);
-      assert.doesNotMatch(JSON.stringify(response.body), /ER_BAD_FIELD_ERROR|private/);
+      assert.doesNotMatch(
+        JSON.stringify(response.body),
+        /ER_BAD_FIELD_ERROR|private/,
+      );
     } finally {
       console.error = originalError;
     }

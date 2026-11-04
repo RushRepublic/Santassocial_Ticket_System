@@ -93,7 +93,9 @@ These have not been demonstrated in this environment:
 - Screen-reader and physical-device accessibility review. Automated mobile viewport and form checks do not establish full accessibility compliance.
 
 No claim of supporting 20,000 attendees under production load is made from these local tests. The data model/limits support that configured capacity; acceptable production throughput requires measured staging results.
+
 # Hosted admin error diagnostics
 
-Unexpected API failures now log a request ID, route and allowlisted database error identifiers (`code`, `errno`, `sqlState`). Responses include only the generic error and request ID. A regression test verifies that SQL text, error messages and customer details are excluded. The hosted dashboard failure still needs its actual database error code; local SQLite tests cannot establish the hosted MySQL cause.
+Unexpected API failures now log a request ID, route and allowlisted database error identifiers (`code`, `errno`, `sqlState`). Responses include only the generic error and request ID. A regression test verifies that SQL text, error messages and customer details are excluded.
 
+The hosted dashboard reported `ER_CANT_AGGREGATE_2COLLATIONS` (1267). Dashboard date filters, booking date/status filters and check-in role filters now select optional SQL clauses in JavaScript and bind only column values. The MySQL connection explicitly uses the schema's `utf8mb4_unicode_ci` collation. A regression test first reproduced the failure by rejecting the conflicting parameter/literal comparisons, then passed for both dates, all dates, search, status, CSV and scanner ownership after the fix. The optional MySQL integration test now exercises these staff routes too; it requires a dedicated MySQL test database and is not a claim of authenticated verification on Hostinger.
