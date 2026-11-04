@@ -312,15 +312,15 @@ function Dashboard() {
                 </div>
               );
             })}
-          </div>
-          <div className="dashboard-panels overview-panels">
-            <div className="admin-card pending-card">
-              <Clock size={26} />
-              <h2>A little follow-up.</h2>
+            <div className="stat-card follow-up-stat">
+              <div>
+                <span>A little follow-up.</span>
+                <Clock size={20} />
+              </div>
               <strong>{data.pendingCash}</strong>
-              <p>Cash bookings awaiting payment</p>
+              <small>Cash bookings awaiting payment</small>
               <Link
-                className="button"
+                className="follow-up-link"
                 href="/admin/bookings?status=PENDING_CASH"
               >
                 Review bookings <ArrowUpRight size={16} />
