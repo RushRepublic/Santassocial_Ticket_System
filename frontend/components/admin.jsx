@@ -12,6 +12,7 @@ import {
   Search,
   Download,
   Users,
+  UserCheck,
   IndianRupee,
   CheckCircle,
   Clock,
@@ -103,7 +104,7 @@ export function StaffLogin() {
 const navigation = [
   ["dashboard", "Overview", LayoutDashboard],
   ["bookings", "Bookings", Ticket],
-  ["checkins", "Check-ins", ScanLine],
+  ["checkins", "Check-ins", UserCheck],
 ];
 export function Admin() {
   const path = usePathname();
