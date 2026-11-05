@@ -144,6 +144,49 @@ async function verifyStickyScanner() {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.evaluate(() => window.scrollTo(0, 0));
 }
+async function verifyTermsPopup() {
+  const terms = page.getByRole("button", {
+    name: "Terms and Conditions.",
+    exact: true,
+  });
+  const agreed = await page.getByRole("checkbox").isChecked();
+  if (
+    (await terms.evaluate((node) => getComputedStyle(node).color)) !==
+    "rgb(21, 101, 192)"
+  )
+    throw Error("Terms and Conditions must appear in blue.");
+  await terms.click();
+  const popup = page.getByRole("dialog", {
+    name: "TERMS AND CONDITION",
+    exact: true,
+  });
+  await popup.waitFor();
+  await popup
+    .getByText("Refund & Cancellation Policy:", { exact: true })
+    .waitFor();
+  if (
+    !(await popup.innerText()).includes(
+      "Once a ticket is booked and payment is completed, no cancellations or refunds will be permitted.",
+    )
+  )
+    throw Error("The popup is missing the supplied refund policy.");
+  const bounds = await popup.boundingBox();
+  if (
+    !bounds ||
+    bounds.x < 0 ||
+    bounds.x + bounds.width > page.viewportSize().width
+  )
+    throw Error("Terms popup overflows the viewport.");
+  await page.keyboard.press("Escape");
+  await popup.waitFor({ state: "hidden" });
+  if (!(await terms.evaluate((node) => node === document.activeElement)))
+    throw Error("Closing terms must restore focus to the link.");
+  await terms.click();
+  await popup.getByRole("button", { name: "Close", exact: true }).click();
+  await popup.waitFor({ state: "hidden" });
+  if ((await page.getByRole("checkbox").isChecked()) !== agreed)
+    throw Error("Opening/closing terms changed the customer's consent.");
+}
 async function scanCameraToken(token) {
   if (await page.locator(".manual-token").count())
     throw Error("Manual scanner token entry must not be visible.");
@@ -301,8 +344,10 @@ try {
     throw Error(
       "Checkout still displays the removed banner, introduction, venue or navigation.",
     );
+  await verifyTermsPopup();
   await page.screenshot({ path: "docs/checkout-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
+  await verifyTermsPopup();
   await page.screenshot({ path: "docs/checkout-mobile.png", fullPage: true });
   if (
     await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)

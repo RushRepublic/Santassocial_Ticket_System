@@ -218,7 +218,7 @@ export function Admin() {
             href="/scanner"
             aria-label="Open Gate Scanner"
           >
-            <ScanLine size={34} aria-hidden="true" />
+            <ScanLine size={38} aria-hidden="true" />
           </Link>
         )}
       </div>

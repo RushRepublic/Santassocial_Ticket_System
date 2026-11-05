@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Checkout terms popup
+
+The checkout agreement includes a blue Terms and Conditions control that opens the supplied refund/cancellation policy in a native modal dialog. Browser QA verifies the text, blue colour, viewport fit at desktop/mobile widths, Close/Escape dismissal, focus restoration and unchanged consent. Reading the policy does not tick the agreement or enable payment. The persistent scanner shortcut remains icon-only and is enlarged to 76px with a 38px scanner symbol.
+
 ## Persistent admin scanner shortcut
 
 Admin sections share a fixed bottom-right Open Gate Scanner link, including booking details. Content has bottom padding so the shortcut does not cover the final rows. Browser QA verifies its viewport position while scrolling at 1440px and 390px in Overview, Bookings and Check-ins, opens the scanner from each section without another login, and returns to the dashboard. The link is admin-only; backend scanner role restrictions remain enforced.

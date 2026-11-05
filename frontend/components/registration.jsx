@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -434,6 +434,56 @@ async function loadCheckout() {
     document.body.appendChild(s);
   });
 }
+function EntryAgreement({ agreed, onChange }) {
+  const dialog = useRef(null);
+  return (
+    <>
+      <div className="checkbox-label checkout-entry-agreement">
+        <input
+          id="checkout-entry-conditions"
+          type="checkbox"
+          checked={agreed}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        <span>
+          <label htmlFor="checkout-entry-conditions">
+            I have checked my booking and agree to these entry conditions.
+          </label>{" "}
+          <button
+            type="button"
+            className="terms-link"
+            onClick={() => dialog.current.showModal()}
+          >
+            Terms and Conditions.
+          </button>
+        </span>
+      </div>
+      <dialog
+        ref={dialog}
+        className="terms-dialog"
+        aria-labelledby="checkout-terms-title"
+        onClick={(event) => {
+          if (event.target === dialog.current) dialog.current.close();
+        }}
+      >
+        <h2 id="checkout-terms-title">TERMS AND CONDITION</h2>
+        <p>
+          <strong>Refund &amp; Cancellation Policy:</strong> All tickets
+          purchased for the Santa Social event are non-refundable and
+          non-cancellable. Once a ticket is booked and payment is completed, no
+          cancellations or refunds will be permitted.
+        </p>
+        <button
+          type="button"
+          className="button full"
+          onClick={() => dialog.current.close()}
+        >
+          Close
+        </button>
+      </dialog>
+    </>
+  );
+}
 export function Checkout() {
   const router = useRouter();
   const [draft, setDraft] = useState(null);
@@ -678,14 +728,7 @@ export function Checkout() {
               </button>
             ))}
           </div>
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
-            />{" "}
-            I have checked my booking and agree to these entry conditions.
-          </label>
+          <EntryAgreement agreed={agreed} onChange={setAgreed} />
           {error && <Notice>{error}</Notice>}
           {pendingPaymentId && (
             <button
