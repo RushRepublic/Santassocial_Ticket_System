@@ -1651,8 +1651,9 @@ input::placeholder {
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
   max-width: calc(100vw - 40px);
-  min-height: 48px;
-  padding: 14px 20px;
+  width: 68px;
+  height: 68px;
+  padding: 0;
   box-shadow: 0 4px 18px #15362233;
 }
 .admin-page-heading {

@@ -213,9 +213,12 @@ export function Admin() {
           )}
         </div>
         {identity.role === "ADMIN" && (
-          <Link className="button admin-scanner-shortcut" href="/scanner">
-            <ScanLine size={20} />
-            Open Gate Scanner
+          <Link
+            className="button admin-scanner-shortcut"
+            href="/scanner"
+            aria-label="Open Gate Scanner"
+          >
+            <ScanLine size={34} aria-hidden="true" />
           </Link>
         )}
       </div>
