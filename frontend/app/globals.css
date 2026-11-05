@@ -1642,6 +1642,19 @@ input::placeholder {
   max-width: 1800px;
   margin: auto;
 }
+.admin-with-scanner-shortcut .admin-content {
+  padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+}
+.admin-scanner-shortcut {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  max-width: calc(100vw - 40px);
+  min-height: 48px;
+  padding: 14px 20px;
+  box-shadow: 0 4px 18px #15362233;
+}
 .admin-page-heading {
   display: flex;
   justify-content: space-between;

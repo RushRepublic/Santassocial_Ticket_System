@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Persistent admin scanner shortcut
+
+Admin sections share a fixed bottom-right Open Gate Scanner link, including booking details. Content has bottom padding so the shortcut does not cover the final rows. Browser QA verifies its viewport position while scrolling at 1440px and 390px in Overview, Bookings and Check-ins, opens the scanner from each section without another login, and returns to the dashboard. The link is admin-only; backend scanner role restrictions remain enforced.
+
 ## Admin booking QR card
 
 Booking details replace all Booking actions controls and notification delivery with the existing customer QR. The browser journey opens the detail from Overview and Bookings and decodes the displayed image to verify it equals the customer's original token, including a cash booking after gate approval. Pending online bookings show an unavailable message and no QR. The card is checked at mobile width. Payment approval and atomic entry remain available through the scanner and backend role enforcement.

@@ -107,6 +107,43 @@ async function verifyAdminBookingQr(booking) {
   )
     throw Error("Admin QR differs from the customer's original booking QR.");
 }
+async function verifyStickyScanner() {
+  const shortcut = page.locator(".admin-scanner-shortcut");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shortcut.waitFor();
+    const before = await shortcut.boundingBox();
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+    const after = await shortcut.boundingBox();
+    if (
+      !before ||
+      !after ||
+      Math.abs(before.y - after.y) > 1 ||
+      after.x < 0 ||
+      after.x + after.width > width ||
+      after.y + after.height > 844 ||
+      (await shortcut.evaluate((node) => getComputedStyle(node).position)) !==
+        "fixed"
+    )
+      throw Error(
+        "Open Gate Scanner must stay visible while scrolling on desktop/mobile.",
+      );
+  }
+  await shortcut.click();
+  await page.waitForURL(`${origin}/scanner`);
+  await page
+    .getByRole("button", { name: "Start camera scanner", exact: true })
+    .waitFor();
+  await page
+    .getByRole("link", { name: "Back to dashboard", exact: true })
+    .click();
+  await page.waitForURL(`${origin}/admin/dashboard`);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+}
 async function scanCameraToken(token) {
   if (await page.locator(".manual-token").count())
     throw Error("Manual scanner token entry must not be visible.");
@@ -505,6 +542,7 @@ try {
       .click();
     await page.waitForURL(`${origin}/admin/${section}`);
     await page.locator(".admin-sidebar").waitFor();
+    await verifyStickyScanner();
   }
   await page.goto(`${origin}/login`);
   await signIn();
@@ -527,7 +565,7 @@ try {
     )
       throw Error("Removed admin sections must redirect to the overview.");
   }
-  await page.getByRole("link", { name: "Open gate scanner" }).click();
+  await page.locator(".admin-scanner-shortcut").click();
   await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(booking.qrToken);
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();

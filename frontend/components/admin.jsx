@@ -176,7 +176,9 @@ export function Admin() {
           </button>
         </div>
       </aside>
-      <div className="admin-main">
+      <div
+        className={`admin-main ${identity.role === "ADMIN" ? "admin-with-scanner-shortcut" : ""}`}
+      >
         <div className="admin-topbar">
           <button
             className="menu-button"
@@ -209,6 +211,12 @@ export function Admin() {
             <Dashboard />
           )}
         </div>
+        {identity.role === "ADMIN" && (
+          <Link className="button admin-scanner-shortcut" href="/scanner">
+            <ScanLine size={20} />
+            Open Gate Scanner
+          </Link>
+        )}
       </div>
     </div>
   );
