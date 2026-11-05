@@ -6,7 +6,6 @@ import {
   Download,
   Share2,
   ImageDown,
-  Users,
   CalendarDays,
   MapPin,
   CheckCircle,
@@ -190,9 +189,6 @@ export function GroupTicket({ id }) {
           ) : (
             <Loading />
           )}
-          <p>
-            <Users size={17} /> One QR = One group
-          </p>
           <small>
             Everyone must arrive together.
             <br />
@@ -200,15 +196,6 @@ export function GroupTicket({ id }) {
               ? "Pay cash at the counter. Approval required before entry."
               : "Valid only for the selected date. No re-entry."}
           </small>
-          {booking.status === "PENDING_CASH" && (
-            <p className="cash-ticket-expiry">
-              Pay before{" "}
-              {new Date(booking.holdUntil).toLocaleString("en-IN", {
-                timeZone: "Asia/Kolkata",
-              })}{" "}
-              IST.
-            </p>
-          )}
         </div>
       </article>
       <div className="ticket-actions">

@@ -529,7 +529,7 @@ export function Checkout() {
           ondismiss: () => {
             setBusy(false);
             setError(
-              "Payment window closed. Your booking is saved; retry before the reservation expires.",
+              "Payment window closed. Your booking is saved; please retry payment.",
             );
           },
         },
@@ -666,12 +666,6 @@ export function Checkout() {
                 Children under 5 must be supervised by an adult, unless an
                 approved event policy applies.
               </li>
-              {draft.method === "CASH" && (
-                <li>
-                  Cash reservations expire. Complete payment before the time
-                  shown on your booking.
-                </li>
-              )}
             </ul>
           </div>
         </div>
@@ -793,18 +787,15 @@ export function Confirmation() {
               {booking.status === "PENDING_CASH" && (
                 <div className="notice">
                   This confirmation is not an entry ticket. Pay{" "}
-                  {money(booking.amount)} at the counter before{" "}
-                  {new Date(booking.holdUntil).toLocaleString("en-IN", {
-                    timeZone: "Asia/Kolkata",
-                  })}{" "}
-                  IST. Show your group QR. Entry requires payment approval.
+                  {money(booking.amount)} at the counter. Show your group QR.
+                  Entry requires payment approval.
                 </div>
               )}
               {booking.status === "PAYMENT_REVIEW" && (
                 <Notice>
                   Your payment was captured after your reservation became
                   unavailable. Contact the organiser with this reference for
-                  capacity review or a refund. No entry ticket has been
+                  payment review or a refund. No entry ticket has been
                   activated.
                 </Notice>
               )}

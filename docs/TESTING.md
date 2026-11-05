@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Unlimited registration and no payment deadlines
+
+Registration no longer enforces legacy total/daily attendance estimates. The concurrency regression creates 1,001 groups (20,020 attendees) despite old stored limits, and checks that legacy settings writes cannot re-enable them. Old hold timestamps cannot expire pending cash/online bookings or invalidate a cash QR; payment capture, exact cash approval, cancelled status, event date and atomic single entry remain enforced. Public availability reports null limits and `unlimited: true`. Tickets, exported PDFs/PNGs and share images omit the payment deadline and group-QR caption; onscreen ticket people icons are removed. Existing legacy `EXPIRED` bookings retain their status and can be restored by authorised staff.
+
 ## Login-first admin and scanner visits
 
 Fresh document loads of `/admin/dashboard` and `/scanner`, including new tabs and reloads, require the Admin Login form even when a staff cookie already exists. Successful sign-in creates a memory-only UI grant for navigation between staff modules; saved cookies alone do not skip the form. Backend session and role enforcement remain mandatory. Browser QA covers existing-cookie direct visits to both routes, dashboard reload, login return destinations, navigation between modules without another login, and independent staff logout.

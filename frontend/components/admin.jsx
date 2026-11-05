@@ -649,7 +649,7 @@ function BookingDetail({ id, role }) {
                   disabled={busy}
                   onClick={() => run("restore")}
                 >
-                  Restore reservation if capacity permits
+                  Restore reservation
                 </button>
               )}
               {["PAID", "FREE"].includes(b.status) && (
@@ -703,7 +703,7 @@ function BookingDetail({ id, role }) {
                 <p>
                   {action === "approve"
                     ? `Collect ${money(b.amount)} for ${b.reference}. Confirm only after receiving the money.`
-                    : "This releases the group’s reserved capacity."}
+                    : "This cancels the group’s unpaid booking."}
                 </p>
                 {action === "approve" && (
                   <label>

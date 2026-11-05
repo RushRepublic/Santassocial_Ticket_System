@@ -51,6 +51,13 @@ test("cash QR is issued immediately but only admin collection can atomically app
     const adminCookie = await headers(adminId, "ADMIN");
     const scannerCookie = await headers(scannerId, "SCANNER");
     const b = await createBooking(db, booking(), "9876543210", randomUUID());
+    await db.run("UPDATE bookings SET holdUntil = ? WHERE id = ?", [
+      "2000-01-01T00:00:00.000Z",
+      b.id,
+    ]);
+    await expire(db);
+    assert.equal((await getBooking(db, b.id)).status, "PENDING_CASH");
+    assert.equal(publicBooking(await getBooking(db, b.id)).holdUntil, null);
     const token = publicBooking(b).qrToken;
     assert.match(token, /^ss_[a-f0-9]{64}$/);
     const customerCookie = `santa_session=${await signSession({ mobile: b.mobile })}`;
@@ -141,8 +148,7 @@ test("expired, cancelled and wrong-day cash QR cannot collect money or admit; le
         randomUUID(),
       );
       if (kind === "expired")
-        await db.run("UPDATE bookings SET holdUntil = ? WHERE id = ?", [
-          "2000-01-01T00:00:00.000Z",
+        await db.run("UPDATE bookings SET status = 'EXPIRED' WHERE id = ?", [
           b.id,
         ]);
       if (kind === "cancelled")
@@ -417,18 +423,18 @@ test("one QR per group; cash requires approval; simultaneous entry has exactly o
     await assert.rejects(verifyTicket(db, qrToken(paid)), /ALREADY CHECKED IN/);
     assert.ok(publicBooking(await getBooking(db, b.id)).qrToken);
   }));
-test("100 simultaneous reservations never exceed combined or daily capacity; free kids count", () =>
+test("registration exceeds the old attendance estimate and ignores legacy daily limits", () =>
   fixture(async (db) => {
     await db.run(
-      "UPDATE events SET capacity = 17, day5Capacity = 12 WHERE id = ?",
+      "UPDATE events SET capacity = 20000, day5Capacity = 12, day6Capacity = 12 WHERE id = ?",
       ["santa-2026"],
     );
     const results = await Promise.allSettled(
-      Array.from({ length: 100 }, (_, i) =>
+      Array.from({ length: 1001 }, (_, i) =>
         createBooking(
           db,
           booking({
-            adults: 1,
+            adults: 19,
             kids: 1,
             eventDate: i % 2 ? "2026-12-05" : "2026-12-06",
           }),
@@ -437,13 +443,42 @@ test("100 simultaneous reservations never exceed combined or daily capacity; fre
         ),
       ),
     );
-    assert.equal(results.filter((r) => r.status === "fulfilled").length, 8);
-    assert.equal((await availability(db)).remaining, 1);
-    const counts = await db.all(
-      "SELECT eventDate,SUM(people) AS n FROM bookings GROUP BY eventDate",
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, 1001);
+    assert.equal(
+      Number((await db.all("SELECT SUM(people) AS n FROM bookings"))[0].n),
+      20020,
     );
-    for (const c of counts) assert.ok(c.n <= 12);
+    const available = await availability(db);
+    assert.equal(available.unlimited, true);
+    assert.equal(available.capacity, null);
+    assert.equal(available.remaining, null);
+    assert.ok(available.days.every((day) => day.remaining === null));
+    const app = createApp(db);
+    const event = await request(app).get("/api/events").expect(200);
+    assert.equal(event.body.event.capacity, null);
+    assert.equal(event.body.event.cashHoldMinutes, null);
+    const userId = await staff(db);
+    const cookie = `santa_staff_session=${await signSession({ userId, role: "ADMIN" }, true)}`;
+    const updated = await request(app)
+      .put("/api/admin/settings")
+      .set("Origin", config.origin)
+      .set("Cookie", cookie)
+      .send({
+        capacity: 1,
+        day5Capacity: 1,
+        day6Capacity: 1,
+        maxGroup: 20,
+        holdMinutes: 5,
+        cashHoldMinutes: 5,
+        allowKidsOnly: 0,
+      })
+      .expect(200);
+    assert.equal(updated.body.unlimited, true);
+    assert.equal(updated.body.capacity, null);
+    assert.equal(updated.body.holdMinutes, null);
+    await createBooking(db, booking(), "9876543210", randomUUID());
   }));
+
 test("idempotent registration, duplicate payment callbacks and duplicate webhook settlement", () =>
   fixture(async (db) => {
     const key = randomUUID();
@@ -475,7 +510,7 @@ test("idempotent registration, duplicate payment callbacks and duplicate webhook
       /match/,
     );
   }));
-test("expired holds release capacity; captured payments without room enter review", () =>
+test("old payment deadlines do not expire bookings or reject captured payments", () =>
   fixture(async (db) => {
     await db.run("UPDATE events SET capacity = 3 WHERE id = ?", ["santa-2026"]);
     const first = await createBooking(
@@ -498,14 +533,14 @@ test("expired holds release capacity; captured payments without room enter revie
       "9876543211",
       randomUUID(),
     );
-    assert.equal((await getBooking(db, first.id)).status, "EXPIRED");
+    assert.equal((await getBooking(db, first.id)).status, "PENDING_PAYMENT");
     await settleCaptured(db, "order_expired", "pay_expired", 40000, "INR");
-    assert.equal((await getBooking(db, first.id)).status, "PAYMENT_REVIEW");
-    assert.equal(publicBooking(await getBooking(db, first.id)).qrToken, null);
-    assert.equal((await availability(db)).remaining, 0);
+    assert.equal((await getBooking(db, first.id)).status, "PAID");
+    assert.ok(publicBooking(await getBooking(db, first.id)).qrToken);
+    assert.equal((await availability(db)).remaining, null);
     assert.equal(replacement.people, 3);
   }));
-test("late captured payment reacquires available inventory and wrong event date is rejected", () =>
+test("late captured payment stays valid and wrong event date is rejected", () =>
   fixture(async (db) => {
     const b = await createBooking(
       db,
@@ -527,7 +562,7 @@ test("late captured payment reacquires available inventory and wrong event date 
     await expire(db);
     assert.equal((await getBooking(db, b.id)).status, "PAID");
   }));
-test("children-only free admission is policy-controlled and still reserves people", () =>
+test("children-only free admission remains policy-controlled", () =>
   fixture(async (db) => {
     await assert.rejects(
       createBooking(
@@ -550,7 +585,7 @@ test("children-only free admission is policy-controlled and still reserves peopl
     assert.equal(b.status, "FREE");
     assert.equal(b.amount, 0);
     assert.ok(publicBooking(b).qrToken);
-    assert.equal((await availability(db)).remaining, 19998);
+    assert.equal((await availability(db)).remaining, null);
   }));
 test("API journey: OTP, booking, demo payment, ticket retrieval, PDF and role restrictions", () =>
   fixture(async (db) => {

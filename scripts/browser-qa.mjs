@@ -490,6 +490,14 @@ try {
     throw Error(
       "Cash bookings must display the same Group Admission brand header.",
     );
+  const cashTicketText = await page.locator(".digital-ticket").innerText();
+  if (
+    /Pay before|One QR = One group/i.test(cashTicketText) ||
+    (await page.locator(".ticket-qr .lucide-users").count())
+  )
+    throw Error(
+      "Tickets must not show payment deadlines, group QR captions or people icons.",
+    );
   await saveAndVerifyImage(cashBooking.qrToken);
   await page.goto(`${origin}/scanner`);
   await signIn();

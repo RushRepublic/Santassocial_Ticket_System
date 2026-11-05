@@ -19,7 +19,6 @@ import {
   AppError,
   fail,
   now,
-  settings,
   lockEvent,
   expire,
   availability,
@@ -187,7 +186,7 @@ export function createApp(db) {
       ok: true,
       mode: demo ? "demo" : "live",
       database: databaseDriver,
-      release: "branded-ticket-exports-1",
+      release: "unlimited-registration-no-deadlines-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -376,11 +375,7 @@ export function createApp(db) {
   });
   app.post("/api/payments/razorpay/order", auth(), async (req, res) => {
     const b = await own(req, z.uuid().parse(req.body.bookingId));
-    if (
-      b.method !== "RAZORPAY" ||
-      b.status !== "PENDING_PAYMENT" ||
-      b.holdUntil <= now()
-    )
+    if (b.method !== "RAZORPAY" || b.status !== "PENDING_PAYMENT")
       fail(409, "This booking cannot accept an online payment.");
     let payment = (
       await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id])
@@ -515,22 +510,14 @@ export function createApp(db) {
   app.post("/api/admin/bookings/:id/restore", staff, async (req, res) => {
     res.json(
       await db.transaction(async (tx) => {
-        const e = await lockEvent(tx);
+        await lockEvent(tx);
         await expire(tx);
         const b = await getBooking(tx, param(req));
         if (b.method !== "CASH" || b.status !== "EXPIRED")
           fail(409, "Only expired cash bookings can be restored.");
-        const a = await availability(tx);
-        if (a.days.find((d) => d.date === b.eventDate).remaining < b.people)
-          fail(409, "Insufficient capacity.");
         await tx.run(
           "UPDATE bookings SET status = 'PENDING_CASH', holdUntil = ?, updatedAt = ?, qrHash = ? WHERE id = ?",
-          [
-            new Date(Date.now() + e.cashHoldMinutes * 60000).toISOString(),
-            now(),
-            hash(qrToken(b)),
-            b.id,
-          ],
+          [now(), now(), hash(qrToken(b)), b.id],
         );
         await audit(tx, req.identity.userId, "RESTORE_CASH", b.id);
         return publicBooking(await getBooking(tx, b.id));
@@ -686,9 +673,7 @@ export function createApp(db) {
         captured.filter((r) => r.method === "RAZORPAY"),
         "amount",
       ),
-      pendingCash: rows.filter(
-        (r) => r.status === "PENDING_CASH" && r.holdUntil > now(),
-      ).length,
+      pendingCash: rows.filter((r) => r.status === "PENDING_CASH").length,
       confirmed: confirmed.length,
       checkedGroups: entered.length,
       entered: sum(entered, "people"),
@@ -726,44 +711,50 @@ export function createApp(db) {
     },
   );
   app.get("/api/admin/settings", auth(["ADMIN"]), async (_req, res) =>
-    res.json(await settings(db)),
+    res.json(await availability(db)),
   );
   app.put("/api/admin/settings", auth(["ADMIN"]), async (req, res) => {
     const input = z
       .object({
-        capacity: z.number().int().min(1).max(1000000),
-        day5Capacity: z.number().int().positive().nullable(),
-        day6Capacity: z.number().int().positive().nullable(),
+        capacity: z
+          .number()
+          .int()
+          .min(0)
+          .max(1000000)
+          .nullable()
+          .transform(() => 0),
+        day5Capacity: z
+          .number()
+          .int()
+          .positive()
+          .nullable()
+          .transform(() => null),
+        day6Capacity: z
+          .number()
+          .int()
+          .positive()
+          .nullable()
+          .transform(() => null),
         maxGroup: z.number().int().min(1).max(100),
-        holdMinutes: z.number().int().min(5).max(1440),
-        cashHoldMinutes: z.number().int().min(5).max(10080),
+        holdMinutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(1440)
+          .nullable()
+          .transform(() => 0),
+        cashHoldMinutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(10080)
+          .nullable()
+          .transform(() => 0),
         allowKidsOnly: z.number().int().min(0).max(1),
       })
       .parse(req.body);
     await db.transaction(async (tx) => {
       await lockEvent(tx);
-      const a = await availability(tx);
-      if (
-        input.capacity < a.capacity - a.remaining ||
-        a.days.some((d) => {
-          const limit = d.date.endsWith("05")
-            ? input.day5Capacity
-            : input.day6Capacity;
-          return limit !== null && limit < 0;
-        })
-      )
-        fail(409, "Capacity cannot be lower than active reservations.");
-      const counts = await tx.all(
-        "SELECT eventDate,SUM(people) AS n FROM bookings WHERE status IN ('PAID','FREE') OR (status IN ('PENDING_CASH','PENDING_PAYMENT') AND holdUntil > ?) GROUP BY eventDate",
-        [now()],
-      );
-      for (const r of counts) {
-        const limit = r.eventDate.endsWith("05")
-          ? input.day5Capacity
-          : input.day6Capacity;
-        if (limit !== null && limit < Number(r.n))
-          fail(409, "Daily capacity cannot be lower than active reservations.");
-      }
       await tx.run(
         `UPDATE events SET ${Object.keys(input)
           .map((k) => `${k} = ?`)
@@ -772,7 +763,7 @@ export function createApp(db) {
       );
       await audit(tx, req.identity.userId, "UPDATE_SETTINGS", "santa-2026");
     });
-    res.json(await settings(db));
+    res.json(await availability(db));
   });
   app.post(
     "/api/scanner/verify",

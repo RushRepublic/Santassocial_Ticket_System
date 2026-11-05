@@ -20,44 +20,24 @@ export async function lockEvent(tx) {
     await tx.all("SELECT * FROM events WHERE id = ? FOR UPDATE", ["santa-2026"])
   )[0];
 }
-export async function expire(tx) {
-  await tx.run(
-    "UPDATE bookings SET status = 'EXPIRED', updatedAt = ? WHERE status IN ('PENDING_CASH','PENDING_PAYMENT') AND holdUntil < ?",
-    [now(), now()],
-  );
-}
+// Retained for existing maintenance callers. Bookings have no payment deadline.
+export async function expire(_tx) {}
 export async function availability(db) {
-  const e = await settings(db);
-  const rows = await db.all(
-    "SELECT eventDate,SUM(people) AS total FROM bookings WHERE eventId = ? AND (status IN ('PAID','FREE') OR (status IN ('PENDING_CASH','PENDING_PAYMENT') AND holdUntil > ?)) GROUP BY eventDate",
-    [e.id, now()],
-  );
-  const used = rows.reduce((n, r) => n + Number(r.total), 0);
+  const event = await settings(db);
   return {
-    ...e,
-    remaining: Math.max(0, e.capacity - used),
+    ...event,
+    capacity: null,
+    day5Capacity: null,
+    day6Capacity: null,
+    holdMinutes: null,
+    cashHoldMinutes: null,
+    remaining: null,
+    unlimited: true,
     days: ["2026-12-05", "2026-12-06"].map((date) => ({
       date,
-      remaining: Math.max(
-        0,
-        Math.min(
-          e.capacity - used,
-          (date.endsWith("05") ? e.day5Capacity : e.day6Capacity) === null
-            ? e.capacity
-            : Number(date.endsWith("05") ? e.day5Capacity : e.day6Capacity) -
-                Number(rows.find((r) => r.eventDate === date)?.total || 0),
-        ),
-      ),
+      remaining: null,
     })),
   };
-}
-async function ensureCapacity(tx, e, date, people) {
-  const a = await availability(tx);
-  if (
-    a.remaining < people ||
-    a.days.find((d) => d.date === date).remaining < people
-  )
-    fail(409, "This date has insufficient capacity for your group.");
 }
 export async function audit(tx, userId, action, entityId) {
   await tx.run(
@@ -87,13 +67,14 @@ export function publicBooking(b) {
   const { ticketNonce, qrHash, ...safe } = b;
   return {
     ...safe,
+    holdUntil: null,
     qrToken: hasBookingQr(b) ? qrToken(b) : null,
     demo,
   };
 }
 export const hasBookingQr = (b) =>
   ["PAID", "FREE"].includes(b.status) ||
-  (b.method === "CASH" && b.status === "PENDING_CASH" && b.holdUntil > now());
+  (b.method === "CASH" && b.status === "PENDING_CASH");
 export async function getBooking(db, id) {
   const b = (
     await db.all("SELECT * FROM bookings WHERE id = ? OR reference = ?", [
@@ -122,7 +103,6 @@ export async function createBooking(db, input, mobile, key) {
       fail(400, `Choose between 1 and ${e.maxGroup} guests.`);
     if (input.adults === 0 && !e.allowKidsOnly)
       fail(400, "A supervising adult is required for children under five.");
-    await ensureCapacity(tx, e, input.eventDate, people);
     const id = randomUUID(),
       amount = input.adults * 20000,
       status =
@@ -145,10 +125,8 @@ export async function createBooking(db, input, mobile, key) {
       amount,
       method: amount === 0 ? "FREE" : input.method,
       status,
-      holdUntil: new Date(
-        Date.now() +
-          60000 * (input.method === "CASH" ? e.cashHoldMinutes : e.holdMinutes),
-      ).toISOString(),
+      // Legacy NOT NULL storage column; no longer a payment deadline.
+      holdUntil: now(),
       ticketNonce: randomBytes(32).toString("hex"),
       createdAt: now(),
       updatedAt: now(),
@@ -206,15 +184,6 @@ export async function settleCaptured(
       if (!["PAID", "FREE"].includes(current.status)) {
         if (["CANCELLED", "PAYMENT_REVIEW"].includes(current.status))
           status = "PAYMENT_REVIEW";
-        else if (current.status === "EXPIRED") {
-          try {
-            await ensureCapacity(tx, e, b.eventDate, b.people);
-          } catch (error) {
-            if (error instanceof AppError && error.status === 409)
-              status = "PAYMENT_REVIEW";
-            else throw error;
-          }
-        }
         if (status === "PAID") await activate(tx, b);
         else {
           await tx.run(

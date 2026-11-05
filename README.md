@@ -48,12 +48,12 @@ Customer and staff interfaces use the same API/database. `/admin` also opens the
 ## Booking-to-entry behavior
 
 - Select one event date, supply the primary guest’s details, verify the mobile by OTP, and choose a payment method. Age 5+ costs ₹200; under 5 is free. Prices are calculated on the server in integer paise.
-- Every adult and child counts against the **combined 20,000-person capacity**. Optional daily limits, group limits, and reservation expiry are configurable. Adult supervision is required by default; children-only free bookings require an explicitly enabled policy.
+- Registration has no overall or daily attendance cap and no payment deadline. Existing group-size and adult-supervision rules still apply; children-only free bookings require an explicitly enabled policy.
 - Online reservations activate only after captured payment evidence. Razorpay signatures use server-stored order IDs. Raw webhook signatures are verified before parsing; event IDs and payment IDs prevent duplicate settlement. A background process reconciles pending gateway orders.
-- Cash bookings receive their unique group QR immediately. The QR permits lookup, not unpaid entry. Scanner results show cash due in red; an admin confirms collection of the exact amount and approves the whole group's entry atomically. Paid bookings show green and require entry approval. Admin/cashier counter approval remains available. Receipt, approving staff and timestamps are stored, and the same QR remains valid after payment. Expired cash reservations can be restored only if capacity permits.
+- Cash bookings receive their unique group QR immediately. The QR permits lookup, not unpaid entry. Scanner results show cash due in red; an admin confirms collection of the exact amount and approves the whole group's entry atomically. Paid bookings show green and require entry approval. Admin/cashier counter approval remains available. Receipt, approving staff and timestamps are stored, and the same QR remains valid after payment. Legacy expired cash reservations can be restored by authorised staff without an attendance-cap check.
 - Each paid/free booking has **one opaque group QR**. Personal details are not embedded. Only the token hash is indexed for verification; a server secret and random booking nonce allow secure regeneration.
 - Staff verify the QR, count everyone, and separately confirm entry. Final confirmation locks the inventory row and atomically checks the booking again. There is one unique check-in record per booking. Idempotent retries cannot admit another group. No partial entry or re-entry.
-- A captured payment after an expired reservation reacquires capacity if available. Otherwise it becomes `PAYMENT_REVIEW`, retaining payment evidence and issuing no ticket. Organisers must resolve capacity or refund through Razorpay; arbitrary payment approval is unavailable.
+- Verified captured payments activate eligible bookings regardless of the old hold timestamp. Cancelled/review bookings still require organiser review; arbitrary online payment approval is unavailable.
 - OTP-verified retrieval recovers bookings on another device, including pending online payment resumption. Secure share links hold the ticket bearer token in the URL fragment, not a server query string.
 
 ## Project layout
@@ -64,7 +64,7 @@ frontend/components/       Customer, organiser and scanner interfaces
 frontend/lib/              JavaScript API client and formatting utilities
 frontend/public/brand/     Local fonts and official reference imagery
 backend/src/app.js         HTTP API, validation and role enforcement
-backend/src/services.js    Booking, capacity, settlement and check-in rules
+backend/src/services.js    Booking, settlement and check-in rules
 backend/src/db.js          MySQL connection pool / isolated demo adapter
 backend/src/providers.js   Razorpay reconciliation, messaging, SMTP fallback
 backend/migrations/       Initial relational SQL schema

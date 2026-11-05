@@ -126,7 +126,7 @@ export async function migrate(db) {
     await db.run("INSERT INTO events (id,name,capacity) VALUES (?,?,?)", [
       "santa-2026",
       "Santa Social 9th Edition",
-      20000,
+      0,
     ]);
   // Existing cash reservations keep the same deterministic token after approval.
   for (const b of await db.all(

@@ -2,7 +2,7 @@
 
 All routes are under `/api`, served directly by Express in the combined deployment (or proxied through Next.js during separate local development). JSON mutations require `Origin` equal to `FRONTEND_ORIGIN`. Cookies are HTTP-only, SameSite=Lax, restricted to `/api`, and Secure in production. Customer sessions use `santa_session` for 30 minutes; staff use `santa_staff_session` for eight hours. Customer verification does not replace staff access. Legacy staff cookies migrate without extending JWT expiry. All responses avoid caching. Request bodies are limited to 32 KB; webhooks allow 256 KB.
 
-Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentication, 403 = permission, 404 = missing resource, 409 = state/capacity conflict, 429 = rate limit, 503 = unconfigured provider. Booking amounts and approval amounts are integer **paise**.
+Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentication, 403 = permission, 404 = missing resource, 409 = state conflict, 429 = rate limit, 503 = unconfigured provider. Booking amounts and approval amounts are integer **paise**.
 
 | Method  | Endpoint                      | Access / behavior                                                                                        |
 | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -27,7 +27,7 @@ Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentic
 | GET     | `/admin/bookings`             | Admin/cashier; `q`, `date`, `status`, `page`; 25 per page; `format=csv` exports matches                  |
 | GET     | `/admin/bookings/:id`         | Admin/cashier; booking, payment, delivery, check-in records                                              |
 | POST    | `/admin/bookings/:id/approve` | Admin/cashier; `{amountReceived}`; cash only                                                             |
-| POST    | `/admin/bookings/:id/restore` | Admin/cashier; expired cash only; capacity checked again                                                 |
+| POST    | `/admin/bookings/:id/restore` | Admin/cashier; legacy expired cash only; no attendance cap                                                 |
 | POST    | `/admin/bookings/:id/cancel`  | Admin; unpaid, not checked-in bookings only                                                              |
 | POST    | `/admin/bookings/:id/notify`  | Admin/cashier; queues notification retry                                                                 |
 | GET     | `/admin/payments`             | Admin/cashier; most recent 500 records                                                                   |
@@ -55,17 +55,17 @@ Use `CASH` for counter payment. Mobile comes from the verified server session; c
 
 ```json
 {
-  "capacity": 20000,
+  "capacity": null,
   "day5Capacity": null,
   "day6Capacity": null,
   "maxGroup": 20,
-  "holdMinutes": 20,
-  "cashHoldMinutes": 1440,
+  "holdMinutes": null,
+  "cashHoldMinutes": null,
   "allowKidsOnly": 0
 }
 ```
 
-Null daily limits mean the combined event limit still governs either date. Limits cannot be reduced below active confirmed/held attendance. `allowKidsOnly` is disabled by default and requires an organiser-approved supervision policy.
+Attendance and payment deadlines are unrestricted. Availability returns `unlimited: true`, with `capacity`, daily capacities, hold durations and `remaining` set to null. Legacy settings fields are accepted for compatibility and normalised to disabled values; they cannot impose limits. `allowKidsOnly` is disabled by default and requires an organiser-approved supervision policy.
 
 ## Payment states
 
@@ -73,6 +73,6 @@ Null daily limits mean the combined event limit still governs either date. Limit
 
 For secure shared ticket links, the browser reads the URL fragment and supplies a bearer header for display and downloads. Server-rendered PDF and full-ticket PNG exports share the same red header, actual logo, Group Admission heading, brand font paths, booking details, status and original group QR. File sharing attaches this PNG where supported; otherwise it shares/copies the secure link to the same branded ticket page. Do not log bearer credentials. Retrieving by mobile/reference alone is not permitted.
 
-Cash reservations now include `qrToken` immediately while their hold is active. `/tickets/:id` and downloads permit these provisional cash tickets and label the amount due. Online-pending, expired and cancelled bookings do not expose a QR. Migration backfills QR hashes for existing cash reservations without changing their deterministic token or payment status.
+Cash reservations now include `qrToken` immediately without a payment deadline. `/tickets/:id` and downloads permit these provisional cash tickets and label the amount due. Online-pending, expired and cancelled bookings do not expose a QR. Migration backfills QR hashes for existing cash reservations without changing their deterministic token or payment status.
 
 `POST /scanner/verify` is lookup only: it returns booking/group details plus `amount` (paise), `method`, `status`, `mobile`, `email` and `paymentStatus` (`DUE` for pending cash, `PAID` for approved/free bookings). A successful lookup of unpaid cash does not authorize entry. `POST /scanner/checkin` retains `{token}` for paid entry and additionally accepts `{token, amountReceived}` for admin-only exact cash collection and entry in the same transaction. Check-in requires `Idempotency-Key`; scanner-only staff cannot collect cash. Expiry, date, duplicate-entry and ownership/role checks remain enforced. Admin/cashier `/admin/bookings/:id/approve` remains payment-only approval at a separate counter.
