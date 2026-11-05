@@ -627,16 +627,10 @@ function BookingDetail({ id, role }) {
                 </dd>
                 <dt>Created</dt>
                 <dd>{dateTime(b.createdAt)}</dd>
-                <dt>Reservation expires</dt>
-                <dd>{dateTime(b.holdUntil)}</dd>
                 <dt>Entry</dt>
                 <dd>
                   {b.checkedInAt ? dateTime(b.checkedInAt) : "Not entered"}
                 </dd>
-                <dt>Cash receipt</dt>
-                <dd>{data.payments[0]?.receipt || "—"}</dd>
-                <dt>Approved by</dt>
-                <dd>{data.payments[0]?.approvedBy || "—"}</dd>
               </dl>
             </div>
             <div className="admin-card">
