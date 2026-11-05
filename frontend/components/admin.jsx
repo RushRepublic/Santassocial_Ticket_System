@@ -71,7 +71,7 @@ export function StaffLogin() {
           <LayoutDashboard />
         </div>
         <p className="eyebrow">SANTA SOCIAL · EVENT OPERATIONS</p>
-        <h1>Staff login</h1>
+        <h1>Admin Login</h1>
         <p className="muted">Sign in to access your event management tools.</p>
         <form onSubmit={submit}>
           <label>
@@ -238,7 +238,7 @@ function ResourceLoading({ error, retry }) {
         Try again
       </button>
       <Link className="back-link" href="/login">
-        Staff login
+        Admin Login
       </Link>
     </div>
   );
