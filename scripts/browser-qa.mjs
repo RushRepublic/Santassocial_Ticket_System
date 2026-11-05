@@ -68,6 +68,45 @@ async function saveAndVerifyImage(token) {
     throw Error("Expected a complete ticket PNG.");
   await verifyTicketImage(await file.path(), token);
 }
+async function verifyAdminBookingQr(booking) {
+  await page.locator(`a[href="/admin/bookings/${booking.id}"]`).first().click();
+  await page
+    .getByRole("heading", { name: "Customer QR code", exact: true })
+    .waitFor();
+  if (
+    await page
+      .getByRole("heading", { name: "Booking actions", exact: true })
+      .count()
+  )
+    throw Error("Booking actions must be replaced by the customer QR.");
+  const qr = page.getByAltText("Unique QR code for this booking", {
+    exact: true,
+  });
+  if (!booking.qrToken) {
+    await page
+      .getByText("The QR ticket will be available after successful payment.", {
+        exact: true,
+      })
+      .waitFor();
+    if (await qr.count())
+      throw Error("An unpaid online booking must not expose an admission QR.");
+    return;
+  }
+  await qr.waitFor();
+  const bytes = Buffer.from(
+    (await qr.getAttribute("src")).split(",")[1],
+    "base64",
+  );
+  const { data, info } = await sharp(bytes)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  if (
+    jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data !==
+    booking.qrToken
+  )
+    throw Error("Admin QR differs from the customer's original booking QR.");
+}
 async function scanCameraToken(token) {
   if (await page.locator(".manual-token").count())
     throw Error("Manual scanner token entry must not be visible.");
@@ -355,6 +394,32 @@ try {
     .waitFor();
   await page.locator(".stat-card").first().waitFor();
   await page.screenshot({ path: "docs/admin-desktop.png", fullPage: true });
+  await verifyAdminBookingQr(booking);
+  await page.getByRole("link", { name: "All bookings", exact: true }).click();
+  await verifyAdminBookingQr(booking);
+  const unpaidResponse = await page.request.post(`${origin}/api/bookings`, {
+    headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
+    data: {
+      name: "Unpaid QR QA Guest",
+      email: "unpaid-qr@example.com",
+      eventDate: "2026-12-05",
+      adults: 1,
+      kids: 0,
+      method: "RAZORPAY",
+    },
+  });
+  if (!unpaidResponse.ok())
+    throw Error("Unable to create unpaid QR regression booking.");
+  const unpaidBooking = await unpaidResponse.json();
+  await page
+    .locator(".admin-sidebar")
+    .getByRole("link", { name: "Bookings", exact: true })
+    .click();
+  await verifyAdminBookingQr(unpaidBooking);
+  await page
+    .locator(".admin-sidebar")
+    .getByRole("link", { name: "Overview", exact: true })
+    .click();
   for (const status of [403, 500]) {
     const pattern = "**/api/admin/dashboard?*";
     await page.route(pattern, (route) =>
@@ -494,6 +559,11 @@ try {
   const cashBooking = await cashResponse.json();
   if (!cashBooking.qrToken)
     throw Error("Cash booking must immediately issue a QR.");
+  await page.getByRole("link", { name: "Back to dashboard" }).click();
+  await verifyAdminBookingQr(cashBooking);
+  await page
+    .getByText(/Cash due:.*Payment approval is required before entry\./)
+    .waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${origin}/booking-pending?id=${cashBooking.id}`);
   await page
@@ -553,6 +623,12 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("link", { name: "Back to dashboard" }).click();
   await page.waitForURL(`${origin}/admin/dashboard`);
+  await verifyAdminBookingQr(collected);
+  await page.setViewportSize({ width: 390, height: 844 });
+  if (
+    await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
+  )
+    throw Error("Admin booking QR mobile layout overflow.");
   if (staffLogins !== 3)
     throw Error(
       "Fresh documents require login; module navigation must share that sign-in.",

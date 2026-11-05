@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Admin booking QR card
+
+Booking details replace all Booking actions controls and notification delivery with the existing customer QR. The browser journey opens the detail from Overview and Bookings and decodes the displayed image to verify it equals the customer's original token, including a cash booking after gate approval. Pending online bookings show an unavailable message and no QR. The card is checked at mobile width. Payment approval and atomic entry remain available through the scanner and backend role enforcement.
+
 ## Direct payment-to-ticket journey
 
 Successful simulated payments open `/ticket/:id` directly; legacy success URLs render the ticket without another click. The demo dialog also offers unsuccessful-payment simulation and reports cancellation clearly. `scripts/payment-qa.mjs` uses mocked external checkout callbacks against an isolated real API to exercise failed/cancelled payments and HTTP 202 awaiting capture. These states must stay on checkout without a QR; only server-confirmed PAID/FREE status opens a ticket. The status button recovers after delayed capture. This does not verify real Razorpay payment apps/cards; hosted payments remain simulated by the owner's request.

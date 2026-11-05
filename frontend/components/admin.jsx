@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -198,7 +199,7 @@ export function Admin() {
             <Dashboard />
           ) : section === "bookings" ? (
             id ? (
-              <BookingDetail id={id} role={identity.role} />
+              <BookingDetail id={id} />
             ) : (
               <Bookings />
             )
@@ -547,13 +548,67 @@ function Bookings({ compact = false }) {
     </section>
   );
 }
-function BookingDetail({ id, role }) {
+function BookingQr({ booking }) {
+  const [qr, setQr] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setQr(null);
+    setError("");
+    if (booking.qrToken)
+      QRCode.toDataURL(booking.qrToken, {
+        width: 600,
+        margin: 4,
+        errorCorrectionLevel: "M",
+        color: { dark: "#153622", light: "#ffffff" },
+      })
+        .then((image) => {
+          if (active) setQr(image);
+        })
+        .catch(() => {
+          if (active)
+            setError(
+              "Unable to display this QR code. Please reload and try again.",
+            );
+        });
+    return () => {
+      active = false;
+    };
+  }, [booking.qrToken]);
+  if (!booking.qrToken)
+    return (
+      <p className="field-hint">
+        {booking.status === "PENDING_PAYMENT"
+          ? "The QR ticket will be available after successful payment."
+          : "This booking has no active QR ticket."}
+      </p>
+    );
+  return (
+    <div className="booking-qr-content">
+      {error ? (
+        <Notice>{error}</Notice>
+      ) : qr ? (
+        <img
+          src={qr}
+          width={240}
+          height={240}
+          alt="Unique QR code for this booking"
+        />
+      ) : (
+        <Loading />
+      )}
+      {booking.status === "PENDING_CASH" && (
+        <p className="field-hint">
+          Cash due: {money(booking.amount)}. Payment approval is required before
+          entry.
+        </p>
+      )}
+    </div>
+  );
+}
+function BookingDetail({ id }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [action, setAction] = useState("");
-  const [amount, setAmount] = useState("");
-  const [busy, setBusy] = useState(false);
   const load = useCallback(() => {
     setError("");
     return api(`/admin/bookings/${id}`)
@@ -563,31 +618,6 @@ function BookingDetail({ id, role }) {
   useEffect(() => {
     void load();
   }, [load]);
-  async function run(kind) {
-    setBusy(true);
-    setError("");
-    try {
-      await post(
-        `/admin/bookings/${id}/${kind}`,
-        kind === "approve"
-          ? { amountReceived: Math.round(Number(amount) * 100) }
-          : {},
-      );
-      setMessage(
-        kind === "approve"
-          ? "Cash receipt recorded and group ticket activated."
-          : kind === "notify"
-            ? "Notification queued for delivery."
-            : "Booking updated.",
-      );
-      setAction("");
-      await load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
   const b = data?.booking;
   return (
     <>
@@ -596,7 +626,6 @@ function BookingDetail({ id, role }) {
         All bookings
       </Link>
       {error && <Notice>{error}</Notice>}
-      {message && <Notice success>{message}</Notice>}
       {!b ? (
         <ResourceLoading error={error} retry={load} />
       ) : (
@@ -633,111 +662,11 @@ function BookingDetail({ id, role }) {
                 </dd>
               </dl>
             </div>
-            <div className="admin-card">
-              <h2>Booking actions</h2>
-              {b.status === "PENDING_CASH" && (
-                <button
-                  className="button full"
-                  onClick={() => setAction("approve")}
-                >
-                  Record cash payment
-                </button>
-              )}
-              {b.method === "CASH" && b.status === "EXPIRED" && (
-                <button
-                  className="button full"
-                  disabled={busy}
-                  onClick={() => run("restore")}
-                >
-                  Restore reservation
-                </button>
-              )}
-              {["PAID", "FREE"].includes(b.status) && (
-                <Link className="button full" href={`/ticket/${b.id}`}>
-                  View group ticket
-                </Link>
-              )}
-              <button
-                className="button outline full"
-                disabled={busy}
-                onClick={() => run("notify")}
-              >
-                Resend notification
-              </button>
-              {role === "ADMIN" &&
-                ["PENDING_CASH", "PENDING_PAYMENT"].includes(b.status) && (
-                  <button
-                    className="text-button danger"
-                    onClick={() => setAction("cancel")}
-                  >
-                    Cancel unpaid booking
-                  </button>
-                )}
-              <p className="field-hint">
-                Payment evidence and approval actions are audited.
-              </p>
-              <h3>Notification delivery</h3>
-              {data.notifications.map((n) => (
-                <p key={n.id}>
-                  {n.type.replaceAll("_", " ")} · <Status value={n.status} />
-                  <small>{n.attempts} attempt(s)</small>
-                </p>
-              ))}
+            <div className="admin-card booking-qr-card">
+              <h2>Customer QR code</h2>
+              <BookingQr booking={b} />
             </div>
           </div>
-          {action && (
-            <div
-              className="modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              aria-label={
-                action === "approve" ? "Record cash receipt" : "Cancel booking"
-              }
-            >
-              <div className="modal-card">
-                <h2>
-                  {action === "approve"
-                    ? "Confirm cash collected"
-                    : "Cancel this unpaid booking?"}
-                </h2>
-                <p>
-                  {action === "approve"
-                    ? `Collect ${money(b.amount)} for ${b.reference}. Confirm only after receiving the money.`
-                    : "This cancels the group’s unpaid booking."}
-                </p>
-                {action === "approve" && (
-                  <label>
-                    Amount received in rupees
-                    <input
-                      autoFocus
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                    />
-                  </label>
-                )}
-                <button
-                  className="button full"
-                  disabled={
-                    busy ||
-                    (action === "approve" && Number(amount) * 100 !== b.amount)
-                  }
-                  onClick={() => run(action)}
-                >
-                  {busy ? "Saving…" : "Confirm"}
-                </button>
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() => setAction("")}
-                >
-                  Go back
-                </button>
-              </div>
-            </div>
-          )}
         </>
       )}
     </>
