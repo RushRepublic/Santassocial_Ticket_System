@@ -18,7 +18,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { z } from "zod";
-import QRCode from "qrcode";
+import { GroupTicket } from "./ticket";
 import { api, post, money, eventDate } from "@/lib/api";
 import { VenueLocation, Notice, Loading, Status } from "./common";
 import { MobileVerification } from "./mobile-verification";
@@ -718,25 +718,6 @@ export function Confirmation() {
   const [booking, setBooking] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [qr, setQr] = useState("");
-  useEffect(() => {
-    let active = true;
-    setQr("");
-    if (booking?.qrToken && booking.status === "PENDING_CASH")
-      QRCode.toDataURL(booking.qrToken, { width: 600, margin: 4 })
-        .then((value) => {
-          if (active) setQr(value);
-        })
-        .catch(() => {
-          if (active)
-            setError(
-              "Unable to display your QR. Refresh booking status to retry.",
-            );
-        });
-    return () => {
-      active = false;
-    };
-  }, [booking]);
   async function load() {
     setBusy(true);
     setError("");
@@ -762,6 +743,8 @@ export function Confirmation() {
     void load();
   }, []);
   const active = booking && ["PAID", "FREE"].includes(booking.status);
+  if (booking?.method === "CASH" && booking.qrToken)
+    return <GroupTicket id={booking.id} />;
   return (
     <main className="booking-page">
       <div className="narrow-card confirmation">
@@ -815,30 +798,6 @@ export function Confirmation() {
                     timeZone: "Asia/Kolkata",
                   })}{" "}
                   IST. Show your group QR. Entry requires payment approval.
-                </div>
-              )}
-              {booking.status === "PENDING_CASH" && qr && (
-                <div className="ticket-qr">
-                  <img
-                    src={qr}
-                    alt="Cash booking group QR — payment approval required"
-                    width={210}
-                    height={210}
-                  />
-                  <p>
-                    One QR for all {booking.people} guests. Cash payment
-                    pending.
-                  </p>
-                  <a
-                    className="button outline"
-                    href={qr}
-                    download={`${booking.reference}-qr.png`}
-                  >
-                    Save QR image
-                  </a>
-                  <Link className="back-link" href={`/ticket/${booking.id}`}>
-                    View or download group ticket
-                  </Link>
                 </div>
               )}
               {booking.status === "PAYMENT_REVIEW" && (

@@ -594,6 +594,16 @@ test("API journey: OTP, booking, demo payment, ticket retrieval, PDF and role re
     });
     assert.equal(paid.body.status, "PAID");
     assert.ok(paid.body.qrToken);
+    await request(app)
+      .get(`/api/tickets/${b.id}/download?format=png`)
+      .set("Authorization", `Bearer ${paid.body.qrToken}`)
+      .expect(200)
+      .expect("Content-Type", /png/);
+    await request(app).get(`/api/tickets/${b.id}/download`).expect(403);
+    await request(app)
+      .get(`/api/tickets/${b.id}/download`)
+      .set("Authorization", `Bearer ss_${"0".repeat(64)}`)
+      .expect(403);
     await customer
       .get(`/api/tickets/${b.id}/download`)
       .expect(200)

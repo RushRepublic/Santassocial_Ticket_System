@@ -107,3 +107,9 @@ Cash bookings now expose the same unique QR before and after payment approval, w
 ## Centered booking form
 
 The registration landing page now uses a centered single-column form with no booking summary. Checkout retains the existing summary. Syntax checks, 23 backend tests (one MySQL integration test skipped), production build and existing desktop/mobile browser QA passed; browser checks explicitly verify desktop centering, no summary on registration and summary visibility on Checkout.
+
+## Branded cash and online ticket exports
+
+Cash confirmations now render the same Group Admission ticket card as online payments, retaining the amount due, approval requirement and expiry for unpaid cash. Server exports use the actual logo and Roboto Condensed glyph paths, so they need no externally installed fonts. PDF embeds the same complete artwork as the 1290 × 2610 PNG; Save QR image saves the whole ticket. File-capable sharing attaches this PNG, while unsupported sharing falls back to the secure branded ticket link. Valid ticket bearers can download; missing or tampered credentials cannot retrieve a ticket by ID alone.
+
+JavaScript checks, production build and 26 tests passed; the dedicated MySQL integration test was skipped locally. Export tests verify red header pixels, complete portrait dimensions and original QR decoding for online-paid, cash-pending and cash-paid tickets. Browser QA passed for PDF download, saved cash/online PNG decoding, complete file-share payload, clipboard fallback, mobile cash ticket display and existing registration/admin/camera-scanner workflows. Native phone share sheets and real WhatsApp/email delivery were not exercised; providers remain simulated for the hosted prototype.

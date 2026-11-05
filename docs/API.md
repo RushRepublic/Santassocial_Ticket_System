@@ -22,7 +22,7 @@ Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentic
 | POST    | `/demo/payments/complete`     | Demo only; owner; `{bookingId}`; requires a demo order                                                   |
 | POST    | `/tickets/retrieve`           | Verified mobile; all bookings for that session’s mobile                                                  |
 | GET     | `/tickets/:id`                | Owner/admin/cashier or `Authorization: Bearer ss_…` ticket credential                                    |
-| GET     | `/tickets/:id/download`       | Owner/admin/cashier; PDF; add `?format=png` for QR image                                                 |
+| GET     | `/tickets/:id/download`       | Owner/admin/cashier or valid ticket bearer; branded PDF; `?format=png` returns the complete branded ticket image |
 | GET     | `/admin/dashboard?date=all`   | Admin/cashier; dates also `2026-12-05` or `2026-12-06`                                                   |
 | GET     | `/admin/bookings`             | Admin/cashier; `q`, `date`, `status`, `page`; 25 per page; `format=csv` exports matches                  |
 | GET     | `/admin/bookings/:id`         | Admin/cashier; booking, payment, delivery, check-in records                                              |
@@ -71,7 +71,7 @@ Null daily limits mean the combined event limit still governs either date. Limit
 
 `PENDING_PAYMENT` or `PENDING_CASH` → `PAID` after verified evidence/authorised cash receipt. Zero-price eligible bookings → `FREE`. Unpaid holds → `EXPIRED` or `CANCELLED`. Captured late payment without inventory → `PAYMENT_REVIEW`; this is never an admission ticket. Check-in is a separate timestamp and unique record; it does not make tickets disappear from retrieval.
 
-For secure shared ticket links, the browser reads the URL fragment and supplies a bearer header. Client-generated PDF/PNG downloads work for these links too. Do not log bearer credentials. Retrieving by mobile/reference alone is not permitted.
+For secure shared ticket links, the browser reads the URL fragment and supplies a bearer header for display and downloads. Server-rendered PDF and full-ticket PNG exports share the same red header, actual logo, Group Admission heading, brand font paths, booking details, status and original group QR. File sharing attaches this PNG where supported; otherwise it shares/copies the secure link to the same branded ticket page. Do not log bearer credentials. Retrieving by mobile/reference alone is not permitted.
 
 Cash reservations now include `qrToken` immediately while their hold is active. `/tickets/:id` and downloads permit these provisional cash tickets and label the amount due. Online-pending, expired and cancelled bookings do not expose a QR. Migration backfills QR hashes for existing cash reservations without changing their deterministic token or payment status.
 

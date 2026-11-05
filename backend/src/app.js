@@ -4,9 +4,7 @@ import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { randomInt, randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import QRCode from "qrcode";
-import PDFDocument from "pdfkit";
+import { sendTicketDownload } from "./ticket-artwork.js";
 import { config, demo, production, databaseDriver } from "./config.js";
 import {
   hmac,
@@ -189,7 +187,7 @@ export function createApp(db) {
       ok: true,
       mode: demo ? "demo" : "live",
       database: databaseDriver,
-      release: "cash-gate-approval-1",
+      release: "branded-ticket-exports-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -492,57 +490,16 @@ export function createApp(db) {
       fail(403, "Your ticket will be available after payment approval.");
     res.json(publicBooking(b));
   });
-  app.get("/api/tickets/:id/download", auth(), async (req, res) => {
-    const b = await own(req, param(req));
+  app.get("/api/tickets/:id/download", async (req, res) => {
+    const b = await getBooking(db, param(req));
+    const bearer = req.get("authorization")?.replace(/^Bearer /, "");
+    if (
+      !bearer?.startsWith("ss_") ||
+      !equal(bearer.slice(3), qrToken(b).slice(3))
+    )
+      await own(req, b.id);
     if (!hasBookingQr(b)) fail(403, "Ticket is not active.");
-    const qr = await QRCode.toBuffer(qrToken(b), {
-      width: 400,
-      margin: 2,
-      errorCorrectionLevel: "M",
-    });
-    if (req.query.format === "png")
-      return res.type("png").attachment(`${b.reference}.png`).send(qr);
-    res.type("pdf").attachment(`${b.reference}.pdf`);
-    const pdf = new PDFDocument({ size: "A5", margin: 35 });
-    pdf.pipe(res);
-    pdf.rect(0, 0, 420, 595).fill("#FFFAF0");
-    pdf.image(
-      fileURLToPath(
-        new URL("../assets/santa-social-9th-edition.png", import.meta.url),
-      ),
-      170,
-      16,
-      { fit: [80, 72] },
-    );
-    pdf
-      .fillColor("#8A1D23")
-      .fontSize(12)
-      .text("GROUP TICKET", 35, 99, { align: "center" });
-    pdf
-      .fillColor("#153622")
-      .fontSize(14)
-      .text(b.reference, 35, 125, { align: "left" })
-      .text(b.name)
-      .text(`${b.eventDate} | 11:00 AM - 9:00 PM IST`)
-      .text("Park Grounds - CODISSIA, Coimbatore")
-      .text(`${b.adults} adults + ${b.kids} kids | ${b.people} guests`)
-      .text(
-        `${b.status === "PENDING_CASH" ? "CASH DUE" : "Paid"}: INR ${b.amount / 100}${demo ? " | DEMO" : ""}`,
-      );
-    pdf.image(qr, 105, 270, { width: 210 });
-    pdf
-      .fontSize(11)
-      .text(
-        b.status === "PENDING_CASH"
-          ? "Pay cash at the counter. Approval required before entry."
-          : "All group members must arrive together. No re-entry.",
-        35,
-        510,
-        {
-          align: "center",
-        },
-      );
-    pdf.end();
+    await sendTicketDownload(res, b, req.query.format);
   });
   const staff = auth(["ADMIN", "CASHIER"]);
   app.post("/api/admin/bookings/:id/approve", staff, async (req, res) =>

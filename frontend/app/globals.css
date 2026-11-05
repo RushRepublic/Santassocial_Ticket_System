@@ -1309,6 +1309,14 @@ input::placeholder {
 .ticket-top .wordmark {
   width: 100px;
 }
+.ticket-status.ticket-cash-due {
+  color: var(--red);
+}
+.ticket-qr .cash-ticket-expiry {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 12px;
+}
 .ticket-demo {
   background: #f9e8bf;
   font-size: 11px;

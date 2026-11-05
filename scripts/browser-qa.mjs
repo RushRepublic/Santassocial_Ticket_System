@@ -1,6 +1,8 @@
 import { chromium } from "@playwright/test";
 import { existsSync } from "node:fs";
 import QRCode from "qrcode";
+import sharp from "sharp";
+import jsQR from "jsqr";
 const executable =
   process.env.PLAYWRIGHT_EXECUTABLE ||
   "C:/Users/aaa/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe";
@@ -37,6 +39,35 @@ await context.addInitScript(() => {
   };
 });
 const page = await context.newPage();
+async function verifyTicketImage(input, token) {
+  const { data, info } = await sharp(input)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  if (info.width < 1000 || info.height < info.width * 1.5)
+    throw Error(
+      "Ticket image must contain the full high-resolution portrait ticket.",
+    );
+  const pixel = (40 * info.width + Math.floor(info.width / 2)) * 4;
+  if (data[pixel] !== 138 || data[pixel + 1] !== 29 || data[pixel + 2] !== 35)
+    throw Error("Ticket export is missing its red brand header.");
+  if (
+    jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data !== token
+  )
+    throw Error(
+      "The branded image QR does not decode to the original group ticket.",
+    );
+}
+async function saveAndVerifyImage(token) {
+  const download = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Save QR image", exact: true })
+    .click();
+  const file = await download;
+  if (!file.suggestedFilename().endsWith("-ticket.png"))
+    throw Error("Expected a complete ticket PNG.");
+  await verifyTicketImage(await file.path(), token);
+}
 async function scanCameraToken(token) {
   if (await page.locator(".manual-token").count())
     throw Error("Manual scanner token entry must not be visible.");
@@ -230,6 +261,46 @@ try {
   await page.getByRole("button", { name: "Download PDF" }).click();
   if (!(await download).suggestedFilename().endsWith(".pdf"))
     throw Error("Missing PDF download");
+  await saveAndVerifyImage(booking.qrToken);
+  await page.exposeFunction("verifySharedTicket", async (bytes) =>
+    verifyTicketImage(Buffer.from(bytes), booking.qrToken),
+  );
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: ({ files }) => files?.length === 1,
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async ({ files }) => {
+        if (files?.[0]?.type !== "image/png")
+          throw Error("Share must attach the complete branded PNG.");
+        await window.verifySharedTicket(
+          Array.from(new Uint8Array(await files[0].arrayBuffer())),
+        );
+        window.sharedTicketVerified = true;
+      },
+    });
+  });
+  await page.getByRole("button", { name: "Share ticket", exact: true }).click();
+  await page.waitForFunction(() => window.sharedTicketVerified);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      configurable: true,
+      value: async (text) => {
+        window.copiedTicketUrl = text;
+      },
+    });
+  });
+  await page.getByRole("button", { name: "Share ticket", exact: true }).click();
+  await page.waitForFunction(
+    (token) => window.copiedTicketUrl?.endsWith(`#${token}`),
+    booking.qrToken,
+  );
   await page.goto(`${origin}/admin/login`);
   await page.waitForURL(`${origin}/login`);
   await page.goto(`${origin}/scanner/login`);
@@ -367,16 +438,22 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${origin}/booking-pending?id=${cashBooking.id}`);
   await page
-    .getByAltText("Cash booking group QR — payment approval required")
+    .getByAltText("One secure QR code for this entire group booking")
     .waitFor();
   if (
     await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
   )
     throw Error("Cash QR mobile layout overflow.");
-  await page
-    .getByRole("link", { name: "View or download group ticket" })
-    .click();
   await page.getByText(/CASH DUE.*APPROVAL REQUIRED/).waitFor();
+  if (
+    !(await page.locator(".digital-ticket .ticket-top").innerText()).includes(
+      "ADMISSION",
+    )
+  )
+    throw Error(
+      "Cash bookings must display the same Group Admission brand header.",
+    );
+  await saveAndVerifyImage(cashBooking.qrToken);
   await page.goto(`${origin}/scanner`);
   await scanCameraToken(cashBooking.qrToken);
   await page

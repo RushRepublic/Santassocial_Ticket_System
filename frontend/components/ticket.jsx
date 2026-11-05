@@ -18,6 +18,7 @@ export function GroupTicket({ id }) {
   const [qr, setQr] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState("");
   useEffect(() => {
     const token = location.hash.slice(1);
     api(`/tickets/${id}`, {
@@ -37,64 +38,62 @@ export function GroupTicket({ id }) {
       })
       .catch((e) => setError(e.message));
   }, [id]);
-  async function pdf() {
-    if (!booking || !qr) return;
-    try {
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ format: "a5", unit: "mm" });
-      doc.setFillColor("#FFFAF0");
-      doc.rect(0, 0, 148, 210, "F");
-      const logoResponse = await fetch("/brand/santa-social-9th-edition.png");
-      if (!logoResponse.ok) throw new Error("Brand logo could not be loaded.");
-      const logo = new Uint8Array(await logoResponse.arrayBuffer());
-      doc.addImage(logo, "PNG", 56.5, 5, 35, (35 * 1184) / 1328);
-      doc.setTextColor("#8A1D23");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("GROUP TICKET", 74, 39, { align: "center" });
-      doc.setTextColor("#153622");
-      doc.setFontSize(12);
-      const lines = [
-        booking.reference,
-        booking.name,
-        eventDate(booking.eventDate),
-        "11:00 AM - 9:00 PM IST",
-        "Park Grounds - CODISSIA, Coimbatore",
-        `${booking.adults} adults + ${booking.kids} kids | ${booking.people} guests`,
-        `${booking.status === "PENDING_CASH" ? "CASH DUE" : "Paid"}: INR ${booking.amount / 100}`,
-      ];
-      lines.forEach((s, i) => doc.text(s, 74, 49 + i * 7, { align: "center" }));
-      doc.addImage(qr, "PNG", 44, 98, 60, 60);
-      doc.setFontSize(10);
-      doc.text("One QR. Your whole group. Please arrive together.", 74, 172, {
-        align: "center",
-      });
-      doc.text(
-        booking.status === "PENDING_CASH"
-          ? "Pay cash at the counter. Approval required before entry."
-          : "Single entry only. No partial entry or re-entry.",
-        74,
-        180,
-        {
-          align: "center",
-        },
+  async function ticketFile(format) {
+    const response = await fetch(
+      `/api/tickets/${booking.id}/download?format=${format}`,
+      {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${booking.qrToken}` },
+      },
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(
+        body.error || "Unable to prepare your ticket. Please try again.",
       );
-      if (booking.demo) {
-        doc.setTextColor("#8A1D23");
-        doc.text("DEMO ONLY - NOT VALID FOR ADMISSION", 74, 193, {
-          align: "center",
-        });
-      }
-      doc.save(`${booking.reference}.pdf`);
-    } catch {
-      setError("Unable to generate your PDF. Please try again.");
+    }
+    return new File(
+      [await response.blob()],
+      `${booking.reference}${format === "png" ? "-ticket.png" : ".pdf"}`,
+      { type: format === "png" ? "image/png" : "application/pdf" },
+    );
+  }
+  function saveFile(file) {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  async function download(format) {
+    if (!booking || !qr || busy) return;
+    setBusy(format);
+    setError("");
+    try {
+      saveFile(await ticketFile(format));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy("");
     }
   }
   async function share() {
-    if (!booking) return;
+    if (!booking || !qr || busy) return;
+    setBusy("share");
+    setError("");
     const url = `${location.origin}/ticket/${booking.id}#${booking.qrToken}`;
     try {
-      if (navigator.share)
+      const file = await ticketFile("png");
+      if (navigator.share && navigator.canShare?.({ files: [file] }))
+        await navigator.share({
+          title: "Santa Social group ticket",
+          files: [file],
+        });
+      else if (navigator.share)
         await navigator.share({
           title: "Santa Social group ticket",
           text: `Santa Social · ${eventDate(booking.eventDate)} · ${booking.people} guests`,
@@ -107,6 +106,8 @@ export function GroupTicket({ id }) {
     } catch (e) {
       if (e.name !== "AbortError")
         setError("Sharing was unavailable. Download your ticket to save it.");
+    } finally {
+      setBusy("");
     }
   }
   if (error && !booking)
@@ -132,9 +133,9 @@ export function GroupTicket({ id }) {
         <div className="ticket-top">
           <Wordmark />
           <span>
-            {booking.status === "PENDING_CASH" ? "CASH" : "GROUP"}
+            GROUP
             <br />
-            {booking.status === "PENDING_CASH" ? "PENDING" : "ADMISSION"}
+            ADMISSION
           </span>
         </div>
         {booking.demo && (
@@ -166,7 +167,9 @@ export function GroupTicket({ id }) {
               <small>TOTAL GUESTS</small>
             </div>
           </div>
-          <div className="ticket-status">
+          <div
+            className={`ticket-status ${booking.status === "PENDING_CASH" ? "ticket-cash-due" : ""}`}
+          >
             <CheckCircle size={15} />
             {booking.status === "PENDING_CASH"
               ? `CASH DUE · ${money(booking.amount)} · APPROVAL REQUIRED`
@@ -193,28 +196,55 @@ export function GroupTicket({ id }) {
           <small>
             Everyone must arrive together.
             <br />
-            Valid only for the selected date. No re-entry.
+            {booking.status === "PENDING_CASH"
+              ? "Pay cash at the counter. Approval required before entry."
+              : "Valid only for the selected date. No re-entry."}
           </small>
+          {booking.status === "PENDING_CASH" && (
+            <p className="cash-ticket-expiry">
+              Pay before{" "}
+              {new Date(booking.holdUntil).toLocaleString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })}{" "}
+              IST.
+            </p>
+          )}
         </div>
       </article>
       <div className="ticket-actions">
-        <button className="button" onClick={pdf} disabled={!qr}>
+        <button
+          className="button"
+          onClick={() => download("pdf")}
+          disabled={!qr || !!busy}
+        >
           <Download size={17} />
           Download PDF
         </button>
-        <a
+        <button
           className="button outline"
-          href={qr}
-          download={`${booking.reference}-qr.png`}
+          onClick={() => download("png")}
+          disabled={!qr || !!busy}
         >
           <ImageDown size={17} />
           Save QR image
-        </a>
-        <button className="button outline" onClick={share}>
+        </button>
+        <button
+          className="button outline"
+          onClick={share}
+          disabled={!qr || !!busy}
+        >
           <Share2 size={17} />
           Share ticket
         </button>
       </div>
+      {booking.status === "PENDING_CASH" && (
+        <button
+          className="text-button"
+          onClick={() => window.location.reload()}
+        >
+          Refresh payment status
+        </button>
+      )}
       {message && <Notice success>{message}</Notice>}
       {error && <Notice>{error}</Notice>}
       <Link className="back-link" href="/retrieve-ticket">
