@@ -241,12 +241,34 @@ try {
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: /Continue to payment/ }).click();
   await page
-    .getByRole("button", { name: "Simulate successful payment" })
+    .getByRole("button", { name: "Simulate unsuccessful payment", exact: true })
     .click();
   await page
-    .getByRole("heading", { name: "You’re on the guest list!" })
+    .getByText(
+      "Payment unsuccessful. No successful payment was confirmed. Please try again.",
+      { exact: true },
+    )
     .waitFor();
-  await page.getByRole("link", { name: "View your group ticket" }).click();
+  if (
+    new URL(page.url()).pathname !== "/checkout" ||
+    (await page.locator(".digital-ticket").count())
+  )
+    throw Error("An unsuccessful payment must not open a ticket.");
+  await page.getByRole("button", { name: /Continue to payment/ }).click();
+  await page
+    .getByRole("button", { name: "Cancel demo payment", exact: true })
+    .click();
+  await page
+    .getByText(
+      "Payment cancelled. No successful payment was confirmed. Please try again.",
+      { exact: true },
+    )
+    .waitFor();
+  await page.getByRole("button", { name: /Continue to payment/ }).click();
+  await page
+    .getByRole("button", { name: "Simulate successful payment" })
+    .click();
+  await page.waitForURL(/\/ticket\/[^/]+$/);
   await page
     .getByAltText("One secure QR code for this entire group booking")
     .waitFor();

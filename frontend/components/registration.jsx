@@ -440,6 +440,8 @@ export function Checkout() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [demoBooking, setDemoBooking] = useState(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [pendingPaymentId, setPendingPaymentId] = useState(null);
   const [agreed, setAgreed] = useState(false);
   useEffect(() => {
     async function restore() {
@@ -482,13 +484,55 @@ export function Checkout() {
   function success(b) {
     sessionStorage.setItem("santa-last-booking", b.id);
     router.push(
-      `${b.status === "PENDING_CASH" ? "/booking-pending" : "/booking-success"}?id=${b.id}`,
+      b.status === "PENDING_CASH"
+        ? `/booking-pending?id=${b.id}`
+        : `/ticket/${b.id}`,
+    );
+  }
+  async function confirmOnlinePayment(id, verified) {
+    setCheckingPayment(true);
+    setPendingPaymentId(id);
+    let booking = verified;
+    try {
+      // A provider callback or HTTP 202 is not proof of captured payment.
+      // Only a server-confirmed paid/free booking can open the admission QR.
+      for (let attempt = 0; attempt < 8; attempt++) {
+        if (attempt) await new Promise((resolve) => setTimeout(resolve, 1200));
+        if (!booking || attempt) booking = await api(`/bookings/${id}`);
+        if (booking?.status === "PAID" || booking?.status === "FREE") {
+          setPendingPaymentId(null);
+          success(booking);
+          return;
+        }
+        if (
+          booking?.status === "PAYMENT_REVIEW" ||
+          booking?.status === "CANCELLED"
+        )
+          throw Error(
+            "Payment could not be approved. Please contact the organiser with your booking reference.",
+          );
+      }
+      setError(
+        "Payment is not confirmed yet. If your account was debited, check payment status before paying again. Your ticket will appear after confirmation.",
+      );
+    } finally {
+      setCheckingPayment(false);
+    }
+  }
+  function demoUnsuccessful(cancelled = false) {
+    setDemoBooking(null);
+    setBusy(false);
+    setError(
+      cancelled
+        ? "Payment cancelled. No successful payment was confirmed. Please try again."
+        : "Payment unsuccessful. No successful payment was confirmed. Please try again.",
     );
   }
   async function start() {
     if (!draft || busy) return;
     setBusy(true);
     setError("");
+    setPendingPaymentId(null);
     try {
       const { key, mobile, bookingId, ...input } = draft;
       const b = bookingId
@@ -516,6 +560,7 @@ export function Checkout() {
         return;
       }
       await loadCheckout();
+      let paymentSubmitted = false;
       const checkout = new window.Razorpay({
         key: order.keyId,
         order_id: order.orderId,
@@ -527,28 +572,35 @@ export function Checkout() {
         theme: { color: "#8a1d23" },
         modal: {
           ondismiss: () => {
+            if (paymentSubmitted) return;
             setBusy(false);
             setError(
-              "Payment window closed. Your booking is saved; please retry payment.",
+              "Payment cancelled. No successful payment was confirmed. Your booking is saved; please try again.",
             );
           },
         },
         handler: async (result) => {
+          paymentSubmitted = true;
           try {
-            await post("/payments/razorpay/verify", {
+            const verified = await post("/payments/razorpay/verify", {
               bookingId: b.id,
               ...result,
             });
-            router.push(`/booking-success?id=${b.id}`);
+            await confirmOnlinePayment(b.id, verified);
           } catch (e) {
-            setError(e.message);
+            setPendingPaymentId(b.id);
+            setError(
+              `Payment confirmation could not be completed. ${e.message} If your account was debited, check payment status before paying again.`,
+            );
           } finally {
             setBusy(false);
           }
         },
       });
       checkout.on("payment.failed", () => {
-        setError("Payment failed. Your booking is saved; please try again.");
+        setError(
+          "Payment unsuccessful. No successful payment was confirmed. Your booking is saved; please try again.",
+        );
         setBusy(false);
       });
       checkout.open();
@@ -561,7 +613,8 @@ export function Checkout() {
     if (!demoBooking) return;
     setBusy(true);
     try {
-      success(
+      await confirmOnlinePayment(
+        demoBooking.id,
         await post("/demo/payments/complete", { bookingId: demoBooking.id }),
       );
     } catch (e) {
@@ -634,13 +687,36 @@ export function Checkout() {
             I have checked my booking and agree to these entry conditions.
           </label>
           {error && <Notice>{error}</Notice>}
+          {pendingPaymentId && (
+            <button
+              className="button outline full"
+              disabled={busy || checkingPayment}
+              onClick={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  await confirmOnlinePayment(pendingPaymentId);
+                } catch (e) {
+                  setError(e.message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {checkingPayment
+                ? "Checking payment status…"
+                : "Check payment status"}
+            </button>
+          )}
           <button
             className="button full"
-            disabled={!agreed || busy}
+            disabled={!agreed || busy || checkingPayment}
             onClick={start}
           >
             {busy
-              ? "Preparing your booking…"
+              ? checkingPayment
+                ? "Verifying payment…"
+                : "Preparing your booking…"
               : draft.adults === 0
                 ? "Confirm free booking"
                 : draft.method === "CASH"
@@ -693,12 +769,16 @@ export function Checkout() {
               {busy ? "Confirming…" : "Simulate successful payment"}
             </button>
             <button
+              className="button outline full"
+              disabled={busy}
+              onClick={() => demoUnsuccessful()}
+            >
+              Simulate unsuccessful payment
+            </button>
+            <button
               className="text-button"
               disabled={busy}
-              onClick={() => {
-                setDemoBooking(null);
-                setBusy(false);
-              }}
+              onClick={() => demoUnsuccessful(true)}
             >
               Cancel demo payment
             </button>
@@ -737,7 +817,7 @@ export function Confirmation() {
     void load();
   }, []);
   const active = booking && ["PAID", "FREE"].includes(booking.status);
-  if (booking?.method === "CASH" && booking.qrToken)
+  if (booking?.qrToken && (active || booking.method === "CASH"))
     return <GroupTicket id={booking.id} />;
   return (
     <main className="booking-page">

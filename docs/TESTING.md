@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Direct payment-to-ticket journey
+
+Successful simulated payments open `/ticket/:id` directly; legacy success URLs render the ticket without another click. The demo dialog also offers unsuccessful-payment simulation and reports cancellation clearly. `scripts/payment-qa.mjs` uses mocked external checkout callbacks against an isolated real API to exercise failed/cancelled payments and HTTP 202 awaiting capture. These states must stay on checkout without a QR; only server-confirmed PAID/FREE status opens a ticket. The status button recovers after delayed capture. This does not verify real Razorpay payment apps/cards; hosted payments remain simulated by the owner's request.
+
 ## Unlimited registration and no payment deadlines
 
 Registration no longer enforces legacy total/daily attendance estimates. The concurrency regression creates 1,001 groups (20,020 attendees) despite old stored limits, and checks that legacy settings writes cannot re-enable them. Old hold timestamps cannot expire pending cash/online bookings or invalidate a cash QR; payment capture, exact cash approval, cancelled status, event date and atomic single entry remain enforced. Public availability reports null limits and `unlimited: true`. Tickets, exported PDFs/PNGs and share images omit the payment deadline and group-QR caption; onscreen ticket people icons are removed. Existing legacy `EXPIRED` bookings retain their status and can be restored by authorised staff.
