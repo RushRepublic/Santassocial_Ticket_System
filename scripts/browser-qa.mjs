@@ -306,6 +306,16 @@ try {
   await page.goto(`${origin}/scanner/login`);
   await page.waitForURL(`${origin}/login`);
   let staffLogins = 0;
+  async function signIn() {
+    await page
+      .getByRole("heading", { name: "Admin Login", exact: true })
+      .waitFor();
+    await page
+      .getByLabel("Email address", { exact: true })
+      .fill("admin@santasocial.local");
+    await page.getByLabel("Password", { exact: true }).fill("SantaDemo2026!");
+    await page.getByRole("button", { name: "Sign in securely" }).click();
+  }
   page.on("request", (request) => {
     if (
       request.method() === "POST" &&
@@ -332,7 +342,14 @@ try {
         body: JSON.stringify({ error: "Temporary admin request failure" }),
       }),
     );
-    await page.goto(`${origin}/admin`);
+    await page
+      .locator(".admin-sidebar")
+      .getByRole("link", { name: "Bookings", exact: true })
+      .click();
+    await page
+      .locator(".admin-sidebar")
+      .getByRole("link", { name: "Overview", exact: true })
+      .click();
     await page
       .getByText("Temporary admin request failure", { exact: true })
       .waitFor();
@@ -343,6 +360,19 @@ try {
     await page.locator(".stat-card").first().waitFor();
   }
   const registrationTab = await context.newPage();
+  // Existing cookies must not skip login on a fresh admin/scanner document.
+  for (const path of ["/admin/dashboard", "/scanner"]) {
+    await registrationTab.goto(origin + path);
+    await registrationTab.waitForURL(
+      (url) =>
+        url.pathname === "/login" && url.searchParams.get("next") === path,
+    );
+    await registrationTab
+      .getByRole("heading", { name: "Admin Login", exact: true })
+      .waitFor();
+    if (await registrationTab.locator(".admin-sidebar, .scanner-main").count())
+      throw Error("A saved staff cookie bypassed the login screen.");
+  }
   await registrationTab.goto(origin);
   await registrationTab
     .getByLabel("WhatsApp mobile number", { exact: false })
@@ -390,6 +420,7 @@ try {
     await page.locator(".admin-sidebar").waitFor();
   }
   await page.goto(`${origin}/login`);
+  await signIn();
   await page.waitForURL(`${origin}/admin/dashboard`);
   for (const name of ["Payments", "Event settings"])
     if (
@@ -400,8 +431,14 @@ try {
     )
       throw Error("Removed admin sections must not appear in navigation.");
   for (const path of ["payments", "settings"]) {
-    await page.goto(`${origin}/admin/${path}`);
-    await page.waitForURL(`${origin}/admin/dashboard`);
+    const response = await page.request.get(`${origin}/admin/${path}`, {
+      maxRedirects: 0,
+    });
+    if (
+      response.status() !== 307 ||
+      response.headers().location !== "/admin/dashboard"
+    )
+      throw Error("Removed admin sections must redirect to the overview.");
   }
   await page.getByRole("link", { name: "Open gate scanner" }).click();
   await page.waitForURL(`${origin}/scanner`);
@@ -455,6 +492,8 @@ try {
     );
   await saveAndVerifyImage(cashBooking.qrToken);
   await page.goto(`${origin}/scanner`);
+  await signIn();
+  await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(cashBooking.qrToken);
   await page
     .getByRole("heading", { name: "Collect Rs. 400 & Approve the Ticket." })
@@ -484,8 +523,10 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("link", { name: "Back to dashboard" }).click();
   await page.waitForURL(`${origin}/admin/dashboard`);
-  if (staffLogins !== 1)
-    throw Error("Admin modules and scanner must share one login session.");
+  if (staffLogins !== 3)
+    throw Error(
+      "Fresh documents require login; module navigation must share that sign-in.",
+    );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(origin, { waitUntil: "networkidle" });
   await page.evaluate(async () => {
@@ -514,6 +555,12 @@ try {
   )
     throw Error("Registration mobile overflow");
   await page.goto(`${origin}/admin/dashboard`, { waitUntil: "networkidle" });
+  await signIn();
+  await page.waitForURL(`${origin}/admin/dashboard`);
+  await page.reload();
+  await page.waitForURL((url) => url.pathname === "/login");
+  await signIn();
+  await page.waitForURL(`${origin}/admin/dashboard`);
   await page
     .getByRole("heading", { name: "Let’s make it a merry one." })
     .waitFor();

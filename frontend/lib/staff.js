@@ -19,3 +19,12 @@ export function staffDestination(role, requested = "") {
 
 export const staffLoginUrl = (path) =>
   `/login?next=${encodeURIComponent(path)}`;
+
+// A saved cookie still needs server validation, but must not skip the login
+// screen on a fresh document load. Keep this UI grant in memory only so it
+// survives client navigation, never reloads, new tabs or browser restarts.
+let signedInThisVisit = false;
+export const hasStaffLogin = () => signedInThisVisit;
+export function setStaffLogin(value) {
+  signedInThisVisit = value === true;
+}

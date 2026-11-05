@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Login-first admin and scanner visits
+
+Fresh document loads of `/admin/dashboard` and `/scanner`, including new tabs and reloads, require the Admin Login form even when a staff cookie already exists. Successful sign-in creates a memory-only UI grant for navigation between staff modules; saved cookies alone do not skip the form. Backend session and role enforcement remain mandatory. Browser QA covers existing-cookie direct visits to both routes, dashboard reload, login return destinations, navigation between modules without another login, and independent staff logout.
+
 ## Admin permission and loading regression
 
 A regression test reproduced the admin dashboard's 403 after customer OTP verification replaced the shared session cookie. Staff now use `santa_staff_session`; customer verification retains `santa_session`. Backend tests cover concurrent identities, independent logout, owner/admin access and legacy-cookie migration without extending the signed session. Browser QA verifies registration in a second tab preserves admin permissions, and that dashboard 403/500 responses stop loading and recover through Try again. Staff-only expired requests return to the shared login rather than leaving a loading screen. The local browser run uses the SQLite test adapter; the MySQL integration scenario remains conditional on a dedicated test database.

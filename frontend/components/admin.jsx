@@ -18,7 +18,12 @@ import {
   Menu,
 } from "lucide-react";
 import { api, post, money, dateTime, eventDate } from "@/lib/api";
-import { staffDestination, staffLoginUrl } from "@/lib/staff";
+import {
+  staffDestination,
+  staffLoginUrl,
+  hasStaffLogin,
+  setStaffLogin,
+} from "@/lib/staff";
 import { Wordmark, Notice, Loading, Status, DemoBanner } from "./common";
 export function StaffLogin() {
   const router = useRouter();
@@ -27,28 +32,15 @@ export function StaffLogin() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    let active = true;
-    api("/auth/me?scope=staff")
-      .then((user) => {
-        if (active && ["ADMIN", "CASHIER", "SCANNER"].includes(user.role))
-          router.replace(
-            staffDestination(
-              user.role,
-              new URLSearchParams(window.location.search).get("next") || "",
-            ),
-          );
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [router]);
+    setStaffLogin(false);
+  }, []);
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
       const user = await post("/auth/login", { email, password });
+      setStaffLogin(true);
       router.replace(
         staffDestination(
           user.role,
@@ -121,16 +113,25 @@ export function Admin() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   useEffect(() => {
+    if (!hasStaffLogin()) {
+      router.replace(staffLoginUrl(path));
+      return;
+    }
     api("/auth/me?scope=staff")
       .then((user) => {
         if (!["ADMIN", "CASHIER"].includes(user.role))
           router.replace(staffDestination(user.role));
         else setIdentity(user);
       })
-      .catch(() => router.replace(staffLoginUrl(path)));
+      .catch(() => {
+        setStaffLogin(false);
+        setIdentity(null);
+        router.replace(staffLoginUrl(path));
+      });
   }, [router, path]);
   async function logout() {
     await post("/auth/logout", { scope: "staff" });
+    setStaffLogin(false);
     router.replace("/login");
   }
   if (!identity) return <Loading />;

@@ -14,7 +14,12 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { api, post, eventDate, dateTime, money } from "@/lib/api";
-import { staffDestination, staffLoginUrl } from "@/lib/staff";
+import {
+  staffDestination,
+  staffLoginUrl,
+  hasStaffLogin,
+  setStaffLogin,
+} from "@/lib/staff";
 import { Wordmark, Loading, DemoBanner } from "./common";
 export function Scanner({ history = false }) {
   const router = useRouter();
@@ -33,6 +38,11 @@ export function Scanner({ history = false }) {
   const lock = useRef(false);
   const requestId = useRef("");
   useEffect(() => {
+    const loginUrl = staffLoginUrl(history ? "/scanner/history" : "/scanner");
+    if (!hasStaffLogin()) {
+      router.replace(loginUrl);
+      return;
+    }
     api("/auth/me?scope=staff")
       .then((u) => {
         if (!["ADMIN", "SCANNER"].includes(u.role))
@@ -42,11 +52,12 @@ export function Scanner({ history = false }) {
           setReady(true);
         }
       })
-      .catch(() =>
-        router.replace(
-          staffLoginUrl(history ? "/scanner/history" : "/scanner"),
-        ),
-      );
+      .catch(() => {
+        setStaffLogin(false);
+        setReady(false);
+        setIdentity(null);
+        router.replace(loginUrl);
+      });
   }, [router, history]);
   useEffect(() => {
     if (ready && history)
@@ -164,9 +175,10 @@ export function Scanner({ history = false }) {
           <button
             aria-label="Sign out"
             onClick={() =>
-              post("/auth/logout", { scope: "staff" }).then(() =>
-                router.replace("/login"),
-              )
+              post("/auth/logout", { scope: "staff" }).then(() => {
+                setStaffLogin(false);
+                router.replace("/login");
+              })
             }
           >
             <LogOut size={20} />
@@ -199,7 +211,9 @@ export function Scanner({ history = false }) {
           </>
         ) : (
           <>
-            <p className="eyebrow scanner-heading">SANTA SOCIAL · GATE OPERATIONS</p>
+            <p className="eyebrow scanner-heading">
+              SANTA SOCIAL · GATE OPERATIONS
+            </p>
             {entered && (
               <div className="entry-success" role="status">
                 <Check size={48} />
