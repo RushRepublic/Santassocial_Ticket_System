@@ -148,7 +148,7 @@ export function GroupTicket({ id }) {
             <CalendarDays size={18} />
             {eventDate(booking.eventDate)}
           </p>
-          <p>11:00 AM – 9:00 PM · Asia/Kolkata</p>
+          <p>11:00 AM – 9:00 PM</p>
           <p>
             <MapPin size={18} />
             Park Grounds – CODISSIA, Coimbatore

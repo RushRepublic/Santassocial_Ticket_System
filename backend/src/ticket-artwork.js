@@ -100,7 +100,7 @@ export async function renderTicketPng(booking) {
       ${text(booking.reference, 430, 395, 24, { color: colors.red })}
       ${text(booking.name, 430, 477, 64, { bold: true })}
       ${text(date, 430, 541, 30)}
-      ${text("11:00 AM – 9:00 PM · Asia/Kolkata", 430, 589, 27)}
+      ${text("11:00 AM – 9:00 PM", 430, 589, 27)}
       ${text("Park Grounds – CODISSIA, Coimbatore", 430, 637, 27)}
       <path d="M300 690V810M560 690V810" stroke="${colors.line}" stroke-width="2"/>
       ${[booking.adults, booking.kids, booking.people].map((count, i) => text(count, 170 + 260 * i, 751, 65, { bold: true, color: colors.green })).join("")}
