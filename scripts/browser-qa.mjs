@@ -244,6 +244,21 @@ try {
     throw Error("Browser QA requires an isolated demo server.");
   await page.goto(origin, { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Checkout", exact: true }).waitFor();
+  const dates = await page.locator(".date-option").allTextContents();
+  if (
+    dates.length !== 2 ||
+    !dates[0].includes("FRIDAY") ||
+    !dates[0].includes("06") ||
+    !dates[1].includes("SATURDAY") ||
+    !dates[1].includes("07") ||
+    dates.some((d) => !d.includes("Nov 2026"))
+  )
+    throw Error(
+      "Registration must offer only November 6 and 7 with correct weekdays.",
+    );
+  if (!(await page.title()).includes("November 6 & 7"))
+    throw Error("Event metadata date is outdated.");
+
   if (await page.locator(".booking-sidebar").count())
     throw Error("Your booking must not show the checkout summary.");
   const formBounds = await page.locator(".registration-layout").boundingBox();
@@ -431,6 +446,12 @@ try {
   const booking = await page.request
     .get(`${origin}/api/bookings/${bookingId}`)
     .then((r) => r.json());
+  if (booking.eventDate !== "2026-11-06")
+    throw Error("Ticket uses an outdated event date.");
+  await page
+    .locator(".ticket-event-date")
+    .filter({ hasText: "November" })
+    .waitFor();
   if (booking.amount !== 100 || booking.people !== 2)
     throw Error("Incorrect group price/count");
   const download = page.waitForEvent("download");
@@ -517,7 +538,7 @@ try {
     data: {
       name: "Unpaid QR QA Guest",
       email: "unpaid-qr@example.com",
-      eventDate: "2026-12-05",
+      eventDate: "2026-11-06",
       adults: 1,
       kids: 0,
       method: "RAZORPAY",
@@ -650,7 +671,7 @@ try {
     data: {
       name: "Date QA Guest",
       email: "date-qa@example.com",
-      eventDate: "2026-12-06",
+      eventDate: "2026-11-07",
       adults: 1,
       kids: 0,
       method: "CASH",
@@ -667,13 +688,22 @@ try {
       .waitFor();
     await page
       .getByText(
-        "This ticket is registered for December 6, 2026, and cannot be used on December 5, 2026.",
+        "This ticket is registered for November 7, 2026, and cannot be used on November 6, 2026.",
         { exact: true },
       )
       .waitFor();
-    if (await page.locator(".scanner-error .lucide-circle-x, .scanner-error .lucide-x-circle").count())
+    if (
+      await page
+        .locator(
+          ".scanner-error .lucide-circle-x, .scanner-error .lucide-x-circle",
+        )
+        .count()
+    )
       throw Error("Invalid-ticket result must not show an X icon.");
-    await page.locator(".scanner-error").getByRole("button", { name: "Approve ticket", exact: true }).waitFor();
+    await page
+      .locator(".scanner-error")
+      .getByRole("button", { name: "Approve ticket", exact: true })
+      .waitFor();
     if (!(await page.locator(".scanner-error button").isDisabled()))
       throw Error("Invalid-date approval must be disabled.");
     await page.getByText("Registered event date:", { exact: false }).waitFor();
@@ -690,9 +720,7 @@ try {
     .waitFor();
   if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
     throw Error("Paid ticket must use the green result state.");
-  await page
-    .getByRole("button", { name: "Approve ticket" })
-    .click();
+  await page.getByRole("button", { name: "Approve ticket" }).click();
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
     .waitFor();
@@ -703,7 +731,7 @@ try {
     data: {
       name: "Cash QA Guest",
       email: "cash-qa@example.com",
-      eventDate: "2026-12-05",
+      eventDate: "2026-11-06",
       adults: 2,
       kids: 1,
       method: "CASH",
@@ -728,7 +756,11 @@ try {
   )
     throw Error("Cash QR mobile layout overflow.");
   await page.getByText(/CASH DUE.*APPROVAL REQUIRED/).waitFor();
-  if (/GROUP|ADMISSION/i.test(await page.locator(".digital-ticket .ticket-top").innerText()))
+  if (
+    /GROUP|ADMISSION/i.test(
+      await page.locator(".digital-ticket .ticket-top").innerText(),
+    )
+  )
     throw Error("Ticket header must not show Group Admission wording.");
   await page.locator(".digital-ticket .ticket-top img").waitFor();
   const cashTicketText = await page.locator(".digital-ticket").innerText();

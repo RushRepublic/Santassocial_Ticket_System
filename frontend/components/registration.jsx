@@ -27,13 +27,16 @@ const initial = {
   name: "",
   email: "",
   mobile: "",
-  eventDate: "2026-12-05",
+  eventDate: "2026-11-06",
   adults: 1,
   kids: 0,
   method: "RAZORPAY",
   key: "",
 };
 const draftSchema = z.object({
+  eventDate: z.enum(["2026-11-06", "2026-11-07"], {
+    error: "Please select an event date.",
+  }),
   name: z.string().trim().min(2, "Please enter your full name.").max(120),
   email: z.email("Please enter a valid email address."),
   mobile: z
@@ -42,7 +45,15 @@ const draftSchema = z.object({
 });
 function readDraft() {
   try {
-    return JSON.parse(sessionStorage.getItem("santa-draft") || "null");
+    const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
+    if (draft && !["2026-11-06", "2026-11-07"].includes(draft.eventDate))
+      return {
+        ...draft,
+        eventDate: "",
+        bookingId: undefined,
+        key: crypto.randomUUID(),
+      };
+    return draft;
   } catch {
     return null;
   }
@@ -76,10 +87,7 @@ export function BookingSidebar({ draft, children, showVenue = true }) {
         <div className="summary">
           <h3>Booking summary</h3>
           <p>
-            <span>
-              {eventDate(draft.eventDate).split(",")[0]},{" "}
-              {draft.eventDate.endsWith("05") ? "5" : "6"} December
-            </span>
+            <span>{eventDate(draft.eventDate).replace(/, \d{4}$/, "")}</span>
             <CalendarDays size={17} />
           </p>
           <p>
@@ -173,8 +181,8 @@ export function Register() {
             </div>
             <div className="date-options">
               {[
-                ["2026-12-05", "SATURDAY", "05"],
-                ["2026-12-06", "SUNDAY", "06"],
+                ["2026-11-06", "FRIDAY", "06"],
+                ["2026-11-07", "SATURDAY", "07"],
               ].map(([date, day, n]) => (
                 <button
                   type="button"
@@ -185,7 +193,7 @@ export function Register() {
                   <span className="date-number">{n}</span>
                   <span>
                     <small>{day}</small>
-                    <b>Dec 2026</b>
+                    <b>Nov 2026</b>
                     <em>11:00 AM – 9:00 PM</em>
                   </span>
                   <span className="radio-dot" />
@@ -527,7 +535,7 @@ export function Checkout() {
         return;
       }
       const d = readDraft();
-      if (!d) {
+      if (!d || !["2026-11-06", "2026-11-07"].includes(d.eventDate)) {
         router.replace("/");
         return;
       }

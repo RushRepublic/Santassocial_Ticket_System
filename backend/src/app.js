@@ -46,7 +46,7 @@ const mobileSchema = z
 const bookingSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.email().max(190),
-  eventDate: z.enum(["2026-12-05", "2026-12-06"]),
+  eventDate: z.enum(["2026-11-06", "2026-11-07"]),
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),
   method: z.enum(["RAZORPAY", "CASH"]),
@@ -603,7 +603,7 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
       .max(100)
       .parse(req.query.q || "");
     const date = z
-      .enum(["2026-12-05", "2026-12-06", "all"])
+      .union([z.literal("all"), z.iso.date()])
       .parse(req.query.date || "all");
     const status = z
       .string()
@@ -674,7 +674,7 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
   });
   app.get("/api/admin/dashboard", staff, async (req, res) => {
     const date = z
-      .enum(["all", "2026-12-05", "2026-12-06"])
+      .union([z.literal("all"), z.iso.date()])
       .parse(req.query.date || "all");
     const rows = await db.all(
       "SELECT b.*,p.status AS paymentStatus FROM bookings b JOIN payments p ON p.bookingId = b.id" +
@@ -850,12 +850,10 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
           .join("; "),
       });
     if (error instanceof AppError)
-      return res
-        .status(error.status)
-        .json({
-          error: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        });
+      return res.status(error.status).json({
+        error: error.message,
+        ...(error.details ? { details: error.details } : {}),
+      });
     if (error instanceof SyntaxError)
       return res.status(400).json({ error: "Invalid request body." });
     const requestId = randomUUID();

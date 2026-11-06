@@ -230,8 +230,8 @@ function DateFilter({ value, onChange }) {
     <div className="date-filter">
       {[
         ["all", "Both days"],
-        ["2026-12-05", "Dec 5"],
-        ["2026-12-06", "Dec 6"],
+        ["2026-11-06", "Nov 6"],
+        ["2026-11-07", "Nov 7"],
       ].map(([v, label]) => (
         <button
           key={v}
@@ -278,7 +278,7 @@ function Dashboard() {
         <div>
           <p className="eyebrow">A LITTLE OVERVIEW OF THE BIG CELEBRATION</p>
           <h1>Let’s make it a merry one.</h1>
-          <p>5 & 6 December 2026 · Park Grounds, CODISSIA</p>
+          <p>6 & 7 November 2026 · Park Grounds, CODISSIA</p>
         </div>
         <DateFilter value={date} onChange={setDate} />
       </div>
@@ -499,7 +499,14 @@ function Bookings({ compact = false }) {
                       </Link>
                     </td>
                     <td>
-                      {b.eventDate.endsWith("05") ? "5" : "6"} Dec 2026
+                      {new Date(
+                        `${b.eventDate}T12:00:00+05:30`,
+                      ).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        timeZone: "Asia/Kolkata",
+                      })}
                       <small>{b.mobile}</small>
                     </td>
                     <td>
