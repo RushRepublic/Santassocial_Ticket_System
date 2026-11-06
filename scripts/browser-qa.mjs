@@ -688,7 +688,7 @@ try {
   if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
     throw Error("Paid ticket must use the green result state.");
   await page
-    .getByRole("button", { name: "Approve ticket & group entry" })
+    .getByRole("button", { name: "Approve ticket" })
     .click();
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
@@ -746,7 +746,7 @@ try {
     .waitFor();
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
   const approveCash = page.getByRole("button", {
-    name: "Approve cash payment & group entry",
+    name: "Approve ticket",
   });
   if (!(await approveCash.isDisabled()))
     throw Error("Cash collection must require explicit confirmation.");

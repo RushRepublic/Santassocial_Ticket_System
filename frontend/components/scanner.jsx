@@ -335,11 +335,7 @@ export function Scanner({ history = false }) {
                   }
                   onClick={confirm}
                 >
-                  {busy
-                    ? "Approving…"
-                    : result.paymentStatus === "DUE"
-                      ? "Approve cash payment & group entry"
-                      : "Approve ticket & group entry"}
+                  {busy ? "Approving…" : "Approve ticket"}
                   <Check size={20} />
                 </button>
                 <button
@@ -368,7 +364,7 @@ export function Scanner({ history = false }) {
             <p>{error}</p>
             {dateError?.eventDate && (
               <button className="button full" disabled>
-                Approve ticket &amp; group entry
+                Approve ticket
               </button>
             )}
           </div>
