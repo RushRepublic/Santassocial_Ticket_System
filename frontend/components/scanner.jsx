@@ -353,17 +353,13 @@ export function Scanner({ history = false }) {
         )}
         {error && (
           <div className="scanner-error" role="alert">
-            {dateError?.eventDate && (
+            {dateError?.eventDate ? (
               <>
-                <h2>{dateError.title}</h2>
-                <p>Registered event date: {eventDate(dateError.eventDate)}</p>
+                <h2>Invalid Ticket</h2>
+                <p>Registered Event Date: {eventDate(dateError.eventDate)}</p>
               </>
-            )}
-            <p>{error}</p>
-            {dateError?.eventDate && (
-              <button className="button full" disabled>
-                Approve ticket
-              </button>
+            ) : (
+              <p>{error}</p>
             )}
           </div>
         )}

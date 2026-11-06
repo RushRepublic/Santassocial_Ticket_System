@@ -679,34 +679,33 @@ try {
   });
   if (!futureResponse.ok()) throw Error("Future-date QA booking failed.");
   const futureBooking = await futureResponse.json();
+  async function assertInvalidDate(label) {
+    const panel = page.locator(".scanner-error");
+    await panel.getByRole("heading", { name: "Invalid Ticket", exact: true }).waitFor();
+    await panel.getByText(`Registered Event Date: ${label}`, { exact: true }).waitFor();
+    if (await page.getByRole("button", { name: /^Approve ticket/ }).count())
+      throw Error("Invalid-date tickets must not display any approval button.");
+    if (/Past Event Date|Future Event Date|cannot be used/.test(await panel.innerText()))
+      throw Error("Invalid-date result must only show heading and registered date.");
+    if (await panel.locator("svg").count()) throw Error("Invalid ticket must not show the removed icon.");
+    const style = await panel.evaluate(el => ({ color: getComputedStyle(el).color, align: getComputedStyle(el).textAlign }));
+    if (style.align !== "center" || style.color !== "rgb(146, 44, 34)")
+      throw Error("Invalid-ticket styling must stay centered and red.");
+  }
   for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await scanCameraToken(futureBooking.qrToken);
-    await page
-      .locator(".scanner-error h2")
-      .filter({ hasText: "Future Event Date" })
-      .waitFor();
-    await page
-      .getByText(
-        "This ticket is registered for November 7, 2026, and cannot be used on November 6, 2026.",
-        { exact: true },
-      )
-      .waitFor();
-    if (
-      await page
-        .locator(
-          ".scanner-error .lucide-circle-x, .scanner-error .lucide-x-circle",
-        )
-        .count()
-    )
-      throw Error("Invalid-ticket result must not show an X icon.");
-    await page
-      .locator(".scanner-error")
-      .getByRole("button", { name: "Approve ticket", exact: true })
-      .waitFor();
-    if (!(await page.locator(".scanner-error button").isDisabled()))
-      throw Error("Invalid-date approval must be disabled.");
-    await page.getByText("Registered event date:", { exact: false }).waitFor();
+    await assertInvalidDate("Saturday, 7 November 2026");
+    // Presentation check for the other server error; actual past-date API rules
+    // are covered by the backend date-combination tests.
+    await page.route("**/api/scanner/verify", route => route.fulfill({
+      status: 400, contentType: "application/json",
+      body: JSON.stringify({ error: "This ticket is registered for November 6, 2026, and cannot be used on November 7, 2026.",
+        details: { code: "PAST_EVENT_DATE", title: "Invalid Ticket - Past Event Date", eventDate: "2026-11-06", scanningDate: "2026-11-07" } }),
+    }));
+    await scanCameraToken(booking.qrToken);
+    await assertInvalidDate("Friday, 6 November 2026");
+    await page.unroute("**/api/scanner/verify");
   }
   const futureUnchanged = await page.request
     .get(`${origin}/api/bookings/${futureBooking.id}`)
