@@ -108,7 +108,7 @@ export async function createBooking(db, input, mobile, key) {
     if (input.adults === 0 && !e.allowKidsOnly)
       fail(400, "A supervising adult is required for children under five.");
     const id = randomUUID(),
-      amount = input.adults * 20000,
+      amount = input.adults * 100,
       status =
         amount === 0
           ? "FREE"

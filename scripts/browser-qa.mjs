@@ -431,7 +431,7 @@ try {
   const booking = await page.request
     .get(`${origin}/api/bookings/${bookingId}`)
     .then((r) => r.json());
-  if (booking.amount !== 20000 || booking.people !== 2)
+  if (booking.amount !== 100 || booking.people !== 2)
     throw Error("Incorrect group price/count");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download PDF" }).click();
@@ -648,7 +648,7 @@ try {
   await scanCameraToken(booking.qrToken);
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
   await page
-    .getByRole("heading", { name: "Paid Rs. 200. Approve the Ticket." })
+    .getByRole("heading", { name: "Paid Rs. 1. Approve the Ticket." })
     .waitFor();
   if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
     throw Error("Paid ticket must use the green result state.");
@@ -712,7 +712,7 @@ try {
   await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(cashBooking.qrToken);
   await page
-    .getByRole("heading", { name: "Collect Rs. 400 & Approve the Ticket." })
+    .getByRole("heading", { name: "Collect Rs. 2 & Approve the Ticket." })
     .waitFor();
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
   const approveCash = page.getByRole("button", {

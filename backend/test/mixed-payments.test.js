@@ -73,7 +73,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     await db.run('INSERT INTO events (id,name,capacity) VALUES (?,?,?)', ['santa-2026','Santa Social',0]);
     const evidence = new Map();
     const gateway = { orders: { create: async input => {
-      assert.equal(input.currency,'INR'); assert.equal(input.amount,20000);
+      assert.equal(input.currency,'INR'); assert.equal(input.amount,100);
       return {id:'order_'+randomUUID()};
     }}, payments:{fetch:async id=>evidence.get(id)} };
     const app=createApp(db,{paymentGateway:()=>gateway});
@@ -94,12 +94,12 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const id='pay_synthetic';
     const payload={bookingId:b.id,razorpay_order_id:order.orderId,razorpay_payment_id:id,
       razorpay_signature:hmac(order.orderId+'|'+id,process.env.RAZORPAY_KEY_SECRET)};
-    evidence.set(id,{id,order_id:order.orderId,status:'authorized',amount:20000,currency:'INR'});
+    evidence.set(id,{id,order_id:order.orderId,status:'authorized',amount:100,currency:'INR'});
     await post('/payments/razorpay/verify',payload).expect(202);
     assert.equal(publicBooking(await getBooking(db,b.id)).qrToken,null);
     evidence.set(id,{id,order_id:order.orderId,status:'captured',amount:1,currency:'INR'});
     await post('/payments/razorpay/verify',payload).expect(400);
-    evidence.get(id).amount=20000;
+    evidence.get(id).amount=100;
     await post('/payments/razorpay/verify',{...payload,razorpay_signature:'invalid'}).expect(400);
     const paid=(await post('/payments/razorpay/verify',payload).expect(200)).body;
     assert.equal(paid.status,'PAID'); assert.equal(paid.demo,false); assert.ok(paid.qrToken);
@@ -107,7 +107,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const second=await make();
     const secondOrder=(await post('/payments/razorpay/order',{bookingId:second.id}).expect(200)).body;
     const event=JSON.stringify({event:'payment.captured',payload:{payment:{entity:{id:'pay_webhook',
-      order_id:secondOrder.orderId,status:'captured',amount:20000,currency:'INR'}}}});
+      order_id:secondOrder.orderId,status:'captured',amount:100,currency:'INR'}}}});
     const webhook=signature=>request(app).post('/api/webhooks/razorpay').set('Content-Type','application/json')
       .set('x-razorpay-event-id','evt_synthetic').set('x-razorpay-signature',signature).send(event);
     await webhook('invalid').expect(400);

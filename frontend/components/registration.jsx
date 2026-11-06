@@ -84,7 +84,7 @@ export function BookingSidebar({ draft, children, showVenue = true }) {
           </p>
           <p>
             <span>{draft.adults} × Adult ticket</span>
-            <b>{money(draft.adults * 20000)}</b>
+            <b>{money(draft.adults * 100)}</b>
           </p>
           <p>
             <span>{draft.kids} × Kids ticket</span>
@@ -92,7 +92,7 @@ export function BookingSidebar({ draft, children, showVenue = true }) {
           </p>
           <p className="summary-total">
             <span>Total</span>
-            <strong>{money(draft.adults * 20000)}</strong>
+            <strong>{money(draft.adults * 100)}</strong>
           </p>
         </div>
         {children}
@@ -249,7 +249,7 @@ export function Register() {
                 <div>
                   <h3>
                     {kind === "adults" ? "Adults" : "Little ones"}{" "}
-                    <b>{kind === "adults" ? "₹200" : "Free"}</b>
+                    <b>{kind === "adults" ? "₹1" : "Free"}</b>
                   </h3>
                   <p>
                     {kind === "adults"
@@ -773,7 +773,7 @@ export function Checkout() {
                 ? "Confirm free booking"
                 : draft.method === "CASH"
                   ? "Reserve & pay at counter"
-                  : `Continue to payment · ${money(draft.adults * 20000)}`}
+                  : `Continue to payment · ${money(draft.adults * 100)}`}
             <ArrowRight size={18} />
           </button>
           <p className="secure-note">
