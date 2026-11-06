@@ -131,11 +131,6 @@ export function GroupTicket({ id }) {
       <article className="digital-ticket">
         <div className="ticket-top">
           <Wordmark />
-          <span>
-            GROUP
-            <br />
-            ADMISSION
-          </span>
         </div>
         {booking.demo && (
           <div className="ticket-demo">DEMO ONLY · NOT VALID FOR ADMISSION</div>

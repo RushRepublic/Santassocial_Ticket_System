@@ -725,14 +725,9 @@ try {
   )
     throw Error("Cash QR mobile layout overflow.");
   await page.getByText(/CASH DUE.*APPROVAL REQUIRED/).waitFor();
-  if (
-    !(await page.locator(".digital-ticket .ticket-top").innerText()).includes(
-      "ADMISSION",
-    )
-  )
-    throw Error(
-      "Cash bookings must display the same Group Admission brand header.",
-    );
+  if (/GROUP|ADMISSION/i.test(await page.locator(".digital-ticket .ticket-top").innerText()))
+    throw Error("Ticket header must not show Group Admission wording.");
+  await page.locator(".digital-ticket .ticket-top img").waitFor();
   const cashTicketText = await page.locator(".digital-ticket").innerText();
   if (
     /Pay before|One QR = One group/i.test(cashTicketText) ||

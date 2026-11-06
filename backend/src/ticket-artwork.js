@@ -94,8 +94,6 @@ export async function renderTicketPng(booking) {
     <g clip-path="url(#card)">
       <rect width="860" height="280" fill="${colors.red}"/>
       <image href="data:image/png;base64,${logo}" x="50" y="48" width="210" height="187"/>
-      ${text("GROUP", 760, 130, 25, { color: "#fffaf0", align: "right" })}
-      ${text("ADMISSION", 760, 168, 25, { color: "#fffaf0", align: "right" })}
       ${booking.demo ? `<rect y="280" width="860" height="60" fill="#f9e8bf"/>${text("DEMO ONLY · NOT VALID FOR ADMISSION", 430, 319, 22, { color: "#775c22" })}` : ""}
       ${text(booking.reference, 430, 395, 24, { color: colors.red })}
       ${text(booking.name, 430, 477, 64, { bold: true })}
