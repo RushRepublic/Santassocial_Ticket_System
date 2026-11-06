@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import { GroupTicket } from "./ticket";
+import { TicketPolicies } from "./ticket-policies";
 import { api, post, money, eventDate } from "@/lib/api";
 import { VenueLocation, Notice, Loading, Status } from "./common";
 import { MobileVerification } from "./mobile-verification";
@@ -452,7 +453,11 @@ function EntryAgreement({ agreed, onChange }) {
           <button
             type="button"
             className="terms-link"
-            onClick={() => dialog.current.showModal()}
+            onClick={() => {
+              dialog.current.showModal();
+              dialog.current.querySelector("h2").focus();
+              dialog.current.querySelector(".terms-policy-body").scrollTop = 0;
+            }}
           >
             Terms and Conditions.
           </button>
@@ -466,13 +471,17 @@ function EntryAgreement({ agreed, onChange }) {
           if (event.target === dialog.current) dialog.current.close();
         }}
       >
-        <h2 id="checkout-terms-title">TERMS AND CONDITION</h2>
-        <p>
-          <strong>Refund &amp; Cancellation Policy:</strong> All tickets
-          purchased for the Santa Social event are non-refundable and
-          non-cancellable. Once a ticket is booked and payment is completed, no
-          cancellations or refunds will be permitted.
-        </p>
+        <h2 id="checkout-terms-title" tabIndex={-1}>
+          TERMS AND CONDITION
+        </h2>
+        <div
+          className="terms-policy-body"
+          tabIndex={0}
+          role="region"
+          aria-label="Ticket cancellation and refund policies"
+        >
+          <TicketPolicies />
+        </div>
         <button
           type="button"
           className="button full"

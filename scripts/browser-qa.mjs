@@ -161,20 +161,51 @@ async function verifyTermsPopup() {
     exact: true,
   });
   await popup.waitFor();
-  await popup
-    .getByText("Refund & Cancellation Policy:", { exact: true })
-    .waitFor();
+  const cancellation = popup.getByRole("region", {
+    name: "Ticket Cancellation Policy",
+    exact: true,
+  });
+  const refund = popup.getByRole("region", {
+    name: "Ticket Refund Policy",
+    exact: true,
+  });
   if (
-    !(await popup.innerText()).includes(
-      "Once a ticket is booked and payment is completed, no cancellations or refunds will be permitted.",
-    )
+    (await cancellation.locator("h4").count()) !== 6 ||
+    (await refund.locator("h4").count()) !== 7 ||
+    (await refund.locator("li").count()) !== 6
   )
-    throw Error("The popup is missing the supplied refund policy.");
+    throw Error("The popup is missing cancellation/refund policy sections.");
+  const policyBody = popup.locator(".terms-policy-body");
+  const scroll = await policyBody.evaluate((node) => ({
+    top: node.scrollTop,
+    height: node.clientHeight,
+    contentHeight: node.scrollHeight,
+    overflow: node.scrollWidth > node.clientWidth,
+  }));
+  if (
+    scroll.top !== 0 ||
+    scroll.contentHeight <= scroll.height ||
+    scroll.overflow
+  )
+    throw Error(
+      "The long policy must open at the top and scroll within the dialog.",
+    );
+  await policyBody.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  const finalParagraph = refund.getByText(
+    "For payment-related queries or assistance with your booking, please reach out to the Rush Republic management team through the official communication channels listed on our website.",
+    { exact: true },
+  );
+  await finalParagraph.scrollIntoViewIfNeeded();
+  await popup.getByRole("button", { name: "Close", exact: true }).waitFor();
   const bounds = await popup.boundingBox();
   if (
     !bounds ||
     bounds.x < 0 ||
-    bounds.x + bounds.width > page.viewportSize().width
+    bounds.x + bounds.width > page.viewportSize().width ||
+    bounds.y < 0 ||
+    bounds.y + bounds.height > page.viewportSize().height
   )
     throw Error("Terms popup overflows the viewport.");
   await page.keyboard.press("Escape");
@@ -182,6 +213,8 @@ async function verifyTermsPopup() {
   if (!(await terms.evaluate((node) => node === document.activeElement)))
     throw Error("Closing terms must restore focus to the link.");
   await terms.click();
+  if ((await policyBody.evaluate((node) => node.scrollTop)) !== 0)
+    throw Error("Reopening the policy must start at the top.");
   await popup.getByRole("button", { name: "Close", exact: true }).click();
   await popup.waitFor({ state: "hidden" });
   if ((await page.getByRole("checkbox").isChecked()) !== agreed)

@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Full cancellation and refund policies
+
+The Terms popup contains the supplied Ticket Cancellation Policy (six sections) and Ticket Refund Policy (seven sections and the six non-attendance examples). The policy body scrolls independently while its heading and Close button stay visible. Desktop/mobile QA checks all sections, access to the final paragraph, initial/reopened scroll position, viewport fit, Escape/Close dismissal, focus restoration and unchanged checkout consent. The closing sentence uses “website” as supplied in the reference image.
+
 ## Checkout terms popup
 
 The checkout agreement includes a blue Terms and Conditions control that opens the supplied refund/cancellation policy in a native modal dialog. Browser QA verifies the text, blue colour, viewport fit at desktop/mobile widths, Close/Escape dismissal, focus restoration and unchanged consent. Reading the policy does not tick the agreement or enable payment. The persistent scanner shortcut remains icon-only and is enlarged to 76px with a 38px scanner symbol.
