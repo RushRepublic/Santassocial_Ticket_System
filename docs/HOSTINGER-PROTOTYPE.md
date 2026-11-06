@@ -74,7 +74,7 @@ DATABASE_URL=mysql://YOUR_FULL_DB_USER:URL_ENCODED_DB_PASSWORD@127.0.0.1:3306/YO
 MAINTENANCE_MODE=cron
 HOST=0.0.0.0
 FRONTEND_ORIGIN=https://test-tickets.YOUR_DOMAIN
-DEMO_EVENT_DATE=2026-11-06
+DEMO_EVENT_DATE=2026-11-10
 SESSION_SECRET=REPLACE_FIRST_RANDOM_SECRET
 TICKET_SECRET=REPLACE_SECOND_RANDOM_SECRET
 OTP_SECRET=REPLACE_THIRD_RANDOM_SECRET
@@ -131,7 +131,7 @@ Substitute the actual account/domain and confirm both filesystem paths in File M
 3. Continue to Checkout, choose the labelled simulated online payment and complete it. Confirm a test ticket, one group QR and a downloadable PDF. No real card details or Razorpay credentials are needed.
 4. Make a second booking using cash. Confirm it has no active admission QR before approval.
 5. Use a separate browser profile for staff so its login does not replace the customer's session. Open `/admin/login` using the admin credentials. Approve the cash booking for the exact amount. Verify that its group QR becomes available. The cashier can use the same staff login page with its own role.
-6. Open `/scanner/login` on a phone using HTTPS and scanner credentials. Allow camera access. Hosted scanning always uses the server IST date. `DEMO_EVENT_DATE` works only for isolated local demo tests (November 6 or 7, 2026). Confirm wrong-day and duplicate scans are rejected; never change the host clock for testing.
+6. Open `/scanner/login` on a phone using HTTPS and scanner credentials. Allow camera access. Hosted scanning always uses the server IST date. `DEMO_EVENT_DATE` works only for isolated local demo tests (November 10 or 11, 2026). Confirm wrong-day and duplicate scans are rejected; never change the host clock for testing.
 7. Test ticket recovery, mobile layout and an app restart/redeployment. In phpMyAdmin, confirm the `bookings`, `payments` and `checkins` records match your test flow. Verify the same bookings still exist after redeployment and cron completes successfully. Use Hostinger's database backup/export tools to retain test history.
 
 If API mutations return 403, compare the browser's exact HTTPS origin with backend `FRONTEND_ORIGIN`. If `/api/health` on the API works but the frontend version fails, check `API_ORIGIN`, rebuild the frontend and inspect its runtime logs. A 429 means an OTP/login rate limit has been reached; wait for the limit window rather than disabling protection. MySQL connection errors require checking the full account-prefixed credentials, URL encoding, user permissions, `127.0.0.1` and port `3306`. Hosted demo cannot fall back to SQLite if MySQL is unavailable.

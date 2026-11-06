@@ -2,7 +2,7 @@
 
 # Santa Social · 9th Edition
 
-Next.js customer site, modular Express API, MySQL production storage, and mobile group-ticket verification for November 6–7, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–9 PM IST** as specified in the supplied brief.
+Next.js customer site, modular Express API, MySQL production storage, and mobile group-ticket verification for November 10–11, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–9 PM IST** as specified in the supplied brief.
 
 For Hostinger, deploy one Node.js app using the root `server.js`: `npm run build`, then `npm start`. It serves registration, staff modules and `/api/*` on one subdomain. Staff sign in once at `/login`; admins can use every module including the gate scanner, while limited roles retain their permissions. The old admin/scanner login URLs redirect to `/login`. Follow [the single-subdomain Hostinger guide](docs/HOSTINGER-SINGLE-SITE.md) for MySQL, simulated providers, environment variables and cron setup. Only admin credentials are required for access to all modules.
 
@@ -33,7 +33,7 @@ Optional configuration: copy `.env.example` to `backend/.env`. Next.js proxies `
 | Cashier         | cashier@santasocial.local | SantaDemo2026! |
 | Scanner         | scanner@santasocial.local | SantaDemo2026! |
 
-The demo OTP is generated randomly and displayed on the verification screen. The scanner’s simulated event date defaults to **November 6, 2026**; set `DEMO_EVENT_DATE=2026-11-07` on the backend to test the second day. This override is ignored in production and live payment mode; hosted scanning always uses the actual server date in Asia/Kolkata.
+The demo OTP is generated randomly and displayed on the verification screen. The scanner’s simulated event date defaults to **November 10, 2026**; set `DEMO_EVENT_DATE=2026-11-11` on the backend to test the second day. This override is ignored in production and live payment mode; hosted scanning always uses the actual server date in Asia/Kolkata.
 
 ## Main routes
 

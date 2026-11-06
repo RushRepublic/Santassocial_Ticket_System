@@ -1,11 +1,11 @@
 import "./globals.css";
 export const metadata = {
   title: {
-    default: "Santa Social 9th Edition | Coimbatore, November 6 & 7",
+    default: "Santa Social 9th Edition | Coimbatore, November 10 & 11",
     template: "%s | Santa Social",
   },
   description:
-    "Two days of Christmas cheer at Park Grounds, CODISSIA, Coimbatore. November 6 & 7, 2026, 11 AM–9 PM. Book your Santa Social group tickets.",
+    "Two days of Christmas cheer at Park Grounds, CODISSIA, Coimbatore. November 10 & 11, 2026, 11 AM–9 PM. Book your Santa Social group tickets.",
   robots: { index: true, follow: true },
 };
 export default function Layout({ children }) {
