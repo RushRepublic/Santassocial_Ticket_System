@@ -27,14 +27,14 @@ const initial = {
   name: "",
   email: "",
   mobile: "",
-  eventDate: "2026-11-10",
+  eventDate: "2026-11-05",
   adults: 1,
   kids: 0,
   method: "RAZORPAY",
   key: "",
 };
 const draftSchema = z.object({
-  eventDate: z.enum(["2026-11-10", "2026-11-11"], {
+  eventDate: z.enum(["2026-11-05", "2026-11-06"], {
     error: "Please select an event date.",
   }),
   name: z.string().trim().min(2, "Please enter your full name.").max(120),
@@ -46,7 +46,7 @@ const draftSchema = z.object({
 function readDraft() {
   try {
     const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
-    if (draft && !["2026-11-10", "2026-11-11"].includes(draft.eventDate))
+    if (draft && !["2026-11-05", "2026-11-06"].includes(draft.eventDate))
       return {
         ...draft,
         eventDate: "",
@@ -181,8 +181,8 @@ export function Register() {
             </div>
             <div className="date-options">
               {[
-                ["2026-11-10", "TUESDAY", "10"],
-                ["2026-11-11", "WEDNESDAY", "11"],
+                ["2026-11-05", "THURSDAY", "05"],
+                ["2026-11-06", "FRIDAY", "06"],
               ].map(([date, day, n]) => (
                 <button
                   type="button"
@@ -535,7 +535,7 @@ export function Checkout() {
         return;
       }
       const d = readDraft();
-      if (!d || !["2026-11-10", "2026-11-11"].includes(d.eventDate)) {
+      if (!d || !["2026-11-05", "2026-11-06"].includes(d.eventDate)) {
         router.replace("/");
         return;
       }

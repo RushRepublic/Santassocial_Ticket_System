@@ -132,9 +132,9 @@ test(
         .set('Origin', process.env.FRONTEND_ORIGIN)
         .send({ email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD }).expect(200);
       const staffCookie = login.headers['set-cookie'].find((value) => value.startsWith('santa_staff_session=')).split(';')[0];
-      for (const date of ['all', '2026-11-10', '2026-11-11'])
+      for (const date of ['all', '2026-11-05', '2026-11-06'])
         await request(app).get('/api/admin/dashboard?date=' + date).set('Cookie', staffCookie).expect(200);
-      for (const suffix of ['', '?date=2026-11-10&status=PAID', '?date=2026-11-11&format=csv'])
+      for (const suffix of ['', '?date=2026-11-05&status=PAID', '?date=2026-11-06&format=csv'])
         await request(app).get('/api/admin/bookings' + suffix).set('Cookie', staffCookie).expect(200);
       await request(app).get('/api/admin/checkins').set('Cookie', staffCookie).expect(200);
       const sent = await request(app).post('/api/otp/send')

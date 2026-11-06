@@ -247,16 +247,16 @@ try {
   const dates = await page.locator(".date-option").allTextContents();
   if (
     dates.length !== 2 ||
-    !dates[0].includes("TUESDAY") ||
-    !dates[0].includes("10") ||
-    !dates[1].includes("WEDNESDAY") ||
-    !dates[1].includes("11") ||
+    !dates[0].includes("THURSDAY") ||
+    !dates[0].includes("05") ||
+    !dates[1].includes("FRIDAY") ||
+    !dates[1].includes("06") ||
     dates.some((d) => !d.includes("Nov 2026"))
   )
     throw Error(
-      "Registration must offer only November 10 and 11 with correct weekdays.",
+      "Registration must offer only November 5 and 6 with correct weekdays.",
     );
-  if (!(await page.title()).includes("November 10 & 11"))
+  if (!(await page.title()).includes("November 5 & 6"))
     throw Error("Event metadata date is outdated.");
 
   if (await page.locator(".booking-sidebar").count())
@@ -446,7 +446,7 @@ try {
   const booking = await page.request
     .get(`${origin}/api/bookings/${bookingId}`)
     .then((r) => r.json());
-  if (booking.eventDate !== "2026-11-10")
+  if (booking.eventDate !== "2026-11-05")
     throw Error("Ticket uses an outdated event date.");
   await page
     .locator(".ticket-event-date")
@@ -538,7 +538,7 @@ try {
     data: {
       name: "Unpaid QR QA Guest",
       email: "unpaid-qr@example.com",
-      eventDate: "2026-11-10",
+      eventDate: "2026-11-05",
       adults: 1,
       kids: 0,
       method: "RAZORPAY",
@@ -671,7 +671,7 @@ try {
     data: {
       name: "Date QA Guest",
       email: "date-qa@example.com",
-      eventDate: "2026-11-11",
+      eventDate: "2026-11-06",
       adults: 1,
       kids: 0,
       method: "CASH",
@@ -709,7 +709,7 @@ try {
   for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await scanCameraToken(futureBooking.qrToken);
-    await assertInvalidDate("Wednesday, 11 November 2026");
+    await assertInvalidDate("Friday, 6 November 2026");
     // Presentation check for the other server error; actual past-date API rules
     // are covered by the backend date-combination tests.
     await page.route("**/api/scanner/verify", (route) =>
@@ -718,18 +718,18 @@ try {
         contentType: "application/json",
         body: JSON.stringify({
           error:
-            "This ticket is registered for November 10, 2026, and cannot be used on November 11, 2026.",
+            "This ticket is registered for November 5, 2026, and cannot be used on November 6, 2026.",
           details: {
             code: "PAST_EVENT_DATE",
             title: "Invalid Ticket - Past Event Date",
-            eventDate: "2026-11-10",
-            scanningDate: "2026-11-11",
+            eventDate: "2026-11-05",
+            scanningDate: "2026-11-06",
           },
         }),
       }),
     );
     await scanCameraToken(booking.qrToken);
-    await assertInvalidDate("Tuesday, 10 November 2026");
+    await assertInvalidDate("Thursday, 5 November 2026");
     await page.unroute("**/api/scanner/verify");
   }
   const futureUnchanged = await page.request
@@ -755,7 +755,7 @@ try {
     data: {
       name: "Cash QA Guest",
       email: "cash-qa@example.com",
-      eventDate: "2026-11-10",
+      eventDate: "2026-11-05",
       adults: 2,
       kids: 1,
       method: "CASH",

@@ -96,7 +96,7 @@ export function EventDetails({ showVenue = true }) {
     <div className="event-details">
       <p>
         <CalendarDays />
-        <span>10 & 11 November 2026</span>
+        <span>5 & 6 November 2026</span>
       </p>
       <p>
         <Clock />

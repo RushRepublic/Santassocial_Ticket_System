@@ -39,7 +39,7 @@ try {
     name: "Payment QA Guest",
     email: "payment-qa@example.com",
     method: "RAZORPAY",
-    eventDate: "2026-11-10",
+    eventDate: "2026-11-05",
     adults: 1,
     kids: 0,
   });

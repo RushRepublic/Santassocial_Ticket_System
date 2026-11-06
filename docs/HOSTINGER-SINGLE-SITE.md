@@ -69,7 +69,7 @@ DB_NAME=YOUR_FULL_DB_NAME
 FRONTEND_ORIGIN=https://tickets.santassocial.com
 HOST=0.0.0.0
 MAINTENANCE_MODE=cron
-DEMO_EVENT_DATE=2026-11-10
+DEMO_EVENT_DATE=2026-11-05
 SESSION_SECRET=REPLACE_FIRST_RANDOM_SECRET
 TICKET_SECRET=REPLACE_SECOND_RANDOM_SECRET
 OTP_SECRET=REPLACE_THIRD_RANDOM_SECRET
@@ -117,7 +117,7 @@ Use synthetic guest details. Verify the displayed demo OTP within five minutes, 
 
 Customer mobile verification and staff login use independent cookies, so registration in another tab does not replace staff access. Sign in at `/login` with the admin account, approve cash, view bookings and check-in history, open the scanner, then use its dashboard return link. Payments and Event settings pages have been removed; their legacy URLs redirect to Overview. Payment records remain in booking details and backend configuration still applies. No second staff login should appear. Staff logout revokes admin/scanner access while preserving a separate verified customer session. Old staff sessions migrate automatically to the staff cookie without extending their signed expiry. On phones use HTTPS and allow camera permission.
 
-Production always uses the backend server date in Asia/Kolkata, including hosted demos. `DEMO_EVENT_DATE=2026-11-10` (Tuesday) or `2026-11-11` (Wednesday) is supported only in isolated local demo/testing. It cannot override the hosted scanner date. Verify duplicate and wrong-day scans are rejected. Check records in MySQL and restart/redeploy to verify persistence.
+Production always uses the backend server date in Asia/Kolkata, including hosted demos. `DEMO_EVENT_DATE=2026-11-05` (Thursday) or `2026-11-06` (Friday) is supported only in isolated local demo/testing. It cannot override the hosted scanner date. Verify duplicate and wrong-day scans are rejected. Check records in MySQL and restart/redeploy to verify persistence.
 
 Local syntax/build/workflow/browser tests do not establish that Hostinger runtime routing or MySQL connectivity has been verified. The optional MySQL integration test needs `MYSQL_TEST_DATABASE_URL` pointing to a dedicated database ending in `_test`. Real sales require a separate database, `APP_MODE=live`, verified providers and acceptance testing. Public registration QR generation remains deferred.
 
