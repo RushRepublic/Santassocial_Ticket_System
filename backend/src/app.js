@@ -5,7 +5,14 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { randomInt, randomUUID } from "node:crypto";
 import { sendTicketDownload } from "./ticket-artwork.js";
-import { config, demo, production, databaseDriver } from "./config.js";
+import {
+  config,
+  demo,
+  paymentDemo,
+  paymentMode,
+  production,
+  databaseDriver,
+} from "./config.js";
 import {
   hmac,
   hash,
@@ -53,7 +60,7 @@ const cookieOptions = {
   sameSite: "lax",
   path: "/api",
 };
-export function createApp(db) {
+export function createApp(db, { paymentGateway = razorpay } = {}) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", "loopback");
@@ -73,7 +80,7 @@ export function createApp(db) {
     "/api/webhooks/razorpay",
     express.raw({ type: "application/json", limit: "256kb" }),
     async (req, res) => {
-      if (demo) fail(400, "Live webhooks are disabled in demo mode.");
+      if (paymentDemo) fail(400, "Live webhooks are disabled in demo mode.");
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       if (!secret) fail(503, "Webhook verification is not configured.");
       const signature = req.get("x-razorpay-signature") || "";
@@ -185,15 +192,17 @@ export function createApp(db) {
     res.json({
       ok: true,
       mode: demo ? "demo" : "live",
+      paymentMode,
+      otpMode: demo ? "demo" : "live",
       database: databaseDriver,
-      release: "unlimited-registration-no-deadlines-1",
+      release: "independent-payment-mode-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
     res.json({
       event: await availability(db),
-      demo,
-      demoEventDate: demo ? config.demoDate : undefined,
+      demo: paymentDemo,
+      demoEventDate: paymentDemo ? config.demoDate : undefined,
     }),
   );
   app.get("/api/events/:id/availability", async (_req, res) =>
@@ -367,7 +376,7 @@ export function createApp(db) {
     res.json(
       (
         await db.all(
-          "SELECT * FROM bookings WHERE mobile = ? ORDER BY createdAt DESC",
+          "SELECT b.*,p.orderId AS gatewayOrderId,p.paymentId AS gatewayPaymentId FROM bookings b LEFT JOIN payments p ON p.bookingId=b.id WHERE b.mobile = ? ORDER BY b.createdAt DESC",
           [req.identity.mobile],
         )
       ).map(publicBooking),
@@ -389,9 +398,9 @@ export function createApp(db) {
       );
       if (won.changes) {
         try {
-          const order = demo
+          const order = paymentDemo
             ? { id: `order_demo_${randomUUID()}` }
-            : await razorpay().orders.create({
+            : await paymentGateway().orders.create({
                 amount: b.amount,
                 currency: "INR",
                 receipt: b.reference,
@@ -412,18 +421,27 @@ export function createApp(db) {
         await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id])
       )[0];
     }
+    if (
+      payment.orderId &&
+      !payment.orderId.startsWith("creating_") &&
+      payment.orderId.startsWith("order_demo_") !== paymentDemo
+    )
+      fail(
+        409,
+        "This booking was started in a different payment mode. Please create a new booking.",
+      );
     if (payment.orderId?.startsWith("creating_"))
       fail(409, "Payment order is being created. Please retry shortly.");
     res.json({
       orderId: payment.orderId,
       amount: b.amount,
       currency: "INR",
-      keyId: demo ? null : process.env.RAZORPAY_KEY_ID,
-      demo,
+      keyId: paymentDemo ? null : process.env.RAZORPAY_KEY_ID,
+      demo: paymentDemo,
     });
   });
   app.post("/api/payments/razorpay/verify", auth(), async (req, res) => {
-    if (demo) fail(400, "Use the labelled demo payment endpoint.");
+    if (paymentDemo) fail(400, "Use the labelled demo payment endpoint.");
     const input = z
       .object({
         bookingId: z.uuid(),
@@ -447,7 +465,11 @@ export function createApp(db) {
       )
     )
       fail(400, "Payment signature is invalid.");
-    const evidence = await razorpay().payments.fetch(input.razorpay_payment_id);
+    if (p.orderId?.startsWith("order_demo_"))
+      fail(400, "A simulated order cannot accept live payments.");
+    const evidence = await paymentGateway().payments.fetch(
+      input.razorpay_payment_id,
+    );
     if (evidence.status !== "captured")
       return res.status(202).json({
         pending: true,
@@ -465,7 +487,7 @@ export function createApp(db) {
     res.json(publicBooking(await getBooking(db, b.id)));
   });
   app.post("/api/demo/payments/complete", auth(), async (req, res) => {
-    if (!demo) fail(404, "Not found.");
+    if (!paymentDemo) fail(404, "Not found.");
     const b = await own(req, z.uuid().parse(req.body.bookingId));
     const p = (
       await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id])
@@ -494,7 +516,11 @@ export function createApp(db) {
     )
       await own(req, b.id);
     if (!hasBookingQr(b)) fail(403, "Ticket is not active.");
-    await sendTicketDownload(res, b, req.query.format);
+    await sendTicketDownload(
+      res,
+      { ...b, demo: publicBooking(b).demo },
+      req.query.format,
+    );
   });
   const staff = auth(["ADMIN", "CASHIER"]);
   app.post("/api/admin/bookings/:id/approve", staff, async (req, res) =>
@@ -602,7 +628,7 @@ export function createApp(db) {
         .n,
     );
     const rows = await db.all(
-      `SELECT * FROM bookings ${where} ORDER BY createdAt DESC LIMIT 25 OFFSET ${Math.floor((page - 1) * 25)}`,
+      `SELECT bookings.*,(SELECT orderId FROM payments WHERE bookingId=bookings.id) AS gatewayOrderId,(SELECT paymentId FROM payments WHERE bookingId=bookings.id) AS gatewayPaymentId FROM bookings ${where} ORDER BY createdAt DESC LIMIT 25 OFFSET ${Math.floor((page - 1) * 25)}`,
       values,
     );
     if (req.query.format === "csv") {
@@ -678,7 +704,7 @@ export function createApp(db) {
       checkedGroups: entered.length,
       entered: sum(entered, "people"),
       availability: await availability(db),
-      demo,
+      demo: paymentDemo,
       notificationFailures: Number(
         (
           await db.all(
@@ -790,7 +816,7 @@ export function createApp(db) {
         mobile: b.mobile,
         email: b.email,
         paymentStatus: b.status === "PENDING_CASH" ? "DUE" : "PAID",
-        demo,
+        demo: paymentDemo,
       });
     },
   );

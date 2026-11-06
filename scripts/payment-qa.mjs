@@ -16,6 +16,9 @@ const browser = await chromium.launch({
 });
 try {
   const page = await browser.newPage();
+  const health = await (await page.request.get(`${origin}/api/health`)).json();
+  if (health.paymentMode !== "demo")
+    throw Error("Payment QA requires simulated payments.");
   const api = async (path, body) => {
     const response = await page.request.post(`${origin}/api${path}`, {
       headers: { Origin: origin, "Idempotency-Key": randomUUID() },

@@ -3,14 +3,19 @@ import path from "node:path";
 import { mysqlOptions } from "./mysql-options.js";
 dotenv.config({ path: path.resolve(process.cwd(), ".env"), quiet: true });
 export const demo = process.env.APP_MODE !== "live";
+export const paymentMode = process.env.PAYMENT_MODE || (demo ? "demo" : "live");
+if (!["demo", "live"].includes(paymentMode))
+  throw Error("PAYMENT_MODE must be demo or live.");
+export const paymentDemo = paymentMode === "demo";
 export const production = process.env.NODE_ENV === "production";
 export const hostedDemo = production && demo;
 // Storage is independent of simulated providers. Hosted test deployments use MySQL.
 export const databaseDriver =
-  process.env.DB_DRIVER || (production || !demo ? "mysql" : "sqlite");
+  process.env.DB_DRIVER ||
+  (production || !demo || !paymentDemo ? "mysql" : "sqlite");
 if (!["mysql", "sqlite"].includes(databaseDriver))
   throw Error("DB_DRIVER must be mysql or sqlite.");
-if ((production || !demo) && databaseDriver !== "mysql")
+if ((production || !demo || !paymentDemo) && databaseDriver !== "mysql")
   throw Error("Hosted deployments and live mode require DB_DRIVER=mysql.");
 if (databaseDriver === "mysql") mysqlOptions();
 if (hostedDemo && process.env.ALLOW_HOSTED_DEMO !== "true")
@@ -45,7 +50,7 @@ if (hostedDemo) {
 function secret(name, fallback) {
   const value = process.env[name];
   if (
-    (!demo || production) &&
+    (!demo || !paymentDemo || production) &&
     (!value || value.length < 32 || /^replace[-_]/i.test(value))
   )
     throw new Error(
@@ -69,7 +74,7 @@ export const config = {
   demoDate: process.env.DEMO_EVENT_DATE || "2026-12-05",
 };
 if (
-  (!demo || production) &&
+  (!demo || !paymentDemo || production) &&
   new Set([config.sessionSecret, config.ticketSecret, config.otpSecret])
     .size !== 3
 )
@@ -77,3 +82,19 @@ if (
 export const maintenanceMode = process.env.MAINTENANCE_MODE || "interval";
 if (!["interval", "cron"].includes(maintenanceMode))
   throw Error("MAINTENANCE_MODE must be interval or cron.");
+
+if (!paymentDemo) {
+  if (!/^rzp_live_[A-Za-z0-9]+$/.test(process.env.RAZORPAY_KEY_ID || ""))
+    throw Error("PAYMENT_MODE=live requires a Razorpay Live Key ID.");
+  if (
+    !process.env.RAZORPAY_KEY_SECRET ||
+    /^replace|CHANGE_ME/i.test(process.env.RAZORPAY_KEY_SECRET)
+  )
+    throw Error("Set RAZORPAY_KEY_SECRET before enabling live payments.");
+  if ((process.env.RAZORPAY_WEBHOOK_SECRET || "").length < 32)
+    throw Error(
+      "Set a separate RAZORPAY_WEBHOOK_SECRET of at least 32 characters.",
+    );
+  if (process.env.RAZORPAY_WEBHOOK_SECRET === process.env.RAZORPAY_KEY_SECRET)
+    throw Error("Use separate Razorpay API and webhook secrets.");
+}

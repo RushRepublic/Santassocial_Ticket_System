@@ -1,5 +1,5 @@
 import { randomUUID, randomBytes } from "node:crypto";
-import { demo, config } from "./config.js";
+import { paymentDemo, config } from "./config.js";
 import { hash, qrToken } from "./security.js";
 export class AppError extends Error {
   status;
@@ -64,12 +64,16 @@ export async function activate(tx, b, status = "PAID") {
   await notification(tx, b, "TICKET");
 }
 export function publicBooking(b) {
-  const { ticketNonce, qrHash, ...safe } = b;
+  const { ticketNonce, qrHash, gatewayOrderId, gatewayPaymentId, ...safe } = b;
   return {
     ...safe,
     holdUntil: null,
     qrToken: hasBookingQr(b) ? qrToken(b) : null,
-    demo,
+    demo:
+      paymentDemo ||
+      gatewayOrderId?.startsWith("order_demo_") ||
+      gatewayPaymentId?.startsWith("pay_demo_") ||
+      false,
   };
 }
 export const hasBookingQr = (b) =>
@@ -77,10 +81,10 @@ export const hasBookingQr = (b) =>
   (b.method === "CASH" && b.status === "PENDING_CASH");
 export async function getBooking(db, id) {
   const b = (
-    await db.all("SELECT * FROM bookings WHERE id = ? OR reference = ?", [
-      id,
-      id,
-    ])
+    await db.all(
+      "SELECT b.*,p.orderId AS gatewayOrderId,p.paymentId AS gatewayPaymentId FROM bookings b LEFT JOIN payments p ON p.bookingId = b.id WHERE b.id = ? OR b.reference = ?",
+      [id, id],
+    )
   )[0];
   if (!b) fail(404, "Booking not found.");
   return b;
@@ -242,7 +246,7 @@ async function approveCashInTransaction(tx, id, amount, userId) {
   return publicBooking(await getBooking(tx, id));
 }
 export function eventToday() {
-  return demo
+  return paymentDemo
     ? config.demoDate
     : new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Kolkata",
@@ -253,9 +257,17 @@ export function eventToday() {
 }
 export async function inspectTicket(db, token) {
   const b = (
-    await db.all("SELECT * FROM bookings WHERE qrHash = ?", [hash(token)])
+    await db.all(
+      "SELECT b.*,p.orderId AS gatewayOrderId,p.paymentId AS gatewayPaymentId FROM bookings b LEFT JOIN payments p ON p.bookingId = b.id WHERE b.qrHash = ?",
+      [hash(token)],
+    )
   )[0];
   if (!b) fail(404, "INVALID TICKET: This QR code is not recognised.");
+  if (!paymentDemo && b.method === "RAZORPAY" && publicBooking(b).demo)
+    fail(
+      403,
+      "TEST PAYMENT: This simulated online ticket is not valid for admission.",
+    );
   if (b.checkedInAt)
     fail(
       409,

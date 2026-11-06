@@ -2,7 +2,7 @@
 
 ## Configuration
 
-Copy `.env.example` to `backend/.env`. Secrets are server-side only. APP_MODE defaults to `demo`; set `APP_MODE=live` explicitly for MySQL and real providers. Production refuses demo mode. Use three independent random secrets of 32+ characters for sessions, tickets and OTP hashing; changing the ticket secret invalidates existing QR credentials, so preserve it and back it up securely.
+Copy `.env.example` to `backend/.env`. Secrets are server-side only. APP_MODE defaults to `demo` for simulated OTP/messaging. PAYMENT_MODE independently controls payments and defaults to the APP_MODE setting. Use `APP_MODE=demo` with `PAYMENT_MODE=live` for real Razorpay and simulated OTP; follow [the Hostinger activation guide](RAZORPAY-LIVE.md). Fully real messaging requires `APP_MODE=live` plus the approved adapter. Hosted simulated OTP requires the existing explicit ALLOW_HOSTED_DEMO opt-in, MySQL and strong staff credentials. Use three independent random secrets of 32+ characters for sessions, tickets and OTP hashing; changing the ticket secret invalidates existing QR credentials, so preserve it and back it up securely.
 
 ## Razorpay
 

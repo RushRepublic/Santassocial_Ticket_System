@@ -1,5 +1,9 @@
 # Verification evidence
 
+## Independent payment and OTP modes
+
+`PAYMENT_MODE=live` with `APP_MODE=demo` enables Razorpay while retaining simulated OTP and notifications. Mixed-mode contract tests use a mocked gateway and synthetic credentials to verify disabled demo settlement, live checkout order metadata, pending versus captured evidence, signature/amount checks, webhook authentication/deduplication, and rejection of old simulated online tickets. Credential validation rejects missing secrets, test keys and SQLite for live payments. Existing demo-mode browser QA refuses to run if paymentMode is live. Real charges and real MySQL concurrency require separate external verification.
+
 ## Full cancellation and refund policies
 
 The Terms popup contains the supplied Ticket Cancellation Policy (six sections) and Ticket Refund Policy (seven sections and the six non-attendance examples). The policy body scrolls independently while its heading and Close button stay visible. Desktop/mobile QA checks all sections, access to the final paragraph, initial/reopened scroll position, viewport fit, Escape/Close dismissal, focus restoration and unchanged checkout consent. The closing sentence uses “website” as supplied in the reference image.

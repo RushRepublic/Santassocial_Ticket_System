@@ -240,7 +240,7 @@ try {
   const health = await page.request
     .get(`${origin}/api/health`)
     .then((response) => response.json());
-  if (health.mode !== "demo")
+  if (health.mode !== "demo" || health.paymentMode !== "demo")
     throw Error("Browser QA requires an isolated demo server.");
   await page.goto(origin, { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Checkout", exact: true }).waitFor();

@@ -6,6 +6,7 @@ const settings = {
   ...process.env,
   NODE_ENV: "production",
   APP_MODE: "demo",
+  PAYMENT_MODE: "demo",
   ALLOW_HOSTED_DEMO: "true",
   FRONTEND_ORIGIN: "https://prototype.example.org",
   DB_DRIVER: "mysql",

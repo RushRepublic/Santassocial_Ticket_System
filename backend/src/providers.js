@@ -2,7 +2,7 @@ import Razorpay from "razorpay";
 import nodemailer from "nodemailer";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { demo, config } from "./config.js";
+import { demo, paymentDemo, config } from "./config.js";
 import {
   AppError,
   getBooking,
@@ -32,7 +32,8 @@ export async function getMessaging() {
   return messaging;
 }
 export function razorpay() {
-  if (demo) throw new AppError(400, "Live payments are disabled in demo mode.");
+  if (paymentDemo)
+    throw new AppError(400, "Live payments are disabled in payment demo mode.");
   if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET)
     throw new AppError(
       503,
@@ -138,10 +139,14 @@ export async function dispatchNotifications(db, provider) {
 }
 let reconcileCursor = "";
 export async function reconcilePayments(db) {
-  if (demo || !process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET)
+  if (
+    paymentDemo ||
+    !process.env.RAZORPAY_KEY_ID ||
+    !process.env.RAZORPAY_KEY_SECRET
+  )
     return;
   const rows = await db.all(
-    "SELECT p.orderId FROM payments p JOIN bookings b ON b.id = p.bookingId WHERE b.method = 'RAZORPAY' AND p.status = 'PENDING' AND p.orderId > ? AND p.orderId NOT LIKE 'creating_%' ORDER BY p.orderId LIMIT 25",
+    "SELECT p.orderId FROM payments p JOIN bookings b ON b.id = p.bookingId WHERE b.method = 'RAZORPAY' AND p.status = 'PENDING' AND p.orderId > ? AND p.orderId NOT LIKE 'creating_%' AND p.orderId NOT LIKE 'order_demo_%' ORDER BY p.orderId LIMIT 25",
     [reconcileCursor],
   );
   if (!rows.length) {
