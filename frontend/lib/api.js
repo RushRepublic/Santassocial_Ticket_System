@@ -27,6 +27,7 @@ export async function api(path, options = {}) {
       );
     throw Object.assign(new Error(data.error || "The request failed."), {
       status: response.status,
+      details: data.details,
     });
   }
   return data;

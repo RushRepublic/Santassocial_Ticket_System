@@ -1,11 +1,12 @@
 import { randomUUID, randomBytes } from "node:crypto";
-import { paymentDemo, config } from "./config.js";
+import { paymentDemo, production, config } from "./config.js";
 import { hash, qrToken } from "./security.js";
 export class AppError extends Error {
   status;
-  constructor(status, message) {
+  constructor(status, message, details) {
     super(message);
     this.status = status;
+    this.details = details;
   }
 }
 export const now = () => new Date().toISOString();
@@ -219,6 +220,7 @@ export async function approveCash(db, id, amount, userId) {
 }
 async function approveCashInTransaction(tx, id, amount, userId) {
   const b = await getBooking(tx, id);
+  validateTicketDate(b);
   if (b.method !== "CASH")
     fail(400, "Only cash bookings can be approved here.");
   const p = (
@@ -245,15 +247,44 @@ async function approveCashInTransaction(tx, id, amount, userId) {
   await audit(tx, userId, "CASH_APPROVED", id);
   return publicBooking(await getBooking(tx, id));
 }
+export function istCalendarDate(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
 export function eventToday() {
-  return paymentDemo
-    ? config.demoDate
-    : new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Kolkata",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date());
+  // A fixed date is permitted only for isolated local demo/test runs.
+  return paymentDemo && !production ? config.demoDate : istCalendarDate();
+}
+export function validateTicketDate(booking) {
+  const scanningDate = eventToday();
+  if (
+    booking.eventDate === scanningDate &&
+    ["2026-12-05", "2026-12-06"].includes(scanningDate)
+  )
+    return;
+  const label = (date) =>
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(`${date}T12:00:00+05:30`));
+  const eventDay = ["2026-12-05", "2026-12-06"].includes(scanningDate);
+  const direction = booking.eventDate < scanningDate ? "Past" : "Future";
+  const title = eventDay
+    ? `Invalid Ticket \u2013 ${direction} Event Date`
+    : "Invalid Ticket \u2013 Event Not Taking Place Today";
+  const message = `This ticket is registered for ${label(booking.eventDate)}, and cannot be used on ${label(scanningDate)}.`;
+  throw new AppError(400, message, {
+    code: eventDay ? `${direction.toUpperCase()}_EVENT_DATE` : "NOT_EVENT_DAY",
+    title,
+    eventDate: booking.eventDate,
+    scanningDate,
+  });
 }
 export async function inspectTicket(db, token) {
   const b = (
@@ -274,8 +305,7 @@ export async function inspectTicket(db, token) {
       `ALREADY CHECKED IN: ${new Date(b.checkedInAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
     );
   if (!hasBookingQr(b)) fail(403, "PAYMENT PENDING: Entry is not permitted.");
-  if (b.eventDate !== eventToday())
-    fail(400, "WRONG EVENT DATE: This ticket is not valid for today’s event.");
+  validateTicketDate(b);
   return b;
 }
 export async function verifyTicket(db, token) {
@@ -294,6 +324,7 @@ export async function checkin(db, token, userId, key, amountReceived) {
       const b = await getBooking(tx, previous.bookingId);
       if (b.qrHash !== hash(token) || previous.staffId !== userId)
         fail(409, "Idempotency key already used.");
+      validateTicketDate(b);
       return previous;
     }
     if (amountReceived !== undefined) {

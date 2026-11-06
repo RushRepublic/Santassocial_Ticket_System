@@ -850,7 +850,12 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
           .join("; "),
       });
     if (error instanceof AppError)
-      return res.status(error.status).json({ error: error.message });
+      return res
+        .status(error.status)
+        .json({
+          error: error.message,
+          ...(error.details ? { details: error.details } : {}),
+        });
     if (error instanceof SyntaxError)
       return res.status(400).json({ error: "Invalid request body." });
     const requestId = randomUUID();

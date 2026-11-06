@@ -16,6 +16,7 @@ import {
   settleCaptured,
   availability,
   expire,
+  istCalendarDate,
 } from "../src/services.js";
 import { equal, hash, hmac, qrToken, signSession } from "../src/security.js";
 import { config } from "../src/config.js";
@@ -558,7 +559,7 @@ test("late captured payment stays valid and wrong event date is rejected", () =>
     ]);
     await settleCaptured(db, "order_late", "pay_late", 200, "INR");
     assert.equal((await getBooking(db, b.id)).status, "PAID");
-    await assert.rejects(verifyTicket(db, qrToken(b)), /WRONG EVENT DATE/);
+    await assert.rejects(verifyTicket(db, qrToken(b)), /cannot be used/);
     await expire(db);
     assert.equal((await getBooking(db, b.id)).status, "PAID");
   }));
@@ -787,4 +788,111 @@ test("OTP maximum attempts is enforced even if the final submitted code is corre
       .send({ ...body, otp: send.body.demoCode })
       .expect(400);
     await customer.get("/api/auth/me").expect(401);
+  }));
+
+test("IST calendar date uses the server instant across midnight, independent of device timezone", () => {
+  assert.equal(istCalendarDate(new Date("2026-12-04T18:29:59Z")), "2026-12-04");
+  assert.equal(istCalendarDate(new Date("2026-12-04T18:30:00Z")), "2026-12-05");
+  assert.equal(istCalendarDate(new Date("2026-12-05T18:29:59Z")), "2026-12-05");
+  assert.equal(istCalendarDate(new Date("2026-12-05T18:30:00Z")), "2026-12-06");
+});
+
+test("scanner and direct approval APIs enforce both event days without consuming invalid QR tickets", () =>
+  fixture(async (db) => {
+    const originalDate = config.demoDate;
+    try {
+      const app = createApp(db);
+      const admin = await staff(db);
+      const cookie = `santa_staff_session=${await signSession({ userId: admin, role: "ADMIN" }, true)}`;
+      const post = (path, body, key = randomUUID()) =>
+        request(app)
+          .post(path)
+          .set("Origin", config.origin)
+          .set("Cookie", cookie)
+          .set("Idempotency-Key", key)
+          .send(body);
+      for (const ticketDay of ["2026-12-05", "2026-12-06"]) {
+        for (const scanDay of [
+          "2026-12-05",
+          "2026-12-06",
+          "2026-12-04",
+          "2026-12-07",
+        ]) {
+          for (const method of ["CASH", "RAZORPAY"]) {
+            config.demoDate = ticketDay;
+            const b = await createBooking(
+              db,
+              booking({ eventDate: ticketDay, method }),
+              "9876543210",
+              randomUUID(),
+            );
+            if (method === "RAZORPAY") {
+              const order = `order_date_${randomUUID()}`;
+              await db.run(
+                "UPDATE payments SET orderId = ? WHERE bookingId = ?",
+                [order, b.id],
+              );
+              await settleCaptured(
+                db,
+                order,
+                `pay_date_${randomUUID()}`,
+                b.amount,
+                "INR",
+              );
+            }
+            const token = publicBooking(await getBooking(db, b.id)).qrToken;
+            const body = {
+              token,
+              ...(method === "CASH" ? { amountReceived: b.amount } : {}),
+            };
+            config.demoDate = scanDay;
+            const valid = ticketDay === scanDay;
+            const scan = await post("/api/scanner/verify", { token }).expect(
+              valid ? 200 : 400,
+            );
+            if (!valid) {
+              assert.equal(scan.body.details.eventDate, ticketDay);
+              assert.equal(scan.body.details.scanningDate, scanDay);
+              assert.equal(
+                scan.body.details.code,
+                !["2026-12-05", "2026-12-06"].includes(scanDay)
+                  ? "NOT_EVENT_DAY"
+                  : ticketDay < scanDay
+                    ? "PAST_EVENT_DATE"
+                    : "FUTURE_EVENT_DATE",
+              );
+              assert.match(
+                scan.body.error,
+                /This ticket is registered for December/,
+              );
+              await post("/api/scanner/checkin", body).expect(400);
+              if (method === "CASH")
+                await post(`/api/admin/bookings/${b.id}/approve`, {
+                  amountReceived: b.amount,
+                }).expect(400);
+              const unchanged = await getBooking(db, b.id);
+              assert.equal(
+                unchanged.status,
+                method === "CASH" ? "PENDING_CASH" : "PAID",
+              );
+              assert.equal(unchanged.checkedInAt, null);
+              assert.equal(
+                (
+                  await db.all("SELECT * FROM checkins WHERE bookingId = ?", [
+                    b.id,
+                  ])
+                ).length,
+                0,
+              );
+            }
+            config.demoDate = ticketDay;
+            await post("/api/scanner/verify", { token }).expect(200);
+            await post("/api/scanner/checkin", body).expect(200);
+            await post("/api/scanner/checkin", body).expect(409);
+          }
+        }
+      }
+    } finally {
+      config.demoDate = originalDate;
+    }
   }));

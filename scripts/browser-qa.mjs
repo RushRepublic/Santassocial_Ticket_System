@@ -645,6 +645,41 @@ try {
   }
   await page.locator(".admin-scanner-shortcut").click();
   await page.waitForURL(`${origin}/scanner`);
+  const futureResponse = await page.request.post(`${origin}/api/bookings`, {
+    headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
+    data: {
+      name: "Date QA Guest",
+      email: "date-qa@example.com",
+      eventDate: "2026-12-06",
+      adults: 1,
+      kids: 0,
+      method: "CASH",
+    },
+  });
+  if (!futureResponse.ok()) throw Error("Future-date QA booking failed.");
+  const futureBooking = await futureResponse.json();
+  for (const width of [375, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await scanCameraToken(futureBooking.qrToken);
+    await page
+      .locator(".scanner-error h2")
+      .filter({ hasText: "Future Event Date" })
+      .waitFor();
+    await page
+      .getByText(
+        "This ticket is registered for December 6, 2026, and cannot be used on December 5, 2026.",
+        { exact: true },
+      )
+      .waitFor();
+    if (!(await page.locator(".scanner-error button").isDisabled()))
+      throw Error("Invalid-date approval must be disabled.");
+    await page.getByText("Registered event date:", { exact: false }).waitFor();
+  }
+  const futureUnchanged = await page.request
+    .get(`${origin}/api/bookings/${futureBooking.id}`)
+    .then((r) => r.json());
+  if (futureUnchanged.status !== "PENDING_CASH" || futureUnchanged.checkedInAt)
+    throw Error("Invalid scan consumed the future ticket.");
   await scanCameraToken(booking.qrToken);
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
   await page

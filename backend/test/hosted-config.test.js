@@ -165,3 +165,25 @@ test(
     assert.equal(result.status, 0, result.stderr);
   },
 );
+
+test("hosted scanner uses server IST even when demo event date is configured", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    import assert from 'node:assert/strict';
+    import { eventToday, istCalendarDate } from './src/services.js';
+    assert.equal(eventToday(), istCalendarDate());
+    assert.notEqual(eventToday(), '2040-01-01');
+  `,
+    ],
+    {
+      cwd: new URL("..", import.meta.url),
+      env: { ...settings, DEMO_EVENT_DATE: "2040-01-01" },
+      encoding: "utf8",
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+});

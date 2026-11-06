@@ -30,6 +30,7 @@ export function Scanner({ history = false }) {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dateError, setDateError] = useState(null);
   const [entered, setEntered] = useState(false);
   const [rows, setRows] = useState([]);
   const [cashConfirmed, setCashConfirmed] = useState(false);
@@ -72,6 +73,7 @@ export function Scanner({ history = false }) {
     setBusy(true);
     setResult(null);
     setError("");
+    setDateError(null);
     setEntered(false);
     setCashConfirmed(false);
     scannerRef.current?.stop();
@@ -83,6 +85,7 @@ export function Scanner({ history = false }) {
       requestId.current = crypto.randomUUID();
     } catch (e) {
       setError(e.message);
+      setDateError(e.details || null);
     } finally {
       setBusy(false);
       lock.current = false;
@@ -132,6 +135,7 @@ export function Scanner({ history = false }) {
     if (!result || busy) return;
     setBusy(true);
     setError("");
+    setDateError(null);
     try {
       await post(
         "/scanner/checkin",
@@ -148,6 +152,7 @@ export function Scanner({ history = false }) {
       setToken("");
     } catch (e) {
       setError(e.message);
+      setDateError(e.details || null);
       setResult(null);
     } finally {
       setBusy(false);
@@ -242,6 +247,7 @@ export function Scanner({ history = false }) {
                   disabled={busy}
                   onClick={() => {
                     setError("");
+                    setDateError(null);
                     setEntered(false);
                     setCamera(!camera);
                   }}
@@ -353,7 +359,18 @@ export function Scanner({ history = false }) {
         {error && (
           <div className="scanner-error" role="alert">
             <XCircle size={28} />
+            {dateError?.eventDate && (
+              <>
+                <h2>{dateError.title}</h2>
+                <p>Registered event date: {eventDate(dateError.eventDate)}</p>
+              </>
+            )}
             <p>{error}</p>
+            {dateError?.eventDate && (
+              <button className="button full" disabled>
+                Approve ticket &amp; group entry
+              </button>
+            )}
           </div>
         )}
       </main>
