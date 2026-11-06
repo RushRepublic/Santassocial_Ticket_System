@@ -671,6 +671,9 @@ try {
         { exact: true },
       )
       .waitFor();
+    if (await page.locator(".scanner-error .lucide-circle-x, .scanner-error .lucide-x-circle").count())
+      throw Error("Invalid-ticket result must not show an X icon.");
+    await page.locator(".scanner-error").getByRole("button", { name: "Approve ticket", exact: true }).waitFor();
     if (!(await page.locator(".scanner-error button").isDisabled()))
       throw Error("Invalid-date approval must be disabled.");
     await page.getByText("Registered event date:", { exact: false }).waitFor();

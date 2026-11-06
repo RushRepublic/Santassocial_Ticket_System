@@ -10,7 +10,6 @@ import {
   LogOut,
   History,
   ArrowLeft,
-  XCircle,
   LayoutDashboard,
 } from "lucide-react";
 import { api, post, eventDate, dateTime, money } from "@/lib/api";
@@ -354,7 +353,6 @@ export function Scanner({ history = false }) {
         )}
         {error && (
           <div className="scanner-error" role="alert">
-            <XCircle size={28} />
             {dateError?.eventDate && (
               <>
                 <h2>{dateError.title}</h2>
