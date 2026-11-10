@@ -27,14 +27,14 @@ const initial = {
   name: "",
   email: "",
   mobile: "",
-  eventDate: "2026-11-09",
+  eventDate: "2026-12-05",
   adults: 1,
   kids: 0,
   method: "RAZORPAY",
   key: "",
 };
 const draftSchema = z.object({
-  eventDate: z.enum(["2026-11-09", "2026-11-10"], {
+  eventDate: z.enum(["2026-12-05", "2026-12-06"], {
     error: "Please select an event date.",
   }),
   name: z.string().trim().min(2, "Please enter your full name.").max(120),
@@ -46,7 +46,7 @@ const draftSchema = z.object({
 function readDraft() {
   try {
     const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
-    if (draft && !["2026-11-09", "2026-11-10"].includes(draft.eventDate))
+    if (draft && !["2026-12-05", "2026-12-06"].includes(draft.eventDate))
       return {
         ...draft,
         eventDate: "",
@@ -202,7 +202,7 @@ export function Register() {
               <VenueLocation />
             </div>
             <div className="date-options">
-              {["2026-11-09", "2026-11-10"].map((date) => (
+              {["2026-12-05", "2026-12-06"].map((date) => (
                 <button
                   type="button"
                   className={`date-option ${draft.eventDate === date ? "selected" : ""}`}
@@ -217,7 +217,7 @@ export function Register() {
                   <span className="date-number">{date.slice(-2)}</span>
                   <span>
                     <small>{eventDate(date).split(",")[0].toUpperCase()}</small>
-                    <b>Nov 2026</b>
+                    <b>Dec 2026</b>
                     <em>11:00 AM – 9:00 PM</em>
                   </span>
                   <span className="radio-dot" />
@@ -559,7 +559,7 @@ export function Checkout() {
         return;
       }
       const d = readDraft();
-      if (!d || !["2026-11-09", "2026-11-10"].includes(d.eventDate)) {
+      if (!d || !["2026-12-05", "2026-12-06"].includes(d.eventDate)) {
         router.replace("/");
         return;
       }

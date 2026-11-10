@@ -47,7 +47,7 @@ const mobileSchema = z
 const bookingSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.email().max(190),
-  eventDate: z.enum(["2026-11-09", "2026-11-10"]),
+  eventDate: z.enum(["2026-12-05", "2026-12-06"]),
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),
   method: z.enum(["RAZORPAY", "CASH"]),

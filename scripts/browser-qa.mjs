@@ -247,16 +247,16 @@ try {
   const dates = await page.locator(".date-option").allTextContents();
   if (
     dates.length !== 2 ||
-    !dates[0].includes("MONDAY") ||
-    !dates[0].includes("09") ||
-    !dates[1].includes("TUESDAY") ||
-    !dates[1].includes("10") ||
-    dates.some((d) => !d.includes("Nov 2026"))
+    !dates[0].includes("SATURDAY") ||
+    !dates[0].includes("05") ||
+    !dates[1].includes("SUNDAY") ||
+    !dates[1].includes("06") ||
+    dates.some((d) => !d.includes("Dec 2026"))
   )
     throw Error(
-      "Registration must offer only November 9 and 10 with correct weekdays.",
+      "Registration must offer only December 5 and 6 with correct weekdays.",
     );
-  if (!(await page.title()).includes("November 9 & 10"))
+  if (!(await page.title()).includes("December 5 & 6"))
     throw Error("Event metadata date is outdated.");
 
   // Present the second day's server availability without changing the host clock.
@@ -273,7 +273,7 @@ try {
           ...available.event,
           days: available.event.days.map((day) => ({
             ...day,
-            bookable: day.date === "2026-11-10",
+            bookable: day.date === "2026-12-06",
           })),
         },
       }),
@@ -287,7 +287,7 @@ try {
       !(await pastDatePage.locator(".date-option").last().isEnabled()) ||
       !(
         await pastDatePage.locator(".date-option.selected").innerText()
-      ).includes("TUESDAY")
+      ).includes("SUNDAY")
     )
       throw Error(
         "Past dates must be unavailable and today selected on desktop and mobile.",
@@ -482,11 +482,11 @@ try {
   const booking = await page.request
     .get(`${origin}/api/bookings/${bookingId}`)
     .then((r) => r.json());
-  if (booking.eventDate !== "2026-11-09")
+  if (booking.eventDate !== "2026-12-05")
     throw Error("Ticket uses an outdated event date.");
   await page
     .locator(".ticket-event-date")
-    .filter({ hasText: "November" })
+    .filter({ hasText: "December" })
     .waitFor();
   if (booking.amount !== 100 || booking.people !== 2)
     throw Error("Incorrect group price/count");
@@ -574,7 +574,7 @@ try {
     data: {
       name: "Unpaid QR QA Guest",
       email: "unpaid-qr@example.com",
-      eventDate: "2026-11-09",
+      eventDate: "2026-12-05",
       adults: 1,
       kids: 0,
       method: "RAZORPAY",
@@ -707,7 +707,7 @@ try {
     data: {
       name: "Date QA Guest",
       email: "date-qa@example.com",
-      eventDate: "2026-11-10",
+      eventDate: "2026-12-06",
       adults: 1,
       kids: 0,
       method: "CASH",
@@ -745,7 +745,7 @@ try {
   for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await scanCameraToken(futureBooking.qrToken);
-    await assertInvalidDate("Tuesday, 10 November 2026");
+    await assertInvalidDate("Sunday, 6 December 2026");
     // Presentation check for the other server error; actual past-date API rules
     // are covered by the backend date-combination tests.
     await page.route("**/api/scanner/verify", (route) =>
@@ -754,18 +754,18 @@ try {
         contentType: "application/json",
         body: JSON.stringify({
           error:
-            "This ticket is registered for November 9, 2026, and cannot be used on November 10, 2026.",
+            "This ticket is registered for December 5, 2026, and cannot be used on December 6, 2026.",
           details: {
             code: "PAST_EVENT_DATE",
             title: "Invalid Ticket - Past Event Date",
-            eventDate: "2026-11-09",
-            scanningDate: "2026-11-10",
+            eventDate: "2026-12-05",
+            scanningDate: "2026-12-06",
           },
         }),
       }),
     );
     await scanCameraToken(booking.qrToken);
-    await assertInvalidDate("Monday, 9 November 2026");
+    await assertInvalidDate("Saturday, 5 December 2026");
     await page.unroute("**/api/scanner/verify");
   }
   const futureUnchanged = await page.request
@@ -791,7 +791,7 @@ try {
     data: {
       name: "Cash QA Guest",
       email: "cash-qa@example.com",
-      eventDate: "2026-11-09",
+      eventDate: "2026-12-05",
       adults: 2,
       kids: 1,
       method: "CASH",

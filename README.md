@@ -2,7 +2,7 @@
 
 # Santa Social · 9th Edition
 
-Next.js customer site, modular Express API, MySQL production storage, and mobile group-ticket verification for November 9–10, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–9 PM IST** as specified in the supplied brief.
+Next.js customer site, modular Express API, MySQL production storage, and mobile group-ticket verification for December 5–6, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–9 PM IST** as specified in the supplied brief.
 
 For Hostinger, deploy one Node.js app using the root `server.js`: `npm run build`, then `npm start`. It serves registration, staff modules and `/api/*` on one subdomain. Staff sign in once at `/login`; admins can use every module including the gate scanner, while limited roles retain their permissions. The old admin/scanner login URLs redirect to `/login`. Follow [the single-subdomain Hostinger guide](docs/HOSTINGER-SINGLE-SITE.md) for MySQL, simulated providers, environment variables and cron setup. Only admin credentials are required for access to all modules.
 
@@ -33,7 +33,7 @@ Optional configuration: copy `.env.example` to `backend/.env`. Next.js proxies `
 | Cashier         | cashier@santasocial.local | SantaDemo2026! |
 | Scanner         | scanner@santasocial.local | SantaDemo2026! |
 
-The demo OTP is generated randomly and displayed on the verification screen. The scanner’s simulated event date defaults to **November 9, 2026**; set `DEMO_EVENT_DATE=2026-11-10` on the backend to test the second day. This override is ignored in production and live payment mode; hosted scanning always uses the actual server date in Asia/Kolkata.
+The demo OTP is generated randomly and displayed on the verification screen. The scanner’s simulated event date defaults to **December 5, 2026**; set `DEMO_EVENT_DATE=2026-12-06` on the backend to test the second day. This override is ignored in production and live payment mode; hosted scanning always uses the actual server date in Asia/Kolkata.
 
 ## Main routes
 
@@ -112,4 +112,4 @@ The public registration QR opens `/` for every customer; it carries no booking o
 
 See [deployment](docs/DEPLOYMENT.md), [integration setup](docs/INTEGRATIONS.md), and [API documentation](docs/API.md). Supply real MySQL access, independent secrets, Razorpay credentials/webhook configuration, approved AskEva authentication/utility templates and a confirmed adapter, and SMTP configuration for real sales. Keep `backend/assets/` in the deployment for branded PDF tickets. Production refuses demo mode unless explicitly opted into the isolated [Hostinger test prototype](docs/HOSTINGER-SINGLE-SITE.md) with `ALLOW_HOSTED_DEMO=true`, MySQL and strong credentials. That prototype simulates providers while storing real test records in MySQL. Real Razorpay with simulated OTP uses `APP_MODE=demo` and `PAYMENT_MODE=live`; see [the activation guide](docs/RAZORPAY-LIVE.md). Fully real messaging additionally requires `APP_MODE=live` and the AskEva adapter. Live integrations and MySQL concurrency have **not** been verified in this workspace; this is a working implementation, not a claim of production readiness.
 
-New bookings and new online payment orders reject past event dates using the backend IST calendar date. Passed dates stay visible but disabled in registration. See docs/EVENT-DATES-NOVEMBER-9-10.md for booking inventory and migration safety.
+New bookings and new online payment orders reject past event dates using the backend IST calendar date. Passed dates stay visible but disabled in registration. See docs/EVENT-DATES-DECEMBER-5-6.md for booking inventory and migration safety.

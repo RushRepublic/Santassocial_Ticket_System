@@ -230,8 +230,8 @@ function DateFilter({ value, onChange }) {
     <div className="date-filter">
       {[
         ["all", "Both days"],
-        ["2026-11-09", "Nov 9"],
-        ["2026-11-10", "Nov 10"],
+        ["2026-12-05", "Dec 5"],
+        ["2026-12-06", "Dec 6"],
       ].map(([v, label]) => (
         <button
           key={v}
@@ -278,7 +278,7 @@ function Dashboard() {
         <div>
           <p className="eyebrow">A LITTLE OVERVIEW OF THE BIG CELEBRATION</p>
           <h1>Let’s make it a merry one.</h1>
-          <p>9 & 10 November 2026 · Park Grounds, CODISSIA</p>
+          <p>5 & 6 December 2026 · Park Grounds, CODISSIA</p>
         </div>
         <DateFilter value={date} onChange={setDate} />
       </div>
