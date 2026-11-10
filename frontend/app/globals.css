@@ -1378,10 +1378,10 @@ input::placeholder {
   background: var(--red);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   color: #d7dfd2;
   padding: 25px;
-  text-align: right;
+  text-align: center;
   font-size: 13px;
   letter-spacing: 2px;
 }
