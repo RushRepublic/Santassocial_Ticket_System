@@ -77,6 +77,20 @@ async function verifyAdminBookingQr(booking) {
   await page
     .getByRole("heading", { name: "Customer QR code", exact: true })
     .waitFor();
+  if (booking.method === "RAZORPAY") {
+    const response = await page.request.get(
+      `${origin}/api/admin/bookings/${booking.id}`,
+    );
+    const detail = await response.json();
+    const payment = detail.payments[0];
+    await page.getByText("Razorpay order", { exact: true }).waitFor();
+    await page
+      .getByText(payment.orderId || "Not created", { exact: true })
+      .waitFor();
+    await page
+      .getByText(payment.paymentId || "Not captured", { exact: true })
+      .waitFor();
+  }
   if (
     await page
       .getByRole("heading", { name: "Booking actions", exact: true })

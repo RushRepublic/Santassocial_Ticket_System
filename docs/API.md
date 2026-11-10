@@ -77,6 +77,26 @@ Cash reservations now include `qrToken` immediately without a payment deadline. 
 
 `POST /scanner/verify` is lookup only: it returns booking/group details plus `amount` (paise), `method`, `status`, `mobile`, `email` and `paymentStatus` (`DUE` for pending cash, `PAID` for approved/free bookings). A successful lookup of unpaid cash does not authorize entry. `POST /scanner/checkin` retains `{token}` for paid entry and additionally accepts `{token, amountReceived}` for admin-only exact cash collection and entry in the same transaction. Check-in requires `Idempotency-Key`; scanner-only staff cannot collect cash. Expiry, date, duplicate-entry and ownership/role checks remain enforced. Admin/cashier `/admin/bookings/:id/approve` remains payment-only approval at a separate counter.
 
+## Live admin reporting
+
+With `PAYMENT_MODE=live`, admin overview totals, booking lists/search/pagination,
+CSV exports, payment records, notification failure counts and check-in history
+exclude online bookings with identifiable simulated payment evidence
+(`order_demo_` order IDs or `pay_demo_` payment IDs). Their admin detail route
+returns 404. Records remain in the database and customer/payment/scanner security
+flows are unchanged. Revenue still requires server-recorded `CAPTURED` status;
+pending and unsuccessful payments do not contribute to captured revenue.
+
+Cash bookings remain visible, including historical cash records with no reliable
+test/live marker. No classification is guessed from customer names, email
+addresses, prices or dates. `APP_MODE=demo` for simulated OTP/notifications does
+not hide genuine live Razorpay payments. Explicit payment-demo environments keep
+their labelled simulated records for local testing.
+
+Booking details display the stored Razorpay order ID, payment ID and payment
+status. These are event booking/payment records verified by the existing gateway
+flow, not an import of unrelated transactions from the merchant's Razorpay account.
+
 ## Customer payment-method changes
 
 `POST /api/bookings/:id/payment-method` accepts `{ "method": "CASH" }` or `{ "method": "RAZORPAY" }`, requires a matching verified customer and an Idempotency-Key. Switching an unpaid reservation atomically cancels the original and creates one replacement using server-stored guest/date/count/price details. Original payment records remain for reconciliation; a delayed capture on the cancelled online booking goes to PAYMENT_REVIEW and never grants admission. Paid/free/entered bookings cannot be replaced, in-flight order creation is rejected, and expired event dates remain blocked. The old cash QR is unusable after replacement. Retrying the same request key returns the same replacement.

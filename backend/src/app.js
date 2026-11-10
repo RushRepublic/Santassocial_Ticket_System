@@ -6,6 +6,10 @@ import { z } from "zod";
 import { randomInt, randomUUID } from "node:crypto";
 import { sendTicketDownload } from "./ticket-artwork.js";
 import {
+  adminBookingVisibility,
+  hiddenSimulatedBooking,
+} from "./admin-reporting.js";
+import {
   config,
   demo,
   paymentDemo,
@@ -603,6 +607,7 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
   });
   app.get("/api/admin/bookings/:id", staff, async (req, res) => {
     const b = await getBooking(db, param(req));
+    if (hiddenSimulatedBooking(b)) fail(404, "Booking not found.");
     res.json({
       booking: publicBooking(b),
       payments: await db.all("SELECT * FROM payments WHERE bookingId = ?", [
@@ -634,6 +639,9 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
     // SQL literal can conflict with the host's connection/literal collations.
     const clauses = ["(reference LIKE ? OR name LIKE ? OR mobile LIKE ?)"];
     const values = [`%${q}%`, `%${q}%`, `%${q}%`];
+    const visibility = adminBookingVisibility("bookings");
+    clauses.push(visibility.sql);
+    values.push(...visibility.values);
     if (date !== "all") {
       clauses.push("eventDate = ?");
       values.push(date);
@@ -696,10 +704,12 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
     const date = z
       .union([z.literal("all"), z.iso.date()])
       .parse(req.query.date || "all");
+    const visibility = adminBookingVisibility("b");
     const rows = await db.all(
       "SELECT b.*,p.status AS paymentStatus FROM bookings b JOIN payments p ON p.bookingId = b.id" +
-        (date === "all" ? "" : " WHERE b.eventDate = ?"),
-      date === "all" ? [] : [date],
+        ` WHERE ${visibility.sql}` +
+        (date === "all" ? "" : " AND b.eventDate = ?"),
+      [...visibility.values, ...(date === "all" ? [] : [date])],
     );
     const sum = (rs, key) => rs.reduce((s, r) => s + Number(r[key]), 0);
     const confirmed = rows.filter((r) => ["PAID", "FREE"].includes(r.status));
@@ -728,30 +738,35 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
       notificationFailures: Number(
         (
           await db.all(
-            "SELECT COUNT(*) AS n FROM notification_logs WHERE status = 'FAILED'",
+            `SELECT COUNT(*) AS n FROM notification_logs n JOIN bookings b ON b.id = n.bookingId WHERE n.status = 'FAILED' AND ${visibility.sql}`,
+            visibility.values,
           )
         )[0].n,
       ),
     });
   });
-  app.get("/api/admin/payments", staff, async (_req, res) =>
+  app.get("/api/admin/payments", staff, async (_req, res) => {
+    const visibility = adminBookingVisibility("b");
     res.json(
       await db.all(
-        "SELECT p.*,b.reference,b.name,b.method FROM payments p JOIN bookings b ON b.id = p.bookingId ORDER BY b.createdAt DESC LIMIT 500",
+        `SELECT p.*,b.reference,b.name,b.method FROM payments p JOIN bookings b ON b.id = p.bookingId WHERE ${visibility.sql} ORDER BY b.createdAt DESC LIMIT 500`,
+        visibility.values,
       ),
-    ),
-  );
+    );
+  });
   app.get(
     "/api/admin/checkins",
     auth(["ADMIN", "CASHIER", "SCANNER"]),
     async (req, res) => {
       const allStaff = ["ADMIN", "CASHIER"].includes(req.identity.role);
+      const visibility = adminBookingVisibility("b");
       res.json(
         await db.all(
           "SELECT c.*,b.reference,b.name FROM checkins c JOIN bookings b ON b.id = c.bookingId" +
-            (allStaff ? "" : " WHERE c.staffId = ?") +
+            ` WHERE ${visibility.sql}` +
+            (allStaff ? "" : " AND c.staffId = ?") +
             " ORDER BY c.createdAt DESC LIMIT 100",
-          allStaff ? [] : [req.identity.userId],
+          [...visibility.values, ...(allStaff ? [] : [req.identity.userId])],
         ),
       );
     },

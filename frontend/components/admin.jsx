@@ -649,6 +649,7 @@ function BookingDetail({ id }) {
     void load();
   }, [load]);
   const b = data?.booking;
+  const payment = data?.payments?.[0];
   return (
     <>
       <Link className="back-link" href="/admin/bookings">
@@ -690,6 +691,18 @@ function BookingDetail({ id }) {
                 <dd>
                   {b.checkedInAt ? dateTime(b.checkedInAt) : "Not entered"}
                 </dd>
+                {b.method === "RAZORPAY" && payment && (
+                  <>
+                    <dt>Razorpay order</dt>
+                    <dd>{payment.orderId || "Not created"}</dd>
+                    <dt>Razorpay payment</dt>
+                    <dd>{payment.paymentId || "Not captured"}</dd>
+                    <dt>Payment status</dt>
+                    <dd>
+                      <Status value={payment.status} />
+                    </dd>
+                  </>
+                )}
               </dl>
             </div>
             <div className="admin-card booking-qr-card">

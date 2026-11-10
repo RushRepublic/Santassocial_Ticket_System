@@ -59,8 +59,8 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     import { randomUUID } from 'node:crypto';
     import request from 'supertest';
     import { createApp } from './src/app.js';
-    import { hmac, qrToken } from './src/security.js';
-    import { getBooking, inspectTicket, publicBooking, now } from './src/services.js';
+    import { hmac, qrToken, signSession } from './src/security.js';
+    import { getBooking, inspectTicket, publicBooking, now, approveCash } from './src/services.js';
     // Local contract test only: SQLite with a mocked gateway, never a real charge.
     const sql = new DatabaseSync(':memory:');
     sql.exec(readFileSync('migrations/001_initial.sql','utf8'));
@@ -129,6 +129,63 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const stale=await make();
     await db.run('UPDATE payments SET orderId=? WHERE bookingId=?',['order_demo_pending',stale.id]);
     await post('/payments/razorpay/order',{bookingId:stale.id}).expect(409);
+
+    // Live admin reports must not count historical simulations, even while
+    // customer OTP/notifications remain simulated. Cash stays visible.
+    const adminId=randomUUID();
+    await db.run('INSERT INTO users (id,name,email,passwordHash,role,createdAt) VALUES (?,?,?,?,?,?)',
+      [adminId,'Reporting Admin','reporting@example.com','unused','ADMIN',now()]);
+    const adminCookie='santa_staff_session='+await signSession({userId:adminId,role:'ADMIN'},true);
+    const get=path=>request(app).get('/api/admin'+path).set('Cookie',adminCookie);
+    const paymentOnly=await make();
+    await db.run("UPDATE payments SET orderId=?,paymentId=?,status='CAPTURED' WHERE bookingId=?",
+      ['order_provider_legacy','pay_demo_only',paymentOnly.id]);
+    await db.run("UPDATE bookings SET status='PAID' WHERE id=?",[paymentOnly.id]);
+    const cash=async(name)=>(await customer.post('/api/bookings').set('Origin',process.env.FRONTEND_ORIGIN)
+      .set('Idempotency-Key',randomUUID()).send({name,email:'cash@example.com',eventDate:'2026-12-05',adults:1,kids:0,method:'CASH'}).expect(201)).body;
+    const unpaidCash=await cash('Unpaid Cash');
+    const paidCash=await cash('Paid Cash');
+    await approveCash(db,paidCash.id,100,adminId);
+    const noOrder=await make();
+    // Check-in history includes one real and one historical simulated entry.
+    for(const record of [b,old]) {
+      await db.run('INSERT INTO checkins (id,bookingId,staffId,eventDate,adults,kids,people,idempotencyKey,createdAt) VALUES (?,?,?,?,?,?,?,?,?)',
+        [randomUUID(),record.id,adminId,record.eventDate,record.adults,record.kids,record.people,randomUUID(),now()]);
+      await db.run('UPDATE bookings SET checkedInAt=? WHERE id=?',[now(),record.id]);
+      await db.run('INSERT INTO notification_logs (id,bookingId,type,status,nextAttemptAt) VALUES (?,?,?,?,?)',
+        [randomUUID(),record.id,'REPORTING_TEST','FAILED',now()]);
+    }
+    const counts=async()=>({bookings:(await db.all('SELECT COUNT(*) AS n FROM bookings'))[0].n,
+      payments:(await db.all('SELECT COUNT(*) AS n FROM payments'))[0].n,
+      checkins:(await db.all('SELECT COUNT(*) AS n FROM checkins'))[0].n});
+    const before=await counts();
+    const expected=[b.id,second.id,unpaidCash.id,paidCash.id,noOrder.id].sort();
+    const summary=(await get('/dashboard').expect(200)).body;
+    assert.equal(summary.demo,false); assert.equal(summary.bookings,5);
+    assert.equal(summary.attendees,3); assert.equal(summary.revenue,300);
+    assert.equal(summary.onlineRevenue,200); assert.equal(summary.cashRevenue,100);
+    assert.equal(summary.pendingCash,1); assert.equal(summary.entered,1);
+    assert.equal(summary.notificationFailures,1);
+    assert.equal((await get('/dashboard?date=2026-12-06').expect(200)).body.bookings,0);
+    const listed=(await get('/bookings').expect(200)).body;
+    assert.equal(listed.total,5); assert.equal(listed.pages,1);
+    assert.deepEqual(listed.rows.map(row=>row.id).sort(),expected);
+    assert.deepEqual((await get('/bookings?status=PENDING_CASH').expect(200)).body.rows.map(row=>row.id),[unpaidCash.id]);
+    assert.equal((await get('/bookings?q='+old.reference).expect(200)).body.total,0);
+    const csv=(await get('/bookings?format=csv').expect(200)).text;
+    assert.ok(csv.includes(b.reference)); assert.ok(csv.includes(unpaidCash.reference));
+    for(const simulated of [old,stale,paymentOnly]) {
+      assert.ok(!csv.includes(simulated.reference));
+      await get('/bookings/'+simulated.id).expect(404);
+    }
+    const detail=(await get('/bookings/'+b.id).expect(200)).body;
+    assert.equal(detail.payments[0].paymentId,id); assert.equal(detail.payments[0].status,'CAPTURED');
+    assert.deepEqual((await get('/payments').expect(200)).body.map(row=>row.bookingId).sort(),expected);
+    assert.deepEqual((await get('/checkins').expect(200)).body.map(row=>row.bookingId),[b.id]);
+    await request(app).get('/api/admin/dashboard').expect(401);
+    await customer.get('/api/admin/bookings').expect(403);
+    assert.deepEqual(await counts(),before);
+    assert.equal((await getBooking(db,old.id)).gatewayPaymentId,'pay_demo_legacy');
     sql.close();
     console.log('Mixed-mode contract checks passed.');
   `);
