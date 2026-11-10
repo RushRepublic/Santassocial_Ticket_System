@@ -53,7 +53,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
   const result = run(`
     import assert from 'node:assert/strict';
     import { mock } from 'node:test';
-    mock.timers.enable({apis:['Date'], now:new Date('2026-12-05T06:00:00Z').getTime()});
+    mock.timers.enable({apis:['Date'], now:new Date('2026-11-11T06:00:00Z').getTime()});
     import { DatabaseSync } from 'node:sqlite';
     import { readFileSync } from 'node:fs';
     import { randomUUID } from 'node:crypto';
@@ -88,7 +88,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     await post('/otp/verify',{mobile:'9876543210',challengeId:sent.body.challengeId,otp:sent.body.demoCode}).expect(200);
     const make=async()=> (await customer.post('/api/bookings').set('Origin',process.env.FRONTEND_ORIGIN)
       .set('Idempotency-Key',randomUUID()).send({name:'Gateway QA Guest',email:'qa@example.com',
-        eventDate:'2026-12-05',adults:1,kids:0,method:'RAZORPAY'}).expect(201)).body;
+        eventDate:'2026-11-11',adults:1,kids:0,method:'RAZORPAY'}).expect(201)).body;
     const b=await make();
     await post('/demo/payments/complete',{bookingId:b.id}).expect(404);
     const order=(await post('/payments/razorpay/order',{bookingId:b.id}).expect(200)).body;
@@ -142,7 +142,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
       ['order_provider_legacy','pay_demo_only',paymentOnly.id]);
     await db.run("UPDATE bookings SET status='PAID' WHERE id=?",[paymentOnly.id]);
     const cash=async(name)=>(await customer.post('/api/bookings').set('Origin',process.env.FRONTEND_ORIGIN)
-      .set('Idempotency-Key',randomUUID()).send({name,email:'cash@example.com',eventDate:'2026-12-05',adults:1,kids:0,method:'CASH'}).expect(201)).body;
+      .set('Idempotency-Key',randomUUID()).send({name,email:'cash@example.com',eventDate:'2026-11-11',adults:1,kids:0,method:'CASH'}).expect(201)).body;
     const unpaidCash=await cash('Unpaid Cash');
     const paidCash=await cash('Paid Cash');
     await approveCash(db,paidCash.id,100,adminId);
@@ -166,7 +166,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     assert.equal(summary.onlineRevenue,200); assert.equal(summary.cashRevenue,100);
     assert.equal(summary.pendingCash,1); assert.equal(summary.entered,1);
     assert.equal(summary.notificationFailures,1);
-    assert.equal((await get('/dashboard?date=2026-12-06').expect(200)).body.bookings,0);
+    assert.equal((await get('/dashboard?date=2026-11-12').expect(200)).body.bookings,0);
     const listed=(await get('/bookings').expect(200)).body;
     assert.equal(listed.total,5); assert.equal(listed.pages,1);
     assert.deepEqual(listed.rows.map(row=>row.id).sort(),expected);

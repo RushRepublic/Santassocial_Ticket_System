@@ -39,7 +39,7 @@ try {
     name: "Payment QA Guest",
     email: "payment-qa@example.com",
     method: "RAZORPAY",
-    eventDate: "2026-12-05",
+    eventDate: "2026-11-11",
     adults: 1,
     kids: 0,
   });
@@ -135,7 +135,7 @@ try {
     name: "Switch Payment QA",
     email: "switch-qa@example.com",
     method: "CASH",
-    eventDate: "2026-12-05",
+    eventDate: "2026-11-11",
     adults: 1,
     kids: 0,
   });
