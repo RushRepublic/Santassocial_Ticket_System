@@ -134,7 +134,8 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     import { randomUUID } from 'node:crypto';
     import request from 'supertest';
     import { createApp } from './src/app.js';
-    import { createBooking, getBooking, now } from './src/services.js';
+    import { createBooking, getBooking, now, settleCaptured, approveCash } from './src/services.js';
+    import { startNotificationWorker } from './src/notification-worker.js';
     import { dispatchNotifications } from './src/providers.js';
     const clock=new Date('2026-12-05T06:00:00Z').getTime();
     mock.timers.enable({apis:['Date'],now:clock});
@@ -190,6 +191,30 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     assert.doesNotMatch(JSON.stringify(failed.body),/wamid|synthetic-secret/);
     assert.equal((await db.all('SELECT * FROM otp_verifications WHERE mobile=?',['9876543213'])).length,0);
     assert.equal((await getBooking(db,booking.id)).status,'PENDING_CASH');
+    // The live worker delivers online capture and cash approval without a cron run.
+    fail=false;
+    const online=await createBooking(db,{name:'Online Guest',email:'sample@example.com',eventDate:'2026-12-05',adults:1,kids:0,method:'RAZORPAY'},'9876543210',randomUUID());
+    await db.run('UPDATE payments SET orderId=? WHERE bookingId=?',['order_live_notification',online.id]);
+    await settleCaptured(db,'order_live_notification','pay_live_notification',100,'INR');
+    const adminId=randomUUID();
+    await db.run('INSERT INTO users(id,name,email,passwordHash,role,createdAt) VALUES(?,?,?,?,?,?)',[adminId,'Admin','admin@example.com','synthetic','ADMIN',now()]);
+    await approveCash(db,booking.id,booking.amount,adminId);
+    const worker=startNotificationWorker(db);
+    await worker.wake();
+    const sentTickets=calls.filter(c=>c.template.name==='santa_social_ticket').map(c=>c.template.components[0].parameters.map(p=>p.text));
+    for(const b of [online,booking]){
+      const message=sentTickets.find(v=>v[1]===b.reference && v[5].startsWith('Paid:'));
+      assert.ok(message,'paid receipt must be sent automatically');
+      assert.equal(message[0],b.name);
+      assert.equal(message[6].split('#')[0],process.env.FRONTEND_ORIGIN+'/ticket/'+b.id);
+      const link=new URL(message[6]);
+      await request(app).get('/api/tickets/'+b.id).set('Authorization','Bearer '+link.hash.slice(1)).expect(200);
+    }
+    const count=calls.length;
+    await settleCaptured(db,'order_live_notification','pay_live_notification',100,'INR');
+    await worker.wake();
+    assert.equal(calls.length,count,'repeated settlement must not resend a sent receipt');
+    await worker.close();
     sql.close();mock.timers.reset();
   `;
   const env = {

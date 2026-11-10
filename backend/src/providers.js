@@ -85,6 +85,15 @@ export async function dispatchNotifications(db, provider) {
     [now()],
   );
   for (const job of jobs) {
+    // Claim using the existing retry timestamp: the API worker and cron can
+    // share an outbox without concurrently sending the same notification.
+    // A crashed worker's claim becomes retryable after two minutes.
+    const lease = new Date(Date.now() + 120000).toISOString();
+    const claim = await db.run(
+      "UPDATE notification_logs SET nextAttemptAt = ? WHERE id = ? AND status IN ('QUEUED','RETRY') AND nextAttemptAt <= ? AND attempts = ?",
+      [lease, job.id, now(), job.attempts],
+    );
+    if (!claim.changes) continue;
     try {
       const b = await getBooking(db, job.bookingId);
       if (

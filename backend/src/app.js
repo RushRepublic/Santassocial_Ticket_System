@@ -68,11 +68,29 @@ const cookieOptions = {
   sameSite: "lax",
   path: "/api",
 };
-export function createApp(db, { paymentGateway = razorpay } = {}) {
+export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", "loopback");
   app.use(helmet());
+  if (notify)
+    app.use("/api", (req, res, next) => {
+      res.once("finish", () => {
+        if (
+          req.method === "POST" &&
+          res.statusCode >= 200 &&
+          res.statusCode < 300
+        )
+          Promise.resolve()
+            .then(notify)
+            .catch(() => {
+              console.error(
+                "Queued WhatsApp notifications will retry in the background.",
+              );
+            });
+      });
+      next();
+    });
   app.use(
     "/api",
     rateLimit({
@@ -204,7 +222,7 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
       otpMode: whatsappMode,
       whatsappMode,
       database: databaseDriver,
-      release: "askeva-whatsapp-1",
+      release: "automatic-ticket-whatsapp-1",
     });
   });
   app.get("/api/events", async (_req, res) =>

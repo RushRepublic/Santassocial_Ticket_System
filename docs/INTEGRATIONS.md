@@ -41,6 +41,8 @@ OTP is generated cryptographically, HMAC-hashed with the challenge ID and mobile
 
 The registration UI sends and verifies OTPs inline beside/below the WhatsApp mobile field. It shows a verified tick only after the API establishes a matching customer session. Checkout rechecks that session; changing the mobile number invalidates the local verified indicator. The separate registration verification page has been removed, and `/verify-otp` redirects to the booking form. These UI changes use the same provider adapter and API endpoints; they do not enable live WhatsApp delivery without the approved AskEva setup. Development OTP simulation remains explicitly labelled inside the inline control.
 
+Live WhatsApp starts an independent automatic notification worker regardless of cron maintenance mode. Successful API mutations wake it after the response; it also polls every 15 seconds. Jobs use an atomic two-minute retry lease to avoid concurrent sends by app/cron; restart recovery remains at-least-once.
+
 Notifications are recorded as `QUEUED`, then `SENT`, `RETRY` or `FAILED` (or `DEMO_SENT` in demo). Retries use exponential delays with five attempts. Unique booking/type constraints avoid duplicate enqueueing. Remote delivery is at-least-once under a process failure; use a provider idempotency facility if available. Message failures never undo a paid booking. Historical DEMO_SENT notifications are not automatically resent. Identifiable simulated Razorpay jobs are superseded in live payment mode.
 
 An outdated cash-pending message is marked `SUPERSEDED` when its booking is already approved, expired or cancelled, so it cannot incorrectly ask a paid guest to pay again.

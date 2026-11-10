@@ -48,16 +48,31 @@ Never add API keys to NEXT_PUBLIC variables, source, GitHub or browser code.
 
 Save and restart/redeploy the existing Hostinger app. `GET /api/health` should
 return `paymentMode: "live"`, `otpMode: "live"`, `whatsappMode: "live"`,
-`database: "mysql"`, and release `askeva-whatsapp-1`. The top-level `mode` remains
+`database: "mysql"`, and release `automatic-ticket-whatsapp-1`. The top-level `mode` remains
 `demo` because APP_MODE remains demo; this does not simulate live payments or
 WhatsApp when their independent modes are live.
 
 ## Notification maintenance
 
-The existing outbox must run for ticket messages. If `MAINTENANCE_MODE=interval`,
-the app processes it every 15 seconds. If using `MAINTENANCE_MODE=cron`, retain
-the existing scheduled `node backend/src/run-maintenance.js` job with the SAME
-server environment variables, including WHATSAPP_MODE and AskEVA credentials.
+Live WhatsApp now has its own in-app outbox worker. It starts automatically,
+runs every 15 seconds, and wakes after successful API mutations (including
+booking creation, captured payment verification/webhooks and cash approval).
+It does not depend on MAINTENANCE_MODE or an external cron job. Existing cron
+maintenance may remain configured for reconciliation and retries. Keep its
+environment consistent with the web app. Each job is atomically claimed with
+a two-minute retry lease, preventing simultaneous sends by cron and the app.
+A crash or lost provider acknowledgement can still cause a later at-least-once
+retry; no provider idempotency capability is documented in the supplied API.
+Notification failure never rolls back a payment or delays the ticket response.
+
+The recipient is the verified customer mobile persisted on the booking. Online
+notifications are enqueued only after server-confirmed captured PAID/FREE
+activation. Cash receives an initial due/approval-required ticket link and a
+paid-status message after valid admin cash approval. Both messages retain the
+same QR and secure ticket route: `https://tickets.santassocial.com/ticket/<id>#<bearer>`.
+This opens the customer's receipt directly on another browser; the bare domain
+would open registration instead. Never remove the bearer or use ID-only access.
+
 A successful API acceptance is recorded as SENT; this is not a delivery/read
 receipt. Check AskEVA Reports for delivery failures and sufficient wallet balance.
 Do not configure arbitrary inbound webhook URLs: delivery-report ingestion is
@@ -73,7 +88,7 @@ DEMO_SENT historical notifications are not automatically resent.
    five verification attempts, cannot be reused, and have a 60-second resend
    cooldown. The matching customer session is still required for checkout.
 3. Make a cash reservation with your own test details. Do not approve it or
-   change existing customer bookings. Wait for maintenance and confirm the
+   change existing customer bookings. Wait for automatic delivery and confirm the
    WhatsApp message shows cash due and its secure link opens the branded ticket
    on another browser without logging in. The same QR is retained; it cannot
    admit an unpaid customer without admin cash approval on the registered day.

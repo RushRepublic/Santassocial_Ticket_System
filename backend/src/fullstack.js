@@ -10,7 +10,10 @@ const runtime = await createRuntime();
 const port = Number(process.env.PORT || 3000);
 let handlePages;
 const server = createServer(
-  createHttpHandler(createApp(runtime.db), (req, res) => handlePages(req, res)),
+  createHttpHandler(
+    createApp(runtime.db, { notify: runtime.notify }),
+    (req, res) => handlePages(req, res),
+  ),
 );
 const web = next({
   dev: false,

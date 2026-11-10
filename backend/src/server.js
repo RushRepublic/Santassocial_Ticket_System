@@ -2,7 +2,7 @@ import { createApp } from "./app.js";
 import { config, demo, paymentMode } from "./config.js";
 import { createRuntime } from "./runtime.js";
 const runtime = await createRuntime();
-const server = createApp(runtime.db).listen(
+const server = createApp(runtime.db, { notify: runtime.notify }).listen(
   config.port,
   config.host,
   (error) => {

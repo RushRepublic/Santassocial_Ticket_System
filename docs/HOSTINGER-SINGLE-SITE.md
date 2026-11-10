@@ -85,6 +85,12 @@ Only the admin account is required for full module access. If limited staff acco
 
 Do not set `API_ORIGIN` for the combined deployment. `/api/*` is served directly by Express on the same origin before Next.js handles pages. Existing Next.js proxy settings are retained only for separate local development servers. No AskEva, Razorpay, SMTP or `NEXT_PUBLIC_*` credentials are needed: OTP, payments and delivery remain simulated.
 
+For live AskEVA activation, follow [AskEVA setup](ASKEVA-SETUP.md). With
+`WHATSAPP_MODE=live`, the app sends queued ticket links automatically after
+successful booking/payment changes and polls every 15 seconds, even when
+`MAINTENANCE_MODE=cron`. A separate cron job is not required for WhatsApp ticket
+messages. Retain other maintenance/reconciliation scheduling as configured.
+
 ## 6. Deploy and verify MySQL
 
 Click **Deploy** and inspect the build and runtime logs. Open:
