@@ -130,6 +130,70 @@ try {
       .count()
   )
     throw Error("Legacy success link still requires another ticket click");
+  // Returning from a cash ticket must restore interactive choices, including on phones.
+  const cash = await api("/bookings", {
+    name: "Switch Payment QA",
+    email: "switch-qa@example.com",
+    method: "CASH",
+    eventDate: "2026-12-05",
+    adults: 1,
+    kids: 0,
+  });
+  await page.goto(`${origin}/checkout?id=${cash.id}`);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Reserve & pay at counter/ }).click();
+  await page.waitForURL(`${origin}/booking-pending?id=${cash.id}`);
+  await page
+    .getByAltText("One secure QR code for this entire group booking")
+    .waitFor();
+  await page.goBack();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.locator(".payment-option").first().waitFor();
+    if (
+      !(await page.locator(".payment-option").first().isEnabled()) ||
+      !(await page.locator(".payment-option").last().isEnabled())
+    )
+      throw Error("Returning from a cash ticket leaves payment methods locked");
+  }
+  await page.locator(".payment-option").first().click();
+  await page.evaluate(() => {
+    window.__qaPaymentOutcome = "cancelled";
+  });
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Continue to payment/ }).click();
+  await page.getByText(/Payment cancelled\./).waitFor();
+  const switched = await page.evaluate(() =>
+    JSON.parse(sessionStorage.getItem("santa-draft")),
+  );
+  if (switched.bookingId === cash.id || switched.method !== "RAZORPAY")
+    throw Error("Switching payment method reused the cash reservation");
+  const oldCash = await (
+    await page.request.get(`${origin}/api/bookings/${cash.id}`)
+  ).json();
+  if (oldCash.status !== "CANCELLED" || oldCash.qrToken)
+    throw Error("Old cash QR stayed active after changing method");
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator(".payment-option").last().click();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Reserve & pay at counter/ }).click();
+  await page.waitForURL(/\/booking-pending\?id=/);
+  const finalId = new URL(page.url()).searchParams.get("id");
+  if (finalId === cash.id || finalId === switched.bookingId)
+    throw Error(
+      "Changing back to cash failed to reserve with the selected method",
+    );
+  await page
+    .getByAltText("One secure QR code for this entire group booking")
+    .waitFor();
+  const oldOnline = await (
+    await page.request.get(`${origin}/api/bookings/${switched.bookingId}`)
+  ).json();
+  if (oldOnline.status !== "CANCELLED" || oldOnline.qrToken)
+    throw Error("Abandoned online reservation remained active");
+  console.log(
+    "PASS: cash ticket/back, desktop/mobile choices, cancelled online payment/reload and cash switch; old reservations cannot admit.",
+  );
   console.log(
     "PASS: failed/cancelled/pending payments stay on checkout without QR; server capture opens the ticket directly; legacy success URLs show the ticket.",
   );

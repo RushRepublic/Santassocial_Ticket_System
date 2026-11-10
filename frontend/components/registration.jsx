@@ -573,6 +573,9 @@ export function Checkout() {
     void restore();
   }, [router]);
   function success(b) {
+    setBusy(false);
+    setCheckingPayment(false);
+    setDemoBooking(null);
     sessionStorage.setItem("santa-last-booking", b.id);
     router.push(
       b.status === "PENDING_CASH"
@@ -626,9 +629,22 @@ export function Checkout() {
     setPendingPaymentId(null);
     try {
       const { key, mobile, bookingId, ...input } = draft;
-      const b = bookingId
+      let b = bookingId
         ? await api(`/bookings/${bookingId}`)
         : await post("/bookings", input, { "Idempotency-Key": key });
+      if (
+        bookingId &&
+        b.method !== draft.method &&
+        !["PAID", "FREE"].includes(b.status)
+      ) {
+        b = await post(
+          `/bookings/${bookingId}/payment-method`,
+          { method: draft.method },
+          { "Idempotency-Key": key },
+        );
+        if (new URLSearchParams(location.search).has("id"))
+          router.replace(`/checkout?id=${b.id}`);
+      }
       const updated = { ...draft, bookingId: b.id };
       saveDraft(updated);
       setDraft(updated);
@@ -743,13 +759,15 @@ export function Checkout() {
             {["RAZORPAY", "CASH"].map((method) => (
               <button
                 type="button"
-                disabled={!!draft.bookingId}
+                disabled={busy || checkingPayment || !!demoBooking}
                 key={method}
                 className={`payment-option ${draft.method === method ? "selected" : ""}`}
                 onClick={() => {
-                  const d = { ...draft, method };
+                  if (method === draft.method) return;
+                  const d = { ...draft, method, key: crypto.randomUUID() };
                   saveDraft(d);
                   setDraft(d);
+                  setError("");
                 }}
               >
                 {method === "RAZORPAY" ? <CreditCard /> : <Banknote />}

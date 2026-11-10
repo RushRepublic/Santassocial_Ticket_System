@@ -31,6 +31,7 @@ import {
   availability,
   createBooking,
   assertBookableDate,
+  replacePaymentMethod,
   getBooking,
   publicBooking,
   settleCaptured,
@@ -371,6 +372,23 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
       await expire(tx);
     });
     res.json(publicBooking(await own(req, param(req))));
+  });
+  app.post("/api/bookings/:id/payment-method", auth(), async (req, res) => {
+    if (!req.identity?.mobile) fail(403, "Verify your mobile number first.");
+    const { method } = z
+      .object({ method: z.enum(["RAZORPAY", "CASH"]) })
+      .parse(req.body);
+    res.json(
+      publicBooking(
+        await replacePaymentMethod(
+          db,
+          param(req),
+          req.identity.mobile,
+          method,
+          requestKey(req),
+        ),
+      ),
+    );
   });
   app.post("/api/tickets/retrieve", auth(), async (req, res) => {
     if (!req.identity?.mobile) fail(403, "Verify your mobile number first.");

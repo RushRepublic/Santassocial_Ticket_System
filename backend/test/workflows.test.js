@@ -1074,3 +1074,103 @@ test("past-date registration and new payment orders are blocked without changing
       config.demoDate = previousDate;
     }
   }));
+
+test("customer payment changes replace only unpaid reservations, revoke old QR and preserve late payment evidence", () =>
+  fixture(async (db) => {
+    const app = createApp(db);
+    const b = await createBooking(db, booking(), "9876543210", randomUUID());
+    const cookie = `santa_session=${await signSession({ mobile: b.mobile })}`;
+    const change = (id, method, key = randomUUID(), identity = cookie) =>
+      request(app)
+        .post(`/api/bookings/${id}/payment-method`)
+        .set("Origin", config.origin)
+        .set("Cookie", identity)
+        .set("Idempotency-Key", key)
+        .send({ method });
+    const stranger = `santa_session=${await signSession({ mobile: "9876543211" })}`;
+    await change(b.id, "RAZORPAY", randomUUID(), stranger).expect(403);
+    const key = randomUUID();
+    const responses = await Promise.all([
+      change(b.id, "RAZORPAY", key),
+      change(b.id, "RAZORPAY", key),
+    ]);
+    assert.deepEqual(
+      responses.map((r) => r.status),
+      [200, 200],
+    );
+    const online = responses[0].body;
+    assert.equal(online.id, responses[1].body.id);
+    assert.notEqual(online.id, b.id);
+    assert.equal(online.status, "PENDING_PAYMENT");
+    assert.equal(online.qrToken, null);
+    for (const field of [
+      "mobile",
+      "name",
+      "email",
+      "eventDate",
+      "adults",
+      "kids",
+      "amount",
+    ])
+      assert.equal(online[field], b[field]);
+    assert.equal((await getBooking(db, b.id)).status, "CANCELLED");
+    await assert.rejects(verifyTicket(db, publicBooking(b).qrToken));
+    assert.equal(
+      (await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id]))[0]
+        .status,
+      "PENDING",
+    );
+    const order = "order_switch_" + randomUUID();
+    await db.run("UPDATE payments SET orderId = ? WHERE bookingId = ?", [
+      order,
+      online.id,
+    ]);
+    const cash = (await change(online.id, "CASH").expect(200)).body;
+    assert.equal(cash.status, "PENDING_CASH");
+    assert.ok(cash.qrToken);
+    assert.equal((await getBooking(db, online.id)).status, "CANCELLED");
+    await settleCaptured(db, order, "pay_late_switch", online.amount, "INR");
+    assert.equal((await getBooking(db, online.id)).status, "PAYMENT_REVIEW");
+    assert.equal(publicBooking(await getBooking(db, online.id)).qrToken, null);
+    assert.equal((await getBooking(db, cash.id)).status, "PENDING_CASH");
+    await change(online.id, "CASH").expect(409);
+    const admin = await staff(db);
+    await approveCash(db, cash.id, cash.amount, admin);
+    await change(cash.id, "RAZORPAY").expect(409);
+    assert.equal((await getBooking(db, cash.id)).status, "PAID");
+  }));
+
+test("failed payment-method replacement rolls back cancellation and rejects in-flight order creation", () =>
+  fixture(async (db) => {
+    const app = createApp(db);
+    const b = await createBooking(
+      db,
+      booking({ method: "RAZORPAY" }),
+      "9876543210",
+      randomUUID(),
+    );
+    const cookie = `santa_session=${await signSession({ mobile: b.mobile })}`;
+    const change = () =>
+      request(app)
+        .post(`/api/bookings/${b.id}/payment-method`)
+        .set("Origin", config.origin)
+        .set("Cookie", cookie)
+        .set("Idempotency-Key", randomUUID())
+        .send({ method: "CASH" });
+    await db.run(
+      "UPDATE payments SET orderId = 'creating_test' WHERE bookingId = ?",
+      [b.id],
+    );
+    await change().expect(409);
+    await db.run("UPDATE payments SET orderId = NULL WHERE bookingId = ?", [
+      b.id,
+    ]);
+    const previous = config.demoDate;
+    try {
+      config.demoDate = "2026-12-07";
+      await change().expect(400);
+      assert.equal((await getBooking(db, b.id)).status, "PENDING_PAYMENT");
+    } finally {
+      config.demoDate = previous;
+    }
+  }));

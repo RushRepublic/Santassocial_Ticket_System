@@ -164,6 +164,60 @@ export function assertBookableDate(date) {
       "This event date is no longer available for booking. Please choose an available date.",
     );
 }
+export async function replacePaymentMethod(db, id, mobile, method, key) {
+  return db.transaction(async (tx) => {
+    await lockEvent(tx);
+    const original = await getBooking(tx, id);
+    if (original.mobile !== mobile)
+      fail(403, "This booking belongs to another customer.");
+    const input = {
+      name: original.name,
+      email: original.email,
+      eventDate: original.eventDate,
+      adults: original.adults,
+      kids: original.kids,
+      method,
+    };
+    // Reuse booking-request idempotency inside this same transaction.
+    const nested = { transaction: (work) => work(tx) };
+    const previous = await tx.all(
+      "SELECT id FROM booking_requests WHERE id = ?",
+      [key],
+    );
+    if (previous.length) return createBooking(nested, input, mobile, key);
+    if (original.method === method) return original;
+    if (
+      !["PENDING_CASH", "PENDING_PAYMENT"].includes(original.status) ||
+      original.checkedInAt
+    )
+      fail(
+        409,
+        "This booking can no longer change payment method. Check your ticket or payment status.",
+      );
+    const payment = (
+      await tx.all("SELECT * FROM payments WHERE bookingId = ? FOR UPDATE", [
+        id,
+      ])
+    )[0];
+    if (
+      payment?.status === "CAPTURED" ||
+      payment?.orderId?.startsWith("creating_")
+    )
+      fail(
+        409,
+        "Payment is being processed. Check payment status before changing method.",
+      );
+    // Keep original payment evidence for delayed gateway callbacks. A late
+    // capture on this cancelled booking becomes PAYMENT_REVIEW, never admission.
+    await tx.run(
+      "UPDATE bookings SET status = 'CANCELLED', updatedAt = ? WHERE id = ?",
+      [now(), id],
+    );
+    const replacement = await createBooking(nested, input, mobile, key);
+    await audit(tx, null, `PAYMENT_METHOD_REPLACED:${replacement.id}`, id);
+    return replacement;
+  });
+}
 export async function settleCaptured(
   db,
   orderId,
