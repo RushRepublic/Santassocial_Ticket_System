@@ -3,6 +3,10 @@ import { existsSync } from "node:fs";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import jsQR from "jsqr";
+import {
+  auditResponsive,
+  assertResponsiveAudits,
+} from "./responsive-ui-qa.mjs";
 const executable =
   process.env.PLAYWRIGHT_EXECUTABLE ||
   "C:/Users/aaa/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe";
@@ -199,6 +203,7 @@ async function verifyTermsPopup() {
   );
   await finalParagraph.scrollIntoViewIfNeeded();
   await popup.getByRole("button", { name: "Close", exact: true }).waitFor();
+  await auditResponsive(page, "terms-dialog");
   const bounds = await popup.boundingBox();
   if (
     !bounds ||
@@ -332,6 +337,7 @@ try {
     );
   });
   await page.screenshot({ path: "docs/booking-desktop.png", fullPage: true });
+  await auditResponsive(page, "registration");
   await page.getByPlaceholder("Your full name").fill("Browser Test Guest");
   await page
     .getByPlaceholder("10-digit mobile number")
@@ -354,6 +360,7 @@ try {
       `OTP request failed (${sentOtp.status()}): ${(await sentOtp.json()).error}`,
     );
   const code = await page.locator(".demo-code b").innerText();
+  await auditResponsive(page, "inline-otp");
   await page.getByLabel("Enter your 6-digit code").fill("000000");
   await page.getByRole("button", { name: "Verify OTP", exact: true }).click();
   await page
@@ -429,6 +436,7 @@ try {
       "Checkout still displays the removed banner, introduction, venue or navigation.",
     );
   await verifyTermsPopup();
+  await auditResponsive(page, "checkout");
   await page.screenshot({ path: "docs/checkout-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await verifyTermsPopup();
@@ -478,6 +486,7 @@ try {
     .getByAltText("One secure QR code for this entire group booking")
     .waitFor();
   await page.screenshot({ path: "docs/ticket-desktop.png", fullPage: true });
+  await auditResponsive(page, "paid-ticket");
   const bookingId = new URL(page.url()).pathname.split("/").pop();
   const booking = await page.request
     .get(`${origin}/api/bookings/${bookingId}`)
@@ -538,6 +547,7 @@ try {
   await page.waitForURL(`${origin}/login`);
   await page.goto(`${origin}/scanner/login`);
   await page.waitForURL(`${origin}/login`);
+  await auditResponsive(page, "admin-login");
   let staffLogins = 0;
   async function signIn() {
     await page
@@ -566,7 +576,9 @@ try {
     .waitFor();
   await page.locator(".stat-card").first().waitFor();
   await page.screenshot({ path: "docs/admin-desktop.png", fullPage: true });
+  await auditResponsive(page, "admin-overview");
   await verifyAdminBookingQr(booking);
+  await auditResponsive(page, "admin-booking-detail");
   await page.getByRole("link", { name: "All bookings", exact: true }).click();
   await verifyAdminBookingQr(booking);
   const unpaidResponse = await page.request.post(`${origin}/api/bookings`, {
@@ -677,6 +689,8 @@ try {
       .click();
     await page.waitForURL(`${origin}/admin/${section}`);
     await page.locator(".admin-sidebar").waitFor();
+    await page.locator(".admin-content .loading").waitFor({ state: "hidden" });
+    await auditResponsive(page, `admin-${section}`);
     await verifyStickyScanner();
   }
   await page.goto(`${origin}/login`);
@@ -702,6 +716,7 @@ try {
   }
   await page.locator(".admin-scanner-shortcut").click();
   await page.waitForURL(`${origin}/scanner`);
+  await auditResponsive(page, "scanner-camera");
   const futureResponse = await page.request.post(`${origin}/api/bookings`, {
     headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
     data: {
@@ -741,6 +756,10 @@ try {
     }));
     if (style.align !== "center" || style.color !== "rgb(146, 44, 34)")
       throw Error("Invalid-ticket styling must stay centered and red.");
+    await auditResponsive(
+      page,
+      label.includes("Sunday") ? "scanner-future" : "scanner-past",
+    );
   }
   for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -775,6 +794,7 @@ try {
     throw Error("Invalid scan consumed the future ticket.");
   await scanCameraToken(booking.qrToken);
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
+  await auditResponsive(page, "scanner-paid");
   await page
     .getByRole("heading", { name: "Paid Rs. 1. Approve the Ticket." })
     .waitFor();
@@ -816,6 +836,7 @@ try {
   )
     throw Error("Cash QR mobile layout overflow.");
   await page.getByText(/CASH DUE.*APPROVAL REQUIRED/).waitFor();
+  await auditResponsive(page, "cash-ticket");
   if (
     /GROUP|ADMISSION/i.test(
       await page.locator(".digital-ticket .ticket-top").innerText(),
@@ -840,6 +861,7 @@ try {
     .getByRole("heading", { name: "Collect Rs. 2 & Approve the Ticket." })
     .waitFor();
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
+  await auditResponsive(page, "scanner-cash");
   const approveCash = page.getByRole("button", {
     name: "Approve ticket",
   });
@@ -926,6 +948,9 @@ try {
     throw Error("Logout must revoke access to staff APIs.");
   if (!(await page.request.get(`${origin}/api/auth/me?scope=customer`)).ok())
     throw Error("Staff logout must preserve the customer session.");
+  await page.goto(`${origin}/retrieve-ticket`, { waitUntil: "networkidle" });
+  await auditResponsive(page, "ticket-retrieval");
+  assertResponsiveAudits();
   console.log(
     "PASS: direct booking landing page, legacy redirect, desktop/mobile layouts, OTP, online demo payment, group QR, PDF download, admin authentication, scanner entry and duplicate rejection.",
   );

@@ -132,6 +132,7 @@ export function MobileVerification({
         <span>+91</span>
         <input
           id="booking-mobile"
+          type="tel"
           autoComplete="tel-national"
           inputMode="numeric"
           pattern="[6-9][0-9]{9}"

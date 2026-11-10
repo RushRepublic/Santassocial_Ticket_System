@@ -188,6 +188,7 @@ export function Register() {
   }
   return (
     <main className="booking-page">
+      <h1 className="sr-only">Your booking</h1>
       <Steps step={1} />
       <div className="booking-layout registration-layout">
         <form className="form-card" onSubmit={next}>
@@ -205,6 +206,7 @@ export function Register() {
               {["2026-12-05", "2026-12-06"].map((date) => (
                 <button
                   type="button"
+                  aria-pressed={draft.eventDate === date}
                   className={`date-option ${draft.eventDate === date ? "selected" : ""}`}
                   key={date}
                   disabled={
@@ -734,6 +736,7 @@ export function Checkout() {
   if (!draft) return <Loading />;
   return (
     <main className="booking-page">
+      <h1 className="sr-only">Checkout</h1>
       <Steps step={2} />
       <div className="booking-layout checkout-layout">
         <div className="form-card">
@@ -761,6 +764,7 @@ export function Checkout() {
                 type="button"
                 disabled={busy || checkingPayment || !!demoBooking}
                 key={method}
+                aria-pressed={draft.method === method}
                 className={`payment-option ${draft.method === method ? "selected" : ""}`}
                 onClick={() => {
                   if (method === draft.method) return;

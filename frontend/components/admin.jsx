@@ -139,18 +139,22 @@ export function Admin() {
   if (!identity) return <Loading />;
   return (
     <div className="admin-layout">
-      <aside className={`admin-sidebar ${open ? "open" : ""}`}>
+      <aside
+        id="admin-navigation"
+        className={`admin-sidebar ${open ? "open" : ""}`}
+      >
         <Link href="/">
           <Wordmark />
         </Link>
         <p className="eyebrow">EVENT MANAGEMENT</p>
-        <nav>
+        <nav aria-label="Event management">
           {navigation.map(([key, label, Icon]) => (
             <Link
               onClick={() => setOpen(false)}
               key={key}
               href={`/admin/${key}`}
               className={section === key ? "active" : ""}
+              aria-current={section === key ? "page" : undefined}
             >
               <Icon size={19} />
               {label}
@@ -184,6 +188,8 @@ export function Admin() {
           <button
             className="menu-button"
             aria-label="Toggle menu"
+            aria-expanded={open}
+            aria-controls="admin-navigation"
             onClick={() => setOpen(!open)}
           >
             <Menu />
@@ -196,7 +202,7 @@ export function Admin() {
           </Link>
         </div>
         <DemoBanner />
-        <div className="admin-content">
+        <main className="admin-content">
           {error && <Notice>{error}</Notice>}
           {section === "dashboard" ? (
             <Dashboard />
@@ -211,7 +217,7 @@ export function Admin() {
           ) : (
             <Dashboard />
           )}
-        </div>
+        </main>
         {identity.role === "ADMIN" && (
           <Link
             className="button admin-scanner-shortcut"
@@ -476,7 +482,12 @@ function Bookings({ compact = false }) {
         />
       ) : (
         <>
-          <div className="table-scroll">
+          <div
+            className="table-scroll"
+            role="region"
+            aria-label="Booking records"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -714,7 +725,12 @@ function OperationsTable() {
       {!rows ? (
         <ResourceLoading error={error} retry={load} />
       ) : (
-        <div className="table-scroll">
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Group entry records"
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>

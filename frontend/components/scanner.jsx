@@ -191,6 +191,7 @@ export function Scanner({ history = false }) {
       </header>
       <DemoBanner />
       <main className="scanner-main">
+        {!history && <h1 className="sr-only">Gate scanner</h1>}
         {history ? (
           <>
             <Link href="/scanner" className="back-link">

@@ -40,11 +40,17 @@ export function Header({ overlay = false }) {
           <button
             className="menu-button"
             aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="customer-navigation"
             onClick={() => setOpen(!open)}
           >
             {open ? <X /> : <Menu />}
           </button>
-          <nav className={open ? "open" : ""}>
+          <nav
+            id="customer-navigation"
+            aria-label="Customer navigation"
+            className={open ? "open" : ""}
+          >
             {path !== "/retrieve-ticket" && (
               <Link onClick={() => setOpen(false)} href="/retrieve-ticket">
                 Find my ticket
