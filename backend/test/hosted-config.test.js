@@ -73,7 +73,11 @@ test("hosted prototype requires MySQL while retaining simulated providers and se
       0,
       JSON.stringify(Object.keys(invalid)),
     );
-  const live = load({ APP_MODE: "live", ALLOW_HOSTED_DEMO: "false" });
+  const live = load({
+    APP_MODE: "live",
+    ALLOW_HOSTED_DEMO: "false",
+    ASKEVA_API_KEY: "synthetic-key-for-config-test",
+  });
   assert.equal(live.status, 0, live.stderr);
   assert.equal(JSON.parse(live.stdout.trim()).demo, false);
   const automatic = load({ DB_DRIVER: "" });

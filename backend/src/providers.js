@@ -2,26 +2,24 @@ import Razorpay from "razorpay";
 import nodemailer from "nodemailer";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { demo, paymentDemo, config } from "./config.js";
+import { demo, whatsappDemo, paymentDemo, config } from "./config.js";
 import {
   AppError,
   getBooking,
   hasBookingQr,
+  publicBooking,
   now,
   settleCaptured,
 } from "./services.js";
 import { qrToken } from "./security.js";
+import { createAskevaMessaging } from "./askeva.js";
 let messaging;
 export async function getMessaging() {
   if (messaging) return messaging;
-  if (demo)
+  if (whatsappDemo)
     return (messaging = { async sendOtp() {}, async sendNotification() {} });
   const file = process.env.ASKEVA_ADAPTER_MODULE;
-  if (!file)
-    throw new AppError(
-      503,
-      "WhatsApp authentication is not configured. Please contact the organiser.",
-    );
+  if (!file) return (messaging = createAskevaMessaging());
   const module = await import(pathToFileURL(resolve(file)).href);
   messaging = module.default;
   if (
@@ -89,7 +87,10 @@ export async function dispatchNotifications(db, provider) {
   for (const job of jobs) {
     try {
       const b = await getBooking(db, job.bookingId);
-      if (job.type === "CASH_PENDING" && b.status !== "PENDING_CASH") {
+      if (
+        (job.type === "CASH_PENDING" && b.status !== "PENDING_CASH") ||
+        (!paymentDemo && b.method === "RAZORPAY" && publicBooking(b).demo)
+      ) {
         await db.run(
           "UPDATE notification_logs SET status = 'SUPERSEDED' WHERE id = ?",
           [job.id],
@@ -98,6 +99,8 @@ export async function dispatchNotifications(db, provider) {
       }
       await (provider || (await getMessaging())).sendNotification({
         mobile: b.mobile,
+        name: b.name,
+        status: b.status,
         type: job.type,
         reference: b.reference,
         amount: b.amount,
@@ -110,7 +113,7 @@ export async function dispatchNotifications(db, provider) {
       });
       await db.run(
         "UPDATE notification_logs SET status = ?, attempts = attempts + 1, sentAt = ? WHERE id = ?",
-        [demo ? "DEMO_SENT" : "SENT", now(), job.id],
+        [whatsappDemo ? "DEMO_SENT" : "SENT", now(), job.id],
       );
     } catch {
       if (!demo && job.attempts >= 1) {

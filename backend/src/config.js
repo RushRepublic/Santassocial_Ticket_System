@@ -7,15 +7,30 @@ export const paymentMode = process.env.PAYMENT_MODE || (demo ? "demo" : "live");
 if (!["demo", "live"].includes(paymentMode))
   throw Error("PAYMENT_MODE must be demo or live.");
 export const paymentDemo = paymentMode === "demo";
+// WhatsApp delivery can go live independently of payments and SMTP.
+export const whatsappMode =
+  process.env.WHATSAPP_MODE || (demo ? "demo" : "live");
+if (!["demo", "live"].includes(whatsappMode))
+  throw Error("WHATSAPP_MODE must be demo or live.");
+export const whatsappDemo = whatsappMode === "demo";
+if (
+  !whatsappDemo &&
+  !process.env.ASKEVA_ADAPTER_MODULE &&
+  !process.env.ASKEVA_API_KEY?.trim()
+)
+  throw Error("Set ASKEVA_API_KEY before enabling live WhatsApp delivery.");
 export const production = process.env.NODE_ENV === "production";
 export const hostedDemo = production && demo;
 // Storage is independent of simulated providers. Hosted test deployments use MySQL.
 export const databaseDriver =
   process.env.DB_DRIVER ||
-  (production || !demo || !paymentDemo ? "mysql" : "sqlite");
+  (production || !demo || !paymentDemo || !whatsappDemo ? "mysql" : "sqlite");
 if (!["mysql", "sqlite"].includes(databaseDriver))
   throw Error("DB_DRIVER must be mysql or sqlite.");
-if ((production || !demo || !paymentDemo) && databaseDriver !== "mysql")
+if (
+  (production || !demo || !paymentDemo || !whatsappDemo) &&
+  databaseDriver !== "mysql"
+)
   throw Error("Hosted deployments and live mode require DB_DRIVER=mysql.");
 if (databaseDriver === "mysql") mysqlOptions();
 if (hostedDemo && process.env.ALLOW_HOSTED_DEMO !== "true")
@@ -50,7 +65,7 @@ if (hostedDemo) {
 function secret(name, fallback) {
   const value = process.env[name];
   if (
-    (!demo || !paymentDemo || production) &&
+    (!demo || !paymentDemo || !whatsappDemo || production) &&
     (!value || value.length < 32 || /^replace[-_]/i.test(value))
   )
     throw new Error(
@@ -74,7 +89,7 @@ export const config = {
   demoDate: process.env.DEMO_EVENT_DATE || "2026-12-05",
 };
 if (
-  (!demo || !paymentDemo || production) &&
+  (!demo || !paymentDemo || !whatsappDemo || production) &&
   new Set([config.sessionSecret, config.ticketSecret, config.otpSecret])
     .size !== 3
 )

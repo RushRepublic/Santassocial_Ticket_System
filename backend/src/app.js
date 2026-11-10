@@ -14,6 +14,8 @@ import {
   demo,
   paymentDemo,
   paymentMode,
+  whatsappMode,
+  whatsappDemo,
   production,
   databaseDriver,
 } from "./config.js";
@@ -199,9 +201,10 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
       ok: true,
       mode: demo ? "demo" : "live",
       paymentMode,
-      otpMode: demo ? "demo" : "live",
+      otpMode: whatsappMode,
+      whatsappMode,
       database: databaseDriver,
-      release: "independent-payment-mode-1",
+      release: "askeva-whatsapp-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -247,8 +250,8 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
       challengeId: id,
       expiresIn: 300,
       resendIn: 60,
-      demo,
-      ...(demo ? { demoCode: otp } : {}),
+      demo: whatsappDemo,
+      ...(whatsappDemo ? { demoCode: otp } : {}),
     });
   });
   app.post("/api/otp/verify", otpLimit, async (req, res) => {

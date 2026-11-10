@@ -2,7 +2,7 @@
 
 ## Configuration
 
-Copy `.env.example` to `backend/.env`. Secrets are server-side only. APP_MODE defaults to `demo` for simulated OTP/messaging. PAYMENT_MODE independently controls payments and defaults to the APP_MODE setting. Use `APP_MODE=demo` with `PAYMENT_MODE=live` for real Razorpay and simulated OTP; follow [the Hostinger activation guide](RAZORPAY-LIVE.md). Fully real messaging requires `APP_MODE=live` plus the approved adapter. Hosted simulated OTP requires the existing explicit ALLOW_HOSTED_DEMO opt-in, MySQL and strong staff credentials. Use three independent random secrets of 32+ characters for sessions, tickets and OTP hashing; changing the ticket secret invalidates existing QR credentials, so preserve it and back it up securely.
+Copy `.env.example` to `backend/.env`. Secrets are server-side only. APP_MODE defaults to `demo` for simulated OTP/messaging. PAYMENT_MODE independently controls payments and defaults to the APP_MODE setting. Use `APP_MODE=demo` with `PAYMENT_MODE=live` for real Razorpay and simulated OTP; follow [the Hostinger activation guide](RAZORPAY-LIVE.md). Live WhatsApp uses `WHATSAPP_MODE=live` independently of APP_MODE/SMTP; see [AskEVA activation](ASKEVA-SETUP.md). Hosted simulated OTP requires the existing explicit ALLOW_HOSTED_DEMO opt-in, MySQL and strong staff credentials. Use three independent random secrets of 32+ characters for sessions, tickets and OTP hashing; changing the ticket secret invalidates existing QR credentials, so preserve it and back it up securely.
 
 ## Razorpay
 
@@ -25,39 +25,23 @@ Refund creation and post-activation refund/revocation automation are not impleme
 
 ## AskEva WhatsApp
 
-No live AskEva API endpoint or payload has been invented. No confirmed account documentation, approved authentication template, or credentials were supplied. Live OTP requests return a configuration error until an adapter is supplied.
-
-The runtime provider contract is enforced in `backend/src/providers.js`. Create a JavaScript ESM module on the VPS (a `.js` file in a package with `"type": "module"`) and set its absolute path in `ASKEVA_ADAPTER_MODULE`. Its default export must implement two async methods. This JavaScript skeleton intentionally fails until the confirmed provider calls are implemented:
-
-```js
-export default {
-  async sendOtp(mobile, otp) {
-    // Send the approved authentication template using confirmed AskEva docs.
-    throw new Error("Implement the confirmed AskEva OTP API call.");
-  },
-  async sendNotification({
-    mobile,
-    type,
-    reference,
-    ticketLink,
-    amount,
-    eventDate,
-    adults,
-    kids,
-  }) {
-    // Send the appropriate approved utility template; amount is integer paise.
-    throw new Error("Implement the confirmed AskEva notification API call.");
-  },
-};
-```
-
-Implement these methods only from the provider’s confirmed official specification. Use `process.env.ASKEVA_API_KEY` inside the adapter. Map ten-digit Indian mobiles to the provider’s documented international format. Use an approved **authentication** template for OTP and approved appropriate **utility** templates for ticket/cash/payment review updates. Never assume a marketing subscription authorises OTP delivery. Reject failed provider responses rather than pretending delivery succeeded. Add provider request timeouts. Do not log OTPs, API keys, ticket bearer tokens, or message bodies containing them.
+The built-in adapter in `backend/src/askeva.js` implements the owner-supplied
+AskEVA PDF: POST `https://backend.askeva.io/v1/message/send-message`, token query
+authentication, authentication body/copy-code parameters and seven-variable
+utility ticket messages. See [the setup and acceptance-test guide](ASKEVA-SETUP.md).
+Set `WHATSAPP_MODE=live`, `ASKEVA_API_KEY`, approved template names and language
+privately in Hostinger. Keep APP_MODE=demo for simulated SMTP if desired;
+PAYMENT_MODE independently controls Razorpay. An optional ASKEVA_ADAPTER_MODULE
+retains compatibility with custom providers; leave it unset for the built-in adapter.
+The provider contract is `sendOtp(mobile, otp)` and `sendNotification(message)`.
+Provider errors, invalid JSON, missing message IDs and timeouts fail safely;
+request URLs, OTPs, secrets and secure ticket links are never logged.
 
 OTP is generated cryptographically, HMAC-hashed with the challenge ID and mobile, expires in five minutes, has five attempts, and is consumed once. Resends invalidate the older challenge and have a 60-second cooldown. IP rate limits provide an additional barrier. Live responses never include the OTP. A failed provider send cannot verify the mobile.
 
 The registration UI sends and verifies OTPs inline beside/below the WhatsApp mobile field. It shows a verified tick only after the API establishes a matching customer session. Checkout rechecks that session; changing the mobile number invalidates the local verified indicator. The separate registration verification page has been removed, and `/verify-otp` redirects to the booking form. These UI changes use the same provider adapter and API endpoints; they do not enable live WhatsApp delivery without the approved AskEva setup. Development OTP simulation remains explicitly labelled inside the inline control.
 
-Notifications are recorded as `QUEUED`, then `SENT`, `RETRY` or `FAILED` (or `DEMO_SENT` in demo). Retries use exponential delays with five attempts. Unique booking/type constraints avoid duplicate enqueueing. Remote delivery is at-least-once under a process failure; use a provider idempotency facility if available. Message failures never undo a paid booking. Organisers can retry from booking details.
+Notifications are recorded as `QUEUED`, then `SENT`, `RETRY` or `FAILED` (or `DEMO_SENT` in demo). Retries use exponential delays with five attempts. Unique booking/type constraints avoid duplicate enqueueing. Remote delivery is at-least-once under a process failure; use a provider idempotency facility if available. Message failures never undo a paid booking. Historical DEMO_SENT notifications are not automatically resent. Identifiable simulated Razorpay jobs are superseded in live payment mode.
 
 An outdated cash-pending message is marked `SUPERSEDED` when its booking is already approved, expired or cancelled, so it cannot incorrectly ask a paid guest to pay again.
 
