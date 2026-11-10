@@ -27,14 +27,14 @@ const initial = {
   name: "",
   email: "",
   mobile: "",
-  eventDate: "2026-11-05",
+  eventDate: "2026-11-09",
   adults: 1,
   kids: 0,
   method: "RAZORPAY",
   key: "",
 };
 const draftSchema = z.object({
-  eventDate: z.enum(["2026-11-05", "2026-11-06"], {
+  eventDate: z.enum(["2026-11-09", "2026-11-10"], {
     error: "Please select an event date.",
   }),
   name: z.string().trim().min(2, "Please enter your full name.").max(120),
@@ -46,7 +46,7 @@ const draftSchema = z.object({
 function readDraft() {
   try {
     const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
-    if (draft && !["2026-11-05", "2026-11-06"].includes(draft.eventDate))
+    if (draft && !["2026-11-09", "2026-11-10"].includes(draft.eventDate))
       return {
         ...draft,
         eventDate: "",
@@ -119,7 +119,23 @@ export function Register() {
   useEffect(() => {
     setDraft(readDraft() || { ...initial, key: crypto.randomUUID() });
     api("/events")
-      .then((d) => setSettings(d.event))
+      .then((d) => {
+        setSettings(d.event);
+        setDraft((current) => {
+          const saved = readDraft();
+          const available = d.event.days.filter((day) => day.bookable);
+          if (!saved)
+            return { ...current, eventDate: available[0]?.date || "" };
+          if (!available.some((day) => day.date === current.eventDate))
+            return {
+              ...current,
+              eventDate: "",
+              bookingId: undefined,
+              key: crypto.randomUUID(),
+            };
+          return current;
+        });
+      })
       .catch((e) => setError(e.message));
   }, []);
   const update = (values) => {
@@ -135,6 +151,12 @@ export function Register() {
       setError(parsed.error.issues[0].message);
       return;
     }
+    if (
+      !settings?.days.some(
+        (day) => day.date === draft.eventDate && day.bookable,
+      )
+    )
+      return setError("Please choose an available event date.");
     if (draft.adults + draft.kids < 1)
       return setError("Please select at least one guest.");
     if (!draft.adults && !settings?.allowKidsOnly)
@@ -180,19 +202,21 @@ export function Register() {
               <VenueLocation />
             </div>
             <div className="date-options">
-              {[
-                ["2026-11-05", "THURSDAY", "05"],
-                ["2026-11-06", "FRIDAY", "06"],
-              ].map(([date, day, n]) => (
+              {["2026-11-09", "2026-11-10"].map((date) => (
                 <button
                   type="button"
                   className={`date-option ${draft.eventDate === date ? "selected" : ""}`}
                   key={date}
+                  disabled={
+                    !settings?.days.some(
+                      (day) => day.date === date && day.bookable,
+                    )
+                  }
                   onClick={() => update({ eventDate: date })}
                 >
-                  <span className="date-number">{n}</span>
+                  <span className="date-number">{date.slice(-2)}</span>
                   <span>
-                    <small>{day}</small>
+                    <small>{eventDate(date).split(",")[0].toUpperCase()}</small>
                     <b>Nov 2026</b>
                     <em>11:00 AM – 9:00 PM</em>
                   </span>
@@ -535,7 +559,7 @@ export function Checkout() {
         return;
       }
       const d = readDraft();
-      if (!d || !["2026-11-05", "2026-11-06"].includes(d.eventDate)) {
+      if (!d || !["2026-11-09", "2026-11-10"].includes(d.eventDate)) {
         router.replace("/");
         return;
       }

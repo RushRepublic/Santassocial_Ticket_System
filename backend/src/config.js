@@ -71,7 +71,7 @@ export const config = {
     "local-demo-ticket-secret-change-before-live",
   ),
   otpSecret: secret("OTP_SECRET", "local-demo-otp-secret-change-before-live"),
-  demoDate: process.env.DEMO_EVENT_DATE || "2026-11-05",
+  demoDate: process.env.DEMO_EVENT_DATE || "2026-11-09",
 };
 if (
   (!demo || !paymentDemo || production) &&

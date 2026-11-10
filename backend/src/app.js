@@ -30,6 +30,7 @@ import {
   expire,
   availability,
   createBooking,
+  assertBookableDate,
   getBooking,
   publicBooking,
   settleCaptured,
@@ -46,7 +47,7 @@ const mobileSchema = z
 const bookingSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.email().max(190),
-  eventDate: z.enum(["2026-11-05", "2026-11-06"]),
+  eventDate: z.enum(["2026-11-09", "2026-11-10"]),
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),
   method: z.enum(["RAZORPAY", "CASH"]),
@@ -386,6 +387,7 @@ export function createApp(db, { paymentGateway = razorpay } = {}) {
     const b = await own(req, z.uuid().parse(req.body.bookingId));
     if (b.method !== "RAZORPAY" || b.status !== "PENDING_PAYMENT")
       fail(409, "This booking cannot accept an online payment.");
+    assertBookableDate(b.eventDate);
     let payment = (
       await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id])
     )[0];
