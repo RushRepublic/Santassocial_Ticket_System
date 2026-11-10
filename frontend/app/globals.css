@@ -1494,14 +1494,24 @@ input::placeholder {
   color: var(--muted);
 }
 .ticket-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 600px;
+  margin: 24px auto 0;
 }
 .ticket-actions .button {
   font-size: 16px;
   padding: 12px 16px;
+  min-height: 48px;
+  min-width: 0;
+}
+.ticket-actions .button:not(:focus-visible) {
+  outline: none;
+}
+.ticket-page > .text-button {
+  margin-top: 16px;
 }
 .loading {
   padding: 70px 20px;
@@ -2869,7 +2879,9 @@ td > a:hover {
     font-size: 33px;
   }
   .ticket-actions {
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 430px;
+    gap: 12px;
   }
   .ticket-actions .button {
     font-size: 16px;
@@ -3132,9 +3144,6 @@ td > a:hover {
   }
   .ticket-page {
     padding: 24px 12px 36px;
-  }
-  .ticket-actions .button {
-    flex: 1 1 130px;
   }
   .terms-dialog {
     padding: 20px;

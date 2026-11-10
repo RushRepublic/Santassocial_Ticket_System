@@ -229,9 +229,6 @@ export function GroupTicket({ id }) {
       )}
       {message && <Notice success>{message}</Notice>}
       {error && <Notice>{error}</Notice>}
-      <Link className="back-link" href="/retrieve-ticket">
-        View all my bookings
-      </Link>
     </main>
   );
 }
