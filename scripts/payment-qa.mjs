@@ -76,12 +76,18 @@ try {
       json: { ...order, demo: false, keyId: "qa-checkout-key" },
     });
   });
-  await page.route("**/api/payments/razorpay/verify", (route) =>
-    route.fulfill({
+  let captureOnVerify = false;
+  await page.route("**/api/payments/razorpay/verify", async (route) => {
+    if (captureOnVerify) {
+      const { bookingId } = route.request().postDataJSON();
+      const paid = await api("/demo/payments/complete", { bookingId });
+      return route.fulfill({ json: paid });
+    }
+    return route.fulfill({
       status: 202,
       json: { pending: true, message: "Awaiting capture" },
-    }),
-  );
+    });
+  });
   for (const outcome of ["failed", "cancelled", "pending"]) {
     await page.goto(`${origin}/checkout?id=${booking.id}`);
     await page
@@ -150,27 +156,65 @@ try {
     });
   });
   await page.getByRole("button", { name: /Continue to payment/ }).click();
-  await page.waitForFunction(
-    () => window.__qaCheckoutOptions?.redirect === true,
-  );
-  const callback = await page.evaluate(
-    () => window.__qaCheckoutOptions.callback_url,
-  );
+  await page.waitForFunction(() => Boolean(window.__qaCheckoutOptions));
+  const mobileOptions = await page.evaluate(() => ({
+    redirect: window.__qaCheckoutOptions.redirect,
+    callback: window.__qaCheckoutOptions.callback_url,
+    hasHandler: typeof window.__qaCheckoutOptions.handler === "function",
+  }));
   if (
-    callback !==
-    `${origin}/api/payments/razorpay/return?bookingId=${resumed.id}`
+    mobileOptions.redirect ||
+    mobileOptions.callback ||
+    !mobileOptions.hasHandler
   )
-    throw Error("Mobile checkout has no signed payment return URL");
+    throw Error(
+      "Mobile browser checkout must use its success handler without a competing redirect",
+    );
+  // Model a browser that keeps executing while the external app is foregrounded.
+  // No focus/visibility event or manual status click should be necessary here.
+  await page.evaluate(() =>
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => true,
+    }),
+  );
   await api("/demo/payments/complete", { bookingId: resumed.id });
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await page.waitForURL(`${origin}/ticket/${resumed.id}`);
   await page
     .getByAltText("One secure QR code for this entire group booking")
     .waitFor();
+  await page.evaluate(() => delete document.hidden);
   await page.goto(`${origin}/checkout?id=${resumed.id}`);
   await page.waitForURL(`${origin}/ticket/${resumed.id}`);
   console.log(
-    "PASS: mobile external-app return and reloaded paid checkout open the QR automatically without the SDK callback.",
+    "PASS: mobile handler configuration, background payment recovery without focus/status clicks and reloaded paid checkout open the QR automatically.",
+  );
+  // Exercise the ordinary mobile SDK success handler, not just polling.
+  const handled = await api("/bookings", {
+    name: "Mobile SDK Handler QA",
+    method: "RAZORPAY",
+    eventDate: "2026-11-11",
+    adults: 1,
+    kids: 0,
+  });
+  await page.goto(`${origin}/checkout?id=${handled.id}`);
+  await page.getByRole("checkbox").check();
+  captureOnVerify = true;
+  await page.evaluate(() => {
+    window.__qaPaymentOutcome = "success";
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: "iPhone",
+    });
+  });
+  await page.getByRole("button", { name: /Continue to payment/ }).click();
+  await page.waitForURL(`${origin}/ticket/${handled.id}`);
+  await page
+    .getByAltText("One secure QR code for this entire group booking")
+    .waitFor();
+  captureOnVerify = false;
+  console.log(
+    "PASS: mobile SDK success verifies with the server and opens the ticket without a success screen or manual click.",
   );
   // Returning from a cash ticket must restore interactive choices, including on phones.
   const cash = await api("/bookings", {

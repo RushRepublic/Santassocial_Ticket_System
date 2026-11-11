@@ -572,9 +572,11 @@ export function Checkout() {
     if (!draft?.bookingId || draft.method !== "RAZORPAY") return;
     let stopped = false;
     let inFlight = false;
-    let until = Date.now() + 120000;
+    let until = Date.now() + 600000;
     async function recover() {
-      if (stopped || inFlight || document.hidden || Date.now() > until) return;
+      // Some phones keep browser timers running while a UPI app is open.
+      // Recover then too; suspended browsers retry immediately on resume.
+      if (stopped || inFlight || navigating.current || Date.now() > until) return;
       inFlight = true;
       try {
         const b = await post("/payments/razorpay/status", {
@@ -588,7 +590,7 @@ export function Checkout() {
       }
     }
     const resume = () => {
-      until = Date.now() + 120000;
+      until = Date.now() + 600000;
       void recover();
     };
     void recover();
@@ -704,9 +706,6 @@ export function Checkout() {
       }
       await loadCheckout();
       let paymentSubmitted = false;
-      const mobileRedirect =
-        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       const checkout = new window.Razorpay({
         key: order.keyId,
         order_id: order.orderId,
@@ -720,9 +719,9 @@ export function Checkout() {
           contact: `+91${b.mobile}`,
         },
         theme: { color: "#8a1d23" },
-        ...(mobileRedirect
-          ? { callback_url: order.callbackUrl, redirect: true }
-          : {}),
+        // Standard browser checkout uses the success handler on phones too.
+        // callback_url/redirect bypass it; retain the signed backend return
+        // endpoint for legacy redirects, not this JavaScript checkout flow.
         modal: {
           ondismiss: () => {
             if (paymentSubmitted || navigating.current) return;

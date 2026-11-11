@@ -1,5 +1,11 @@
 # Verification evidence
 
+## Mobile UPI browser completion
+
+Standard browser Razorpay Checkout uses the success handler on desktop and mobile, without the competing `callback_url`/`redirect` options that bypass that handler. The legacy signed return endpoint remains available. Payment status recovery runs for up to ten minutes while browser timers execute, even in the background, and refreshes immediately on focus, pageshow and visibility changes. Only server-confirmed PAID/FREE status opens the ticket; signatures, amount checks, capture requirements and webhook settlement are unchanged.
+
+`scripts/payment-qa.mjs` exercises a mobile SDK handler with mocked external payment evidence, missed callbacks with background status recovery without focus/status-button clicks, reloaded paid checkout, and failed/cancelled/pending outcomes. These are controlled local tests, not real UPI app-switch tests. A website cannot force a third-party app to release the foreground; Google documents manual return for iOS Google Pay intent flows: https://developers.google.com/pay/india/api/ios/in-app-payments. Razorpay documents handler versus callback behavior: https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/integration-steps/.
+
 ## Independent payment and OTP modes
 
 `PAYMENT_MODE=live` with `APP_MODE=demo` enables Razorpay while retaining simulated OTP and notifications. Mixed-mode contract tests use a mocked gateway and synthetic credentials to verify disabled demo settlement, live checkout order metadata, pending versus captured evidence, signature/amount checks, webhook authentication/deduplication, and rejection of old simulated online tickets. Credential validation rejects missing secrets, test keys and SQLite for live payments. Existing demo-mode browser QA refuses to run if paymentMode is live. Real charges and real MySQL concurrency require separate external verification.
