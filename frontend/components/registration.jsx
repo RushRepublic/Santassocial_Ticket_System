@@ -258,7 +258,7 @@ export function Register() {
             <div className="section-label">
               <span>03</span>
               <div>
-                <h2>Bring your favourite people</h2>
+                <h2>Tickets</h2>
               </div>
             </div>
             {["adults", "kids"].map((kind) => (
