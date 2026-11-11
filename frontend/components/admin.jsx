@@ -143,7 +143,7 @@ export function Admin() {
         id="admin-navigation"
         className={`admin-sidebar ${open ? "open" : ""}`}
       >
-        <Link href="/">
+        <Link href="/" target="_blank" rel="noopener noreferrer">
           <Wordmark />
         </Link>
         <p className="eyebrow">EVENT MANAGEMENT</p>

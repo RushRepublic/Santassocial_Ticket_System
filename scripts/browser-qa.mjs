@@ -162,6 +162,39 @@ async function verifyStickyScanner() {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.evaluate(() => window.scrollTo(0, 0));
 }
+async function verifyAdminLogoTab() {
+  const originalUrl = page.url();
+  await page.evaluate(() => { window.__qaLogoDocument = true; });
+  for (const width of [1440, 768, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const sidebar = page.locator(".admin-sidebar");
+    const menu = page.getByRole("button", { name: "Toggle menu", exact: true });
+    if (await menu.isVisible() && await menu.getAttribute("aria-expanded") !== "true")
+      await menu.click();
+    const logo = sidebar.locator('a[href="/"]').first();
+    if (await logo.getAttribute("target") !== "_blank" ||
+        await logo.getAttribute("rel") !== "noopener noreferrer")
+      throw Error("Admin logo must open a safe new tab.");
+    const popupPromise = page.waitForEvent("popup");
+    await logo.click();
+    const popup = await popupPromise;
+    try {
+      await popup.waitForURL(`${origin}/`);
+      await popup.locator(".date-option").first().waitFor();
+      if (await popup.evaluate(() => window.opener !== null))
+        throw Error("Registration tab must not retain opener access.");
+      if (page.url() !== originalUrl || !await page.evaluate(() => window.__qaLogoDocument))
+        throw Error("Admin logo replaced or refreshed the dashboard.");
+      if (!(await page.request.get(`${origin}/api/auth/me?scope=staff`)).ok())
+        throw Error("Admin logo lost the staff session.");
+    } finally {
+      await popup.close();
+    }
+    if (await menu.isVisible() && await menu.getAttribute("aria-expanded") === "true")
+      await sidebar.locator('nav a[aria-current="page"]').click();
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+}
 async function verifyTermsPopup() {
   const terms = page.getByRole("button", {
     name: "Terms and Conditions.",
@@ -705,6 +738,7 @@ try {
     await page.locator(".admin-sidebar").waitFor();
     await page.locator(".admin-content .loading").waitFor({ state: "hidden" });
     await auditResponsive(page, `admin-${section}`);
+    await verifyAdminLogoTab();
     await verifyStickyScanner();
   }
   await page.goto(`${origin}/login`);
