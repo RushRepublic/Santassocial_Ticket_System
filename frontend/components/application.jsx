@@ -14,6 +14,10 @@ import { Admin, StaffLogin } from "./admin";
 import { Scanner } from "./scanner";
 export function Application() {
   const path = usePathname();
+  const ticketPage =
+    path.startsWith("/ticket/") ||
+    path === "/booking-pending" ||
+    path === "/booking-success";
   useEffect(() => {
     if (
       path.startsWith("/admin") ||
@@ -63,10 +67,11 @@ export function Application() {
   }
   return (
     <>
-      <Header />
-      {path !== "/" && path !== "/register" && path !== "/checkout" && (
-        <DemoBanner />
-      )}
+      {!ticketPage && <Header />}
+      {!ticketPage &&
+        path !== "/" &&
+        path !== "/register" &&
+        path !== "/checkout" && <DemoBanner />}
       {page}
     </>
   );

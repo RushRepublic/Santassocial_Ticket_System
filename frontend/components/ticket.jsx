@@ -123,11 +123,7 @@ export function GroupTicket({ id }) {
   if (!booking) return <Loading />;
   return (
     <main className="ticket-page">
-      <div className="page-intro">
-        <p className="eyebrow">YOUR PASS TO THE CHRISTMAS CHEER</p>
-        <h1>One ticket. All your people.</h1>
-        <p>Download it now. Make memories later.</p>
-      </div>
+      <h1 className="sr-only">Your Santa Social ticket</h1>
       <article className="digital-ticket">
         <div className="ticket-top">
           <Wordmark />

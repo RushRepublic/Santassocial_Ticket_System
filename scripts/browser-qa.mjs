@@ -282,6 +282,26 @@ async function verifyTermsPopup() {
   if ((await page.getByRole("checkbox").isChecked()) !== agreed)
     throw Error("Opening/closing terms changed the customer's consent.");
 }
+async function verifyTicketOnlyPage({ cash = false } = {}) {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    if (await page.locator(".site-header, .ticket-page .page-intro").count())
+      throw Error("Customer ticket must not show the site header or introductory copy.");
+    for (const text of ["YOUR PASS TO THE CHRISTMAS CHEER", "One ticket. All your people.", "Download it now. Make memories later."])
+      if (await page.getByText(text, { exact: true }).count())
+        throw Error("Removed ticket introduction is still present.");
+    await page.locator(".digital-ticket .ticket-top img").waitFor();
+    for (const name of ["Download PDF", "Save QR image", "Share ticket"])
+      await page.getByRole("button", { name, exact: true }).waitFor();
+    if (cash)
+      await page.getByRole("button", { name: "Refresh payment status", exact: true }).waitFor();
+    const ticket = await page.locator(".digital-ticket").boundingBox();
+    const actions = await page.locator(".ticket-actions").boundingBox();
+    if (actions.y < ticket.y + ticket.height)
+      throw Error("Ticket actions must remain below the ticket.");
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+}
 async function scanCameraToken(token) {
   if (await page.locator(".manual-token").count())
     throw Error("Manual scanner token entry must not be visible.");
@@ -547,6 +567,7 @@ try {
   await page
     .getByAltText("One secure QR code for this entire group booking")
     .waitFor();
+  await verifyTicketOnlyPage();
   await page.screenshot({ path: "docs/ticket-desktop.png", fullPage: true });
   await auditResponsive(page, "paid-ticket");
   const bookingId = new URL(page.url()).pathname.split("/").pop();
@@ -930,6 +951,7 @@ try {
   )
     throw Error("Cash QR mobile layout overflow.");
   await page.getByText(/CASH DUE.*APPROVAL REQUIRED/).waitFor();
+  await verifyTicketOnlyPage({ cash: true });
   await auditResponsive(page, "cash-ticket");
   if (
     /GROUP|ADMISSION/i.test(
