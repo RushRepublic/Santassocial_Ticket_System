@@ -3300,3 +3300,25 @@ td:first-child > a {
   white-space: nowrap;
   border: 0;
 }
+
+/* Keep the payment method and exact amount easy to read at the gate. */
+.scan-result > .scanner-payment-highlight {
+  display: block;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 20px auto 24px;
+  padding: 12px 20px;
+  border: 1px solid #b7cfbd;
+  border-radius: 10px;
+  background: #eaf3e8;
+  color: var(--green);
+  font-size: clamp(24px, 4.5vw, 30px);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.scan-result.cash-due > .scanner-payment-highlight {
+  border-color: #e6b8b5;
+  background: #fbe9e6;
+  color: var(--red);
+}

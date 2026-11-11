@@ -291,7 +291,7 @@ export function Scanner({ history = false }) {
                 <p>
                   {result.mobile} · {result.email}
                 </p>
-                <p>
+                <p className="scanner-payment-highlight">
                   {result.method === "CASH"
                     ? "Cash"
                     : result.method === "FREE"
