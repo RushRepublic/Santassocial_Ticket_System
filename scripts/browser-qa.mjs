@@ -900,6 +900,14 @@ try {
     .waitFor();
   await scanCameraToken(booking.qrToken);
   await page.getByText(/ALREADY CHECKED IN:/).waitFor();
+  const enteredCounts = page.getByLabel("Previously entered guests", { exact: true });
+  await enteredCounts.waitFor();
+  const displayedCounts = await enteredCounts.locator("b").allTextContents();
+  if (JSON.stringify(displayedCounts) !== JSON.stringify([booking.adults, booking.kids, booking.people].map(String)))
+    throw Error("Duplicate scan must display the previously admitted adults, kids and total guests.");
+  if (await page.getByRole("button", { name: "Approve ticket", exact: true }).count())
+    throw Error("Already entered guests must never have an approval button.");
+  await auditResponsive(page, "scanner-already-entered");
   if ((await page.evaluate(() => window.__qaCameraStarts)) !== cameraStarts)
     throw Error(
       "Scanning/approval restarted the camera instead of retaining the stream.",

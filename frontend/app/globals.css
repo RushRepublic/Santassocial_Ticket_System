@@ -3322,3 +3322,7 @@ td:first-child > a {
   background: #fbe9e6;
   color: var(--red);
 }
+
+.scanner-error .scanner-counts {
+  margin-top: 20px;
+}

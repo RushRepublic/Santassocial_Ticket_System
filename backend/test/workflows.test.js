@@ -159,7 +159,13 @@ test("cash QR is issued immediately but only admin collection can atomically app
       ).length,
       1,
     );
-    await scan(adminCookie, "/api/scanner/verify", {}).expect(409);
+    const duplicate = await scan(adminCookie, "/api/scanner/verify", {}).expect(409);
+    assert.deepEqual(duplicate.body.details, {
+      code: "ALREADY_CHECKED_IN", adults: b.adults, kids: b.kids, people: b.people,
+    });
+    const denied = await scan(adminCookie, "/api/scanner/checkin", {}).expect(409);
+    assert.deepEqual(denied.body.details, duplicate.body.details);
+    assert.equal((await db.all("SELECT * FROM checkins WHERE bookingId = ?", [b.id])).length, 1);
   }));
 
 test("expired, cancelled and wrong-day cash QR cannot collect money or admit; legacy QR is backfilled", () =>

@@ -362,11 +362,24 @@ export async function inspectTicket(db, token) {
       403,
       "TEST PAYMENT: This simulated online ticket is not valid for admission.",
     );
-  if (b.checkedInAt)
-    fail(
+  if (b.checkedInAt) {
+    const entry = (
+      await db.all(
+        "SELECT adults, kids, people FROM checkins WHERE bookingId = ?",
+        [b.id],
+      )
+    )[0];
+    throw new AppError(
       409,
       `ALREADY CHECKED IN: ${new Date(b.checkedInAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
+      {
+        code: "ALREADY_CHECKED_IN",
+        adults: entry?.adults ?? b.adults,
+        kids: entry?.kids ?? b.kids,
+        people: entry?.people ?? b.people,
+      },
     );
+  }
   if (!hasBookingQr(b)) fail(403, "PAYMENT PENDING: Entry is not permitted.");
   validateTicketDate(b);
   return b;

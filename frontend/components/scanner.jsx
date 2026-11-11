@@ -299,20 +299,7 @@ export function Scanner({ history = false }) {
                       : "Online payment"}{" "}
                   · {money(result.amount)}
                 </p>
-                <div className="scanner-counts">
-                  <div>
-                    <b>{result.adults}</b>
-                    <small>ADULTS</small>
-                  </div>
-                  <div>
-                    <b>{result.kids}</b>
-                    <small>KIDS</small>
-                  </div>
-                  <div>
-                    <b>{result.people}</b>
-                    <small>TOTAL GUESTS</small>
-                  </div>
-                </div>
+                <ScannerCounts counts={result} />
                 {result.paymentStatus === "DUE" &&
                   (identity?.role === "ADMIN" ? (
                     <label className="cash-collection-confirm">
@@ -365,11 +352,40 @@ export function Scanner({ history = false }) {
                 <p>Registered Event Date: {eventDate(dateError.eventDate)}</p>
               </>
             ) : (
-              <p>{error}</p>
+              <>
+                <p>{error}</p>
+                {dateError?.code === "ALREADY_CHECKED_IN" && (
+                  <ScannerCounts counts={dateError} entered />
+                )}
+              </>
             )}
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function ScannerCounts({ counts, entered = false }) {
+  return (
+    <div
+      className="scanner-counts"
+      aria-label={
+        entered ? "Previously entered guests" : "Guests in this booking"
+      }
+    >
+      <div>
+        <b>{counts.adults}</b>
+        <small>ADULTS</small>
+      </div>
+      <div>
+        <b>{counts.kids}</b>
+        <small>KIDS</small>
+      </div>
+      <div>
+        <b>{counts.people}</b>
+        <small>TOTAL GUESTS</small>
+      </div>
     </div>
   );
 }
