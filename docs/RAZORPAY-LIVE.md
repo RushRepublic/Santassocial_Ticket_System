@@ -49,3 +49,28 @@ Complete a real booking at the displayed ticket price. Check the captured amount
 With `MAINTENANCE_MODE=cron`, confirm the maintenance command is scheduled using the same environment: `node backend/src/run-maintenance.js` from the project root. It reconciles pending real orders. Callback verification and signed webhooks also update payment state.
 
 Automated tests use synthetic credentials, a mocked gateway and a local test adapter. They cover simulated OTP, disabled fake settlement, signatures, amount/currency checks, pending capture, signed webhooks and simulated-ticket rejection. They do not verify real merchant credentials or bank/app transactions.
+
+## Mobile payment return
+
+Mobile Razorpay Checkout uses the signed return URL
+`https://tickets.santassocial.com/api/payments/razorpay/return` (with the booking ID).
+Keep the existing merchant website domain approved in Razorpay. No new credentials
+or database migration are required. Desktop checkout retains its handler.
+
+The return endpoint verifies the order/payment signature and fetches captured
+payment evidence from Razorpay before redirecting to the ticket. It supplies the
+existing ticket bearer in the URL fragment so a legitimate return can display the
+ticket without relying on a cross-site POST cookie. Unsigned redirects never grant
+ticket access. Pending or failed confirmation returns to retryable checkout.
+
+Checkout also checks the authenticated booking's Razorpay order when restored,
+when the browser regains focus/visibility, and every four seconds while visible
+for up to two minutes. This recovers a missed browser callback without paying
+again or waiting for a maintenance run. Only PAID/FREE status opens the ticket.
+Webhook and background reconciliation remain enabled.
+
+UPI apps and mobile operating systems control switching back to the browser.
+The website cannot force every external app to close; when the browser resumes,
+it recovers confirmed payment automatically. Verify the final bank/app handoff
+on a physical Android and iPhone with the merchant's chosen payment methods.
+Automated QA uses mocked provider evidence and never creates real charges.

@@ -53,7 +53,10 @@ const mobileSchema = z
   .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number.");
 const bookingSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  email: z.union([z.email().max(190), z.literal("")]).optional().default(""),
+  email: z
+    .union([z.email().max(190), z.literal("")])
+    .optional()
+    .default(""),
   eventDate: z.enum(["2026-11-11", "2026-11-12"]),
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),
@@ -79,7 +82,9 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
         if (
           req.method === "POST" &&
           res.statusCode >= 200 &&
-          res.statusCode < 300
+          (res.statusCode < 300 ||
+            (req.originalUrl.startsWith("/api/payments/razorpay/return?") &&
+              res.statusCode === 303))
         )
           Promise.resolve()
             .then(notify)
@@ -132,6 +137,75 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       res.json({ received: true });
     },
   );
+  // Razorpay mobile redirect is a signed form POST, not a customer-session
+  // mutation. Keep this exception scoped to this route before the Origin guard.
+  app.post(
+    "/api/payments/razorpay/return",
+    express.urlencoded({ extended: false, limit: "8kb" }),
+    async (req, res) => {
+      res.set({
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+      });
+      const id = z.uuid().safeParse(req.query.bookingId);
+      if (!id.success) return res.redirect(303, "/checkout?payment=failed");
+      try {
+        const booking = await verifyPayment(id.data, req.body);
+        if (["PAID", "FREE"].includes(booking.status))
+          return res.redirect(303, `/ticket/${booking.id}#${booking.qrToken}`);
+        return res.redirect(303, `/checkout?id=${id.data}&payment=pending`);
+      } catch {
+        // Never issue a ticket based on redirect parameters or unsigned input.
+        return res.redirect(303, `/checkout?id=${id.data}&payment=failed`);
+      }
+    },
+  );
+  async function verifyPayment(id, body) {
+    if (paymentDemo) fail(400, "Use the labelled demo payment endpoint.");
+    const input = z
+      .object({
+        razorpay_order_id: z.string().min(1).max(100),
+        razorpay_payment_id: z.string().min(1).max(100),
+        razorpay_signature: z.string().min(1).max(128),
+      })
+      .parse(body);
+    const p = (
+      await db.all("SELECT * FROM payments WHERE bookingId = ?", [id])
+    )[0];
+    if (
+      !p?.orderId ||
+      p.orderId.startsWith("order_demo_") ||
+      p.orderId !== input.razorpay_order_id ||
+      !equal(
+        hmac(
+          `${p.orderId}|${input.razorpay_payment_id}`,
+          process.env.RAZORPAY_KEY_SECRET || "",
+        ),
+        input.razorpay_signature,
+      )
+    )
+      fail(400, "Payment signature is invalid.");
+    const evidence = await paymentGateway().payments.fetch(
+      input.razorpay_payment_id,
+    );
+    if (
+      evidence?.order_id !== p.orderId ||
+      evidence.id !== input.razorpay_payment_id
+    )
+      fail(400, "Payment order mismatch.");
+    if (
+      evidence.status === "captured" &&
+      Number(evidence.amount_refunded || 0) === 0
+    )
+      await settleCaptured(
+        db,
+        p.orderId,
+        evidence.id,
+        Number(evidence.amount),
+        evidence.currency,
+      );
+    return publicBooking(await getBooking(db, id));
+  }
   app.use(express.json({ limit: "32kb" }), cookieParser());
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
@@ -222,7 +296,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       otpMode: whatsappMode,
       whatsappMode,
       database: databaseDriver,
-      release: "automatic-ticket-whatsapp-1",
+      release: "mobile-payment-return-1",
     });
   });
   app.get("/api/events", async (_req, res) =>
@@ -483,52 +557,49 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       currency: "INR",
       keyId: paymentDemo ? null : process.env.RAZORPAY_KEY_ID,
       demo: paymentDemo,
+      callbackUrl: `${config.origin}/api/payments/razorpay/return?bookingId=${b.id}`,
     });
   });
   app.post("/api/payments/razorpay/verify", auth(), async (req, res) => {
-    if (paymentDemo) fail(400, "Use the labelled demo payment endpoint.");
-    const input = z
-      .object({
-        bookingId: z.uuid(),
-        razorpay_order_id: z.string(),
-        razorpay_payment_id: z.string(),
-        razorpay_signature: z.string(),
-      })
-      .parse(req.body);
-    const b = await own(req, input.bookingId);
-    const p = (
-      await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id])
-    )[0];
+    const id = z.uuid().parse(req.body.bookingId);
+    await own(req, id);
+    const booking = await verifyPayment(id, req.body);
+    if (!["PAID", "FREE"].includes(booking.status))
+      return res
+        .status(202)
+        .json({ pending: true, message: "Your payment is awaiting capture." });
+    res.json(booking);
+  });
+  // Recover a missed SDK callback after switching to a UPI app. The provider,
+  // not client return flags, supplies the captured-payment evidence.
+  app.post("/api/payments/razorpay/status", auth(), async (req, res) => {
+    const b = await own(req, z.uuid().parse(req.body.bookingId));
     if (
-      p.orderId !== input.razorpay_order_id ||
-      !equal(
-        hmac(
-          `${p.orderId}|${input.razorpay_payment_id}`,
-          process.env.RAZORPAY_KEY_SECRET || "",
-        ),
-        input.razorpay_signature,
-      )
-    )
-      fail(400, "Payment signature is invalid.");
-    if (p.orderId?.startsWith("order_demo_"))
-      fail(400, "A simulated order cannot accept live payments.");
-    const evidence = await paymentGateway().payments.fetch(
-      input.razorpay_payment_id,
-    );
-    if (evidence.status !== "captured")
-      return res.status(202).json({
-        pending: true,
-        message:
-          "Your payment is awaiting capture. Return here shortly to check its status.",
-      });
-    if (evidence.order_id !== p.orderId) fail(400, "Payment order mismatch.");
-    await settleCaptured(
-      db,
-      p.orderId,
-      evidence.id,
-      Number(evidence.amount),
-      evidence.currency,
-    );
+      !paymentDemo &&
+      b.method === "RAZORPAY" &&
+      b.status === "PENDING_PAYMENT"
+    ) {
+      const p = (
+        await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id])
+      )[0];
+      if (p?.orderId && !/^(order_demo_|creating_)/.test(p.orderId)) {
+        const result = await paymentGateway().orders.fetchPayments(p.orderId);
+        const captured = result.items?.find(
+          (item) =>
+            item.order_id === p.orderId &&
+            item.status === "captured" &&
+            Number(item.amount_refunded || 0) === 0,
+        );
+        if (captured)
+          await settleCaptured(
+            db,
+            p.orderId,
+            captured.id,
+            Number(captured.amount),
+            captured.currency,
+          );
+      }
+    }
     res.json(publicBooking(await getBooking(db, b.id)));
   });
   app.post("/api/demo/payments/complete", auth(), async (req, res) => {

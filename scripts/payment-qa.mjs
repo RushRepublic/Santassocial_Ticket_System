@@ -48,6 +48,7 @@ try {
     window.Razorpay = class {
       constructor(options) {
         this.options = options;
+        window.__qaCheckoutOptions = options;
         this.events = {};
       }
       on(name, handler) {
@@ -58,7 +59,7 @@ try {
           this.events["payment.failed"]({});
         else if (window.__qaPaymentOutcome === "cancelled")
           this.options.modal.ondismiss();
-        else
+        else if (window.__qaPaymentOutcome !== "external")
           this.options.handler({
             razorpay_order_id: this.options.order_id,
             razorpay_payment_id: "qa-pending",
@@ -129,6 +130,48 @@ try {
       .count()
   )
     throw Error("Legacy success link still requires another ticket click");
+  // A UPI app can suppress the browser handler entirely. Returning to checkout
+  // must discover captured payment without another pay/status-button click.
+  await page.setViewportSize({ width: 375, height: 812 });
+  const resumed = await api("/bookings", {
+    name: "Mobile Return QA",
+    method: "RAZORPAY",
+    eventDate: "2026-11-11",
+    adults: 1,
+    kids: 0,
+  });
+  await page.goto(`${origin}/checkout?id=${resumed.id}`);
+  await page.getByRole("checkbox").check();
+  await page.evaluate(() => {
+    window.__qaPaymentOutcome = "external";
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: "iPhone",
+    });
+  });
+  await page.getByRole("button", { name: /Continue to payment/ }).click();
+  await page.waitForFunction(
+    () => window.__qaCheckoutOptions?.redirect === true,
+  );
+  const callback = await page.evaluate(
+    () => window.__qaCheckoutOptions.callback_url,
+  );
+  if (
+    callback !==
+    `${origin}/api/payments/razorpay/return?bookingId=${resumed.id}`
+  )
+    throw Error("Mobile checkout has no signed payment return URL");
+  await api("/demo/payments/complete", { bookingId: resumed.id });
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForURL(`${origin}/ticket/${resumed.id}`);
+  await page
+    .getByAltText("One secure QR code for this entire group booking")
+    .waitFor();
+  await page.goto(`${origin}/checkout?id=${resumed.id}`);
+  await page.waitForURL(`${origin}/ticket/${resumed.id}`);
+  console.log(
+    "PASS: mobile external-app return and reloaded paid checkout open the QR automatically without the SDK callback.",
+  );
   // Returning from a cash ticket must restore interactive choices, including on phones.
   const cash = await api("/bookings", {
     name: "Switch Payment QA",

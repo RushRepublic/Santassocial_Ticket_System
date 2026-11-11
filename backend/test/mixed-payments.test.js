@@ -77,7 +77,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const gateway = { orders: { create: async input => {
       assert.equal(input.currency,'INR'); assert.equal(input.amount,100);
       return {id:'order_'+randomUUID()};
-    }}, payments:{fetch:async id=>evidence.get(id)} };
+    }, fetchPayments:async orderId=>({items:[...evidence.values()].filter(p=>p.order_id===orderId)})}, payments:{fetch:async id=>evidence.get(id)} };
     const app=createApp(db,{paymentGateway:()=>gateway});
     const customer=request.agent(app);
     const post=(path,body)=>customer.post('/api'+path).set('Origin',process.env.FRONTEND_ORIGIN).send(body);
@@ -186,6 +186,49 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     await customer.get('/api/admin/bookings').expect(403);
     assert.deepEqual(await counts(),before);
     assert.equal((await getBooking(db,old.id)).gatewayPaymentId,'pay_demo_legacy');
+    // Mobile return must verify signatures and capture without a browser cookie.
+    const mobileBooking=await make();
+    const mobileOrder=(await post('/payments/razorpay/order',{bookingId:mobileBooking.id}).expect(200)).body;
+    assert.equal(mobileOrder.callbackUrl,process.env.FRONTEND_ORIGIN+'/api/payments/razorpay/return?bookingId='+mobileBooking.id);
+    const mobileId='pay_mobile_return';
+    const mobilePayload={razorpay_order_id:mobileOrder.orderId,razorpay_payment_id:mobileId,
+      razorpay_signature:hmac(mobileOrder.orderId+'|'+mobileId,process.env.RAZORPAY_KEY_SECRET)};
+    const redirect=body=>request(app).post('/api/payments/razorpay/return?bookingId='+mobileBooking.id)
+      .type('form').send(body).expect(303);
+    evidence.set(mobileId,{id:mobileId,order_id:mobileOrder.orderId,status:'authorized',amount:100,currency:'INR'});
+    const unsigned=await redirect({...mobilePayload,razorpay_signature:'invalid'});
+    assert.ok(!unsigned.headers.location.includes('/ticket/'));
+    const awaiting=await redirect(mobilePayload);
+    assert.ok(awaiting.headers.location.endsWith('payment=pending'));
+    assert.equal(publicBooking(await getBooking(db,mobileBooking.id)).qrToken,null);
+    await request(app).post('/api/payments/razorpay/status').set('Origin',process.env.FRONTEND_ORIGIN)
+      .send({bookingId:mobileBooking.id}).expect(401);
+    assert.equal((await post('/payments/razorpay/status',{bookingId:mobileBooking.id}).expect(200)).body.status,'PENDING_PAYMENT');
+    evidence.get(mobileId).status='captured';
+    evidence.get(mobileId).amount_refunded=100;
+    assert.equal((await post('/payments/razorpay/status',{bookingId:mobileBooking.id}).expect(200)).body.status,'PENDING_PAYMENT');
+    evidence.get(mobileId).amount_refunded=0;
+    const recovered=(await post('/payments/razorpay/status',{bookingId:mobileBooking.id}).expect(200)).body;
+    assert.equal(recovered.status,'PAID'); assert.ok(recovered.qrToken);
+    const returned=await redirect(mobilePayload);
+    assert.equal(returned.headers.location,'/ticket/'+mobileBooking.id+'#'+recovered.qrToken);
+    assert.equal(returned.headers['referrer-policy'],'no-referrer');
+    await redirect(mobilePayload); // duplicate callbacks retain the same QR/payment
+    assert.equal((await db.all('SELECT * FROM payments WHERE bookingId=?',[mobileBooking.id])).length,1);
+    assert.equal((await getBooking(db,mobileBooking.id)).checkedInAt,null);
+    const direct=await make();
+    const directOrder=(await post('/payments/razorpay/order',{bookingId:direct.id}).expect(200)).body;
+    const directId='pay_direct_mobile';
+    const directPayload={razorpay_order_id:directOrder.orderId,razorpay_payment_id:directId,
+      razorpay_signature:hmac(directOrder.orderId+'|'+directId,process.env.RAZORPAY_KEY_SECRET)};
+    evidence.set(directId,{id:directId,order_id:mobileOrder.orderId,status:'captured',amount:100,currency:'INR'});
+    const directReturn=()=>request(app).post('/api/payments/razorpay/return?bookingId='+direct.id).type('form').send(directPayload).expect(303);
+    assert.ok(!(await directReturn()).headers.location.includes('/ticket/'));
+    assert.equal((await getBooking(db,direct.id)).status,'PENDING_PAYMENT');
+    evidence.get(directId).order_id=directOrder.orderId;
+    assert.ok((await directReturn()).headers.location.startsWith('/ticket/'+direct.id+'#ss_'));
+    assert.equal((await getBooking(db,direct.id)).status,'PAID');
+
     sql.close();
     console.log('Mixed-mode contract checks passed.');
   `);

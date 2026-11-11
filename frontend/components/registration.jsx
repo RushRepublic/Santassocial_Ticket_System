@@ -522,9 +522,17 @@ export function Checkout() {
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [pendingPaymentId, setPendingPaymentId] = useState(null);
   const [agreed, setAgreed] = useState(false);
+  const checkoutRef = useRef(null);
+  const navigating = useRef(false);
   useEffect(() => {
     async function restore() {
-      const bookingId = new URLSearchParams(location.search).get("id");
+      const params = new URLSearchParams(location.search);
+      const bookingId = params.get("id");
+      if (params.get("payment") === "failed")
+        setError(
+          "Payment could not be confirmed. If your account was debited, check payment status before paying again.",
+        );
+      if (bookingId && params.has("payment")) setPendingPaymentId(bookingId);
       if (bookingId) {
         try {
           const b = await api(`/bookings/${bookingId}`);
@@ -560,7 +568,46 @@ export function Checkout() {
     }
     void restore();
   }, [router]);
+  useEffect(() => {
+    if (!draft?.bookingId || draft.method !== "RAZORPAY") return;
+    let stopped = false;
+    let inFlight = false;
+    let until = Date.now() + 120000;
+    async function recover() {
+      if (stopped || inFlight || document.hidden || Date.now() > until) return;
+      inFlight = true;
+      try {
+        const b = await post("/payments/razorpay/status", {
+          bookingId: draft.bookingId,
+        });
+        if (!stopped && ["PAID", "FREE"].includes(b.status)) success(b);
+      } catch {
+        // Keep checkout retryable during a temporary connection loss.
+      } finally {
+        inFlight = false;
+      }
+    }
+    const resume = () => {
+      until = Date.now() + 120000;
+      void recover();
+    };
+    void recover();
+    const timer = setInterval(recover, 4000);
+    window.addEventListener("focus", resume);
+    window.addEventListener("pageshow", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("pageshow", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [draft?.bookingId, draft?.method]);
   function success(b) {
+    if (navigating.current) return;
+    navigating.current = true;
+    checkoutRef.current?.close?.();
     setBusy(false);
     setCheckingPayment(false);
     setDemoBooking(null);
@@ -580,7 +627,8 @@ export function Checkout() {
       // Only a server-confirmed paid/free booking can open the admission QR.
       for (let attempt = 0; attempt < 8; attempt++) {
         if (attempt) await new Promise((resolve) => setTimeout(resolve, 1200));
-        if (!booking || attempt) booking = await api(`/bookings/${id}`);
+        if (!booking || attempt)
+          booking = await post("/payments/razorpay/status", { bookingId: id });
         if (booking?.status === "PAID" || booking?.status === "FREE") {
           setPendingPaymentId(null);
           success(booking);
@@ -656,6 +704,9 @@ export function Checkout() {
       }
       await loadCheckout();
       let paymentSubmitted = false;
+      const mobileRedirect =
+        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
       const checkout = new window.Razorpay({
         key: order.keyId,
         order_id: order.orderId,
@@ -663,11 +714,18 @@ export function Checkout() {
         currency: "INR",
         name: "Santa Social 9th Edition",
         description: `Group booking · ${b.reference}`,
-        prefill: { name: b.name, ...(b.email ? { email: b.email } : {}), contact: `+91${b.mobile}` },
+        prefill: {
+          name: b.name,
+          ...(b.email ? { email: b.email } : {}),
+          contact: `+91${b.mobile}`,
+        },
         theme: { color: "#8a1d23" },
+        ...(mobileRedirect
+          ? { callback_url: order.callbackUrl, redirect: true }
+          : {}),
         modal: {
           ondismiss: () => {
-            if (paymentSubmitted) return;
+            if (paymentSubmitted || navigating.current) return;
             setBusy(false);
             setError(
               "Payment cancelled. No successful payment was confirmed. Your booking is saved; please try again.",
@@ -698,6 +756,7 @@ export function Checkout() {
         );
         setBusy(false);
       });
+      checkoutRef.current = checkout;
       checkout.open();
     } catch (e) {
       setError(e.message);
@@ -738,7 +797,8 @@ export function Checkout() {
                 </Link>
               </div>
               <p>
-                +91 {draft.mobile}{draft.email ? ` · ${draft.email}` : ""}
+                +91 {draft.mobile}
+                {draft.email ? ` · ${draft.email}` : ""}
               </p>
             </div>
           </div>
