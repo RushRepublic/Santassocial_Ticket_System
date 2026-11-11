@@ -21,16 +21,21 @@ const context = await browser.newContext({
 // manual token controls or test hooks to the application.
 await context.addInitScript(() => {
   navigator.mediaDevices.getUserMedia = async () => {
+    window.__qaCameraStarts = (window.__qaCameraStarts || 0) + 1;
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 640;
     const drawing = canvas.getContext("2d");
     const qr = new Image();
-    qr.src = window.__qaCameraQr;
-    await qr.decode();
+    let source;
     const draw = () => {
+      if (source !== window.__qaCameraQr) {
+        source = window.__qaCameraQr;
+        qr.src = source || "";
+      }
       drawing.fillStyle = "white";
       drawing.fillRect(0, 0, 640, 640);
-      drawing.drawImage(qr, 160, 160, 320, 320);
+      if (source && qr.complete && qr.naturalWidth)
+        drawing.drawImage(qr, 160, 160, 320, 320);
     };
     draw();
     const stream = canvas.captureStream(10);
@@ -153,12 +158,17 @@ async function verifyStickyScanner() {
   await shortcut.click();
   await page.waitForURL(`${origin}/scanner`);
   await page
-    .getByRole("button", { name: "Start camera scanner", exact: true })
+    .getByRole("button", { name: "Stop camera", exact: true })
     .waitFor();
+  await page.waitForFunction(() => document.querySelector("video")?.srcObject?.active);
+  await page.locator("video").evaluate(el => {
+    window.__qaDepartingTrack = el.srcObject.getVideoTracks()[0];
+  });
   await page
     .getByRole("link", { name: "Back to dashboard", exact: true })
     .click();
   await page.waitForURL(`${origin}/admin/dashboard`);
+  await page.waitForFunction(() => window.__qaDepartingTrack?.readyState === "ended");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.evaluate(() => window.scrollTo(0, 0));
 }
@@ -275,6 +285,12 @@ async function verifyTermsPopup() {
 async function scanCameraToken(token) {
   if (await page.locator(".manual-token").count())
     throw Error("Manual scanner token entry must not be visible.");
+  // Remove the previous ticket before presenting another one to the same
+  // continuous camera stream, including when explicitly testing duplicate entry.
+  await page.evaluate(() => {
+    window.__qaCameraQr = null;
+  });
+  await page.waitForTimeout(1800);
   await page.evaluate(
     (data) => {
       window.__qaCameraQr = data;
@@ -282,8 +298,8 @@ async function scanCameraToken(token) {
     await QRCode.toDataURL(token, { width: 320, margin: 4 }),
   );
   await page
-    .getByRole("button", { name: "Start camera scanner", exact: true })
-    .click();
+    .getByRole("button", { name: "Stop camera", exact: true })
+    .waitFor();
 }
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
@@ -763,6 +779,10 @@ try {
   }
   await page.locator(".admin-scanner-shortcut").click();
   await page.waitForURL(`${origin}/scanner`);
+  await page
+    .getByRole("button", { name: "Stop camera", exact: true })
+    .waitFor();
+  const cameraStarts = await page.evaluate(() => window.__qaCameraStarts);
   await auditResponsive(page, "scanner-camera");
   const futureResponse = await page.request.post(`${origin}/api/bookings`, {
     headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
@@ -847,12 +867,39 @@ try {
     .waitFor();
   if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
     throw Error("Paid ticket must use the green result state.");
+  await page.getByRole("button", { name: "Cancel & scan another ticket" }).click();
+  await page.waitForTimeout(1000);
+  if (await page.locator(".scan-result").count())
+    throw Error("A QR held in frame was repeatedly submitted after cancelling review.");
+  await scanCameraToken(booking.qrToken);
+  await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Approve ticket" }).click();
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
     .waitFor();
   await scanCameraToken(booking.qrToken);
   await page.getByText(/ALREADY CHECKED IN:/).waitFor();
+  if ((await page.evaluate(() => window.__qaCameraStarts)) !== cameraStarts)
+    throw Error(
+      "Scanning/approval restarted the camera instead of retaining the stream.",
+    );
+  if (
+    !(await page
+      .locator("video")
+      .evaluate((el) =>
+        el.srcObject?.getVideoTracks().every((t) => t.readyState === "live"),
+      ))
+  )
+    throw Error("Camera stopped after ticket approval.");
+  console.log(
+    "PASS: camera starts automatically and stays live through invalid QR, review, approval and duplicate scans without another Start click.",
+  );
+  await page.locator("video").evaluate(el => { window.__qaStoppedTrack = el.srcObject.getVideoTracks()[0]; });
+  await page.getByRole("button", { name: "Stop camera", exact: true }).click();
+  await page.waitForFunction(() => window.__qaStoppedTrack?.readyState === "ended");
+  await page.getByRole("button", { name: "Start camera scanner", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector("video")?.srcObject?.active);
+  console.log("PASS: cancel retains the running camera; explicit Stop and leaving the scanner release the camera track.");
   const cashResponse = await page.request.post(`${origin}/api/bookings`, {
     headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
     data: {

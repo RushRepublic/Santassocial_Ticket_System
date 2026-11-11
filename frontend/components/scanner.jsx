@@ -24,7 +24,7 @@ export function Scanner({ history = false }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [identity, setIdentity] = useState(null);
-  const [camera, setCamera] = useState(false);
+  const [camera, setCamera] = useState(true);
   const [token, setToken] = useState("");
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -36,6 +36,9 @@ export function Scanner({ history = false }) {
   const video = useRef(null);
   const scannerRef = useRef(null);
   const lock = useRef(false);
+  const reviewing = useRef(false);
+  const lastCode = useRef("");
+  const lastSeenAt = useRef(0);
   const requestId = useRef("");
   useEffect(() => {
     const loginUrl = staffLoginUrl(history ? "/scanner/history" : "/scanner");
@@ -67,22 +70,22 @@ export function Scanner({ history = false }) {
   }, [ready, history]);
   const verifyRef = useRef(async () => {});
   async function verify(value) {
-    if (lock.current) return;
+    if (lock.current || reviewing.current) return;
     lock.current = true;
+    reviewing.current = true;
     setBusy(true);
     setResult(null);
     setError("");
     setDateError(null);
     setEntered(false);
     setCashConfirmed(false);
-    scannerRef.current?.stop();
-    setCamera(false);
     try {
       const input = value.includes("#") ? value.split("#").pop() : value.trim();
       setToken(input);
       setResult(await post("/scanner/verify", { token: input }));
       requestId.current = crypto.randomUUID();
     } catch (e) {
+      reviewing.current = false;
       setError(e.message);
       setDateError(e.details || null);
     } finally {
@@ -92,7 +95,7 @@ export function Scanner({ history = false }) {
   }
   verifyRef.current = verify;
   useEffect(() => {
-    if (!camera || !video.current) return;
+    if (!ready || history || !camera || !video.current) return;
     let cancelled = false;
     let instance = null;
     async function start() {
@@ -102,10 +105,23 @@ export function Scanner({ history = false }) {
         const scanner = new QrScanner(
           video.current,
           (result) => {
+            lastSeenAt.current = Date.now();
+            if (
+              lock.current ||
+              reviewing.current ||
+              lastCode.current === result.data
+            )
+              return;
+            lastCode.current = result.data;
             void verifyRef.current(result.data);
           },
           {
             preferredCamera: "environment",
+            onDecodeError: () => {
+              // Re-arm the same QR only after it has left the frame. This keeps
+              // continuous video from repeatedly submitting one held ticket.
+              if (Date.now() - lastSeenAt.current > 1500) lastCode.current = "";
+            },
             highlightScanRegion: true,
             highlightCodeOutline: true,
           },
@@ -129,7 +145,7 @@ export function Scanner({ history = false }) {
       instance?.destroy();
       scannerRef.current = null;
     };
-  }, [camera]);
+  }, [camera, ready, history]);
   async function confirm() {
     if (!result || busy) return;
     setBusy(true);
@@ -154,6 +170,7 @@ export function Scanner({ history = false }) {
       setDateError(e.details || null);
       setResult(null);
     } finally {
+      reviewing.current = false;
       setBusy(false);
     }
   }
@@ -226,37 +243,35 @@ export function Scanner({ history = false }) {
                 <p>The whole group is checked in. No re-entry.</p>
               </div>
             )}
-            {!result && (
-              <>
-                <div className="camera-frame">
-                  {camera ? (
-                    <video ref={video} muted playsInline />
-                  ) : (
-                    <div>
-                      <ScanLine size={76} strokeWidth={1} />
-                      <p>Position the group QR inside the frame</p>
-                    </div>
-                  )}
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </div>
-                <button
-                  className="button full"
-                  disabled={busy}
-                  onClick={() => {
-                    setError("");
-                    setDateError(null);
-                    setEntered(false);
-                    setCamera(!camera);
-                  }}
-                >
-                  <Camera size={19} />
-                  {camera ? "Stop camera" : "Start camera scanner"}
-                </button>
-              </>
-            )}
+            <div hidden={Boolean(result)}>
+              <div className="camera-frame">
+                {camera ? (
+                  <video ref={video} muted playsInline />
+                ) : (
+                  <div>
+                    <ScanLine size={76} strokeWidth={1} />
+                    <p>Position the group QR inside the frame</p>
+                  </div>
+                )}
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+              <button
+                className="button full"
+                disabled={busy}
+                onClick={() => {
+                  setError("");
+                  setDateError(null);
+                  setEntered(false);
+                  setCamera(!camera);
+                }}
+              >
+                <Camera size={19} />
+                {camera ? "Stop camera" : "Start camera scanner"}
+              </button>
+            </div>
             {result && (
               <div
                 className={`scan-result ${result.paymentStatus === "DUE" ? "cash-due" : "payment-paid"}`}
@@ -342,6 +357,7 @@ export function Scanner({ history = false }) {
                   className="text-button"
                   disabled={busy}
                   onClick={() => {
+                    reviewing.current = false;
                     setResult(null);
                     setToken("");
                   }}
