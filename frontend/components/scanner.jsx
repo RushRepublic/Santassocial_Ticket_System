@@ -6,7 +6,6 @@ import {
   Camera,
   ScanLine,
   Check,
-  Users,
   LogOut,
   History,
   ArrowLeft,
@@ -233,9 +232,6 @@ export function Scanner({ history = false }) {
           </>
         ) : (
           <>
-            <p className="eyebrow scanner-heading">
-              SANTA SOCIAL · GATE OPERATIONS
-            </p>
             {entered && (
               <div className="entry-success" role="status">
                 <Check size={48} />
@@ -316,13 +312,6 @@ export function Scanner({ history = false }) {
                     <b>{result.people}</b>
                     <small>TOTAL GUESTS</small>
                   </div>
-                </div>
-                <div className="group-note">
-                  <Users />
-                  <p>
-                    Count all {result.people} guests before confirming. Everyone
-                    must enter together.
-                  </p>
                 </div>
                 {result.paymentStatus === "DUE" &&
                   (identity?.role === "ADMIN" ? (
