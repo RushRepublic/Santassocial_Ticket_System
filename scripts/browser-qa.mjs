@@ -389,9 +389,8 @@ try {
   await page
     .getByPlaceholder("10-digit mobile number")
     .fill(`98${String(Date.now()).slice(-8)}`);
-  await page
-    .getByPlaceholder("you@example.com")
-    .fill("browser-test@example.com");
+  if (await page.locator('input[type="email"]').count())
+    throw Error("Customer registration must not request an email address.");
   await page.getByRole("button", { name: "Add kids" }).click();
   const otpResponse = page.waitForResponse(
     (response) =>

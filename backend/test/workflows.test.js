@@ -42,6 +42,30 @@ const booking = (extra = {}) => ({
   ...extra,
 });
 
+test("customer bookings require verified mobile but no email, and legacy email remains supported", () =>
+  fixture(async (db) => {
+    const app = createApp(db);
+    const cookie = `santa_session=${await signSession({ mobile: "9876543210" })}`;
+    const submit = (input, verified = true) => {
+      const req = request(app).post("/api/bookings")
+        .set("Origin", config.origin).set("Idempotency-Key", randomUUID());
+      if (verified) req.set("Cookie", cookie);
+      return req.send(input);
+    };
+    for (const method of ["CASH", "RAZORPAY"]) {
+      const { email, ...input } = booking({ method });
+      await submit(input, false).expect(401);
+      const result = await submit(input).expect(201);
+      assert.equal(result.body.email, "");
+      assert.equal((await getBooking(db, result.body.id)).email, "");
+      assert.equal(result.body.status, method === "CASH" ? "PENDING_CASH" : "PENDING_PAYMENT");
+      assert.equal(Boolean(result.body.qrToken), method === "CASH");
+    }
+    const legacy = await submit(booking()).expect(201);
+    assert.equal(legacy.body.email, "guest@example.com");
+    await submit(booking({ email: "invalid-email" })).expect(400);
+  }));
+
 test("cash QR is issued immediately but only admin collection can atomically approve and admit", () =>
   fixture(async (db) => {
     const app = createApp(db);

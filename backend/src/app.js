@@ -53,7 +53,7 @@ const mobileSchema = z
   .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number.");
 const bookingSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  email: z.email().max(190),
+  email: z.union([z.email().max(190), z.literal("")]).optional().default(""),
   eventDate: z.enum(["2026-11-11", "2026-11-12"]),
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),

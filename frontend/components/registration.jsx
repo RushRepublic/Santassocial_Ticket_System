@@ -25,7 +25,6 @@ import { VenueLocation, Notice, Loading, Status } from "./common";
 import { MobileVerification } from "./mobile-verification";
 const initial = {
   name: "",
-  email: "",
   mobile: "",
   eventDate: "2026-11-11",
   adults: 1,
@@ -38,7 +37,6 @@ const draftSchema = z.object({
     error: "Please select an event date.",
   }),
   name: z.string().trim().min(2, "Please enter your full name.").max(120),
-  email: z.email("Please enter a valid email address."),
   mobile: z
     .string()
     .regex(/^[6-9]\d{9}$/, "Please enter a valid Indian mobile number."),
@@ -255,18 +253,6 @@ export function Register() {
               onVerified={setVerifiedMobile}
               disabled={openingCheckout}
             />
-            <label>
-              Email address <span>*</span>
-              <input
-                type="email"
-                autoComplete="email"
-                required
-                value={draft.email}
-                onChange={(e) => update({ email: e.target.value })}
-                placeholder="you@example.com"
-                maxLength={190}
-              />
-            </label>
           </div>
           <div className="form-section">
             <div className="section-label">
@@ -677,7 +663,7 @@ export function Checkout() {
         currency: "INR",
         name: "Santa Social 9th Edition",
         description: `Group booking · ${b.reference}`,
-        prefill: { name: b.name, email: b.email, contact: `+91${b.mobile}` },
+        prefill: { name: b.name, ...(b.email ? { email: b.email } : {}), contact: `+91${b.mobile}` },
         theme: { color: "#8a1d23" },
         modal: {
           ondismiss: () => {
@@ -752,7 +738,7 @@ export function Checkout() {
                 </Link>
               </div>
               <p>
-                +91 {draft.mobile} · {draft.email}
+                +91 {draft.mobile}{draft.email ? ` · ${draft.email}` : ""}
               </p>
             </div>
           </div>

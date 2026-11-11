@@ -37,7 +37,6 @@ try {
   });
   const booking = await api("/bookings", {
     name: "Payment QA Guest",
-    email: "payment-qa@example.com",
     method: "RAZORPAY",
     eventDate: "2026-11-11",
     adults: 1,
@@ -133,7 +132,6 @@ try {
   // Returning from a cash ticket must restore interactive choices, including on phones.
   const cash = await api("/bookings", {
     name: "Switch Payment QA",
-    email: "switch-qa@example.com",
     method: "CASH",
     eventDate: "2026-11-11",
     adults: 1,

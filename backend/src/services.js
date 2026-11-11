@@ -125,7 +125,7 @@ export async function createBooking(db, input, mobile, key) {
       eventDate: input.eventDate,
       name: input.name,
       mobile,
-      email: input.email,
+      email: input.email || "",
       adults: input.adults,
       kids: input.kids,
       people,

@@ -43,6 +43,7 @@ export function razorpay() {
   });
 }
 async function emailFallback(b, type) {
+  if (!b.email) throw Error("No booking email address.");
   if (!process.env.SMTP_HOST || !process.env.SMTP_FROM)
     throw Error("SMTP is not configured.");
   const port = Number(process.env.SMTP_PORT || 587);

@@ -41,7 +41,6 @@ Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentic
 ```json
 {
   "name": "Guest Name",
-  "email": "guest@example.com",
   "eventDate": "2026-11-11",
   "adults": 2,
   "kids": 1,
@@ -49,7 +48,7 @@ Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentic
 }
 ```
 
-Use `CASH` for counter payment. Mobile comes from the verified server session; client-supplied mobile, totals, payment statuses or QR fields are ignored. A reused idempotency key must match the same mobile and booking payload.
+Use `CASH` for counter payment. Customer registration does not collect email; the API accepts an optional valid email for compatibility with existing clients and bookings. Mobile comes from the verified server session; client-supplied mobile, totals, payment statuses or QR fields are ignored. A reused idempotency key must match the same mobile and booking payload.
 
 ## Event settings request
 
