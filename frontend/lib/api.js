@@ -23,7 +23,7 @@ export async function api(path, options = {}) {
       /^\/(admin|scanner)(\/|\?|$)/.test(path)
     )
       window.location.replace(
-        `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+        `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}&expired=1`,
       );
     throw Object.assign(new Error(data.error || "The request failed."), {
       status: response.status,

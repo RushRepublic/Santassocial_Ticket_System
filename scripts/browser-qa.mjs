@@ -714,18 +714,14 @@ try {
     await page.locator(".stat-card").first().waitFor();
   }
   const registrationTab = await context.newPage();
-  // Existing cookies must not skip login on a fresh admin/scanner document.
+  // Restore the server-validated staff cookie in fresh documents and tabs.
   for (const path of ["/admin/dashboard", "/scanner"]) {
     await registrationTab.goto(origin + path);
-    await registrationTab.waitForURL(
-      (url) =>
-        url.pathname === "/login" && url.searchParams.get("next") === path,
-    );
-    await registrationTab
-      .getByRole("heading", { name: "Admin Login", exact: true })
-      .waitFor();
-    if (await registrationTab.locator(".admin-sidebar, .scanner-main").count())
-      throw Error("A saved staff cookie bypassed the login screen.");
+    await registrationTab.locator(path.startsWith("/admin") ? ".admin-sidebar" : ".scanner-main").waitFor({ state: "attached" });
+    await registrationTab.reload();
+    await registrationTab.locator(path.startsWith("/admin") ? ".admin-sidebar" : ".scanner-main").waitFor({ state: "attached" });
+    if (new URL(registrationTab.url()).pathname !== path)
+      throw Error("Valid staff session did not survive reload/new tab.");
   }
   await registrationTab.goto(origin);
   await registrationTab
@@ -771,7 +767,7 @@ try {
       .getByRole("link", { name: label, exact: true })
       .click();
     await page.waitForURL(`${origin}/admin/${section}`);
-    await page.locator(".admin-sidebar").waitFor();
+    await page.locator(".admin-sidebar").waitFor({ state: "attached" });
     await page.locator(".admin-content .loading").waitFor({ state: "hidden" });
     await auditResponsive(page, `admin-${section}`);
     await verifyAdminLogoTab();
@@ -1051,9 +1047,7 @@ try {
   await signIn();
   await page.waitForURL(`${origin}/admin/dashboard`);
   await page.reload();
-  await page.waitForURL((url) => url.pathname === "/login");
-  await signIn();
-  await page.waitForURL(`${origin}/admin/dashboard`);
+  await page.locator(".admin-sidebar").waitFor({ state: "attached" });
   await page
     .getByRole("heading", { name: "Let’s make it a merry one." })
     .waitFor();

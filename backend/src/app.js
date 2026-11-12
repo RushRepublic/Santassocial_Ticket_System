@@ -223,6 +223,15 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
         if (!token) return undefined;
         const value = await readSession(token);
         if (value.userId) {
+          if (
+            (
+              await db.all(
+                "SELECT tokenHash FROM revoked_staff_sessions WHERE tokenHash = ?",
+                [hash(token)],
+              )
+            ).length
+          )
+            return undefined;
           const user = (
             await db.all(
               "SELECT id,role,name FROM users WHERE id = ? AND active = 1",
@@ -423,18 +432,51 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
           { userId: user.id, role: user.role, name: user.name },
           true,
         ),
-        { ...cookieOptions, maxAge: 8 * 3600000 },
+        { ...cookieOptions, maxAge: 24 * 3600000 },
       );
       if (req.legacyStaff) res.clearCookie("santa_session", cookieOptions);
       res.json({ role: user.role, name: user.name });
     },
   );
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
     const scope = z
       .enum(["staff", "customer", "all"])
       .parse(req.body?.scope || "all");
-    if (scope !== "customer")
+    if (scope !== "customer") {
+      // Persist revocation before clearing cookies. Replaying a logged-out JWT
+      // must fail in every tab and after application restarts.
+      const tokens = [req.cookies.santa_staff_session];
+      if (req.legacyStaff) tokens.push(req.cookies.santa_session);
+      await db.transaction(async (tx) => {
+        for (const token of new Set(tokens.filter(Boolean))) {
+          let value;
+          try {
+            value = await readSession(token);
+          } catch {
+            continue;
+          }
+          if (!value.userId) continue;
+          // Serialize repeated logout requests for the same account.
+          await tx.all("SELECT id FROM users WHERE id = ? FOR UPDATE", [
+            value.userId,
+          ]);
+          const tokenHash = hash(token);
+          if (
+            !(
+              await tx.all(
+                "SELECT tokenHash FROM revoked_staff_sessions WHERE tokenHash = ?",
+                [tokenHash],
+              )
+            ).length
+          )
+            await tx.run(
+              "INSERT INTO revoked_staff_sessions (tokenHash,expiresAt) VALUES (?,?)",
+              [tokenHash, new Date(value.exp * 1000).toISOString()],
+            );
+        }
+      });
       res.clearCookie("santa_staff_session", cookieOptions);
+    }
     if (scope !== "staff" || req.legacyStaff)
       res.clearCookie("santa_session", cookieOptions);
     res.json({ ok: true });
@@ -454,7 +496,18 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       next();
     },
     auth(),
-    (req, res) => res.json(req.identity),
+    (req, res) =>
+      res.json({
+        ...req.identity,
+        ...(req.identity.userId
+          ? {
+              sessionExpiresIn: Math.max(
+                0,
+                req.identity.exp * 1000 - Date.now(),
+              ),
+            }
+          : {}),
+      }),
   );
   app.post("/api/bookings", auth(), async (req, res) => {
     if (!req.identity?.mobile) fail(403, "Verify your mobile number first.");

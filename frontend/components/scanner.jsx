@@ -12,17 +12,15 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { api, post, eventDate, dateTime, money } from "@/lib/api";
-import {
-  staffDestination,
-  staffLoginUrl,
-  hasStaffLogin,
-  setStaffLogin,
-} from "@/lib/staff";
+import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
 import { Wordmark, Loading, DemoBanner } from "./common";
 export function Scanner({ history = false }) {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
-  const [identity, setIdentity] = useState(null);
+  const identity = useStaffSession(history ? "/scanner/history" : "/scanner", [
+    "ADMIN",
+    "SCANNER",
+  ]);
+  const ready = Boolean(identity);
   const [camera, setCamera] = useState(true);
   const [token, setToken] = useState("");
   const [result, setResult] = useState(null);
@@ -39,28 +37,6 @@ export function Scanner({ history = false }) {
   const lastCode = useRef("");
   const lastSeenAt = useRef(0);
   const requestId = useRef("");
-  useEffect(() => {
-    const loginUrl = staffLoginUrl(history ? "/scanner/history" : "/scanner");
-    if (!hasStaffLogin()) {
-      router.replace(loginUrl);
-      return;
-    }
-    api("/auth/me?scope=staff")
-      .then((u) => {
-        if (!["ADMIN", "SCANNER"].includes(u.role))
-          router.replace(staffDestination(u.role));
-        else {
-          setIdentity(u);
-          setReady(true);
-        }
-      })
-      .catch(() => {
-        setStaffLogin(false);
-        setReady(false);
-        setIdentity(null);
-        router.replace(loginUrl);
-      });
-  }, [router, history]);
   useEffect(() => {
     if (ready && history)
       api("/admin/checkins")
@@ -200,7 +176,7 @@ export function Scanner({ history = false }) {
             aria-label="Sign out"
             onClick={() =>
               post("/auth/logout", { scope: "staff" }).then(() => {
-                setStaffLogin(false);
+                notifyStaffLogout();
                 router.replace("/login");
               })
             }

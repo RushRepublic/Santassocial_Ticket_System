@@ -1,12 +1,22 @@
 import { openDatabase, migrate } from "./db.js";
 import { seed } from "./setup.js";
-import { demo, maintenanceMode, whatsappDemo } from "./config.js";
+import {
+  demo,
+  maintenanceMode,
+  whatsappDemo,
+  databaseDriver,
+} from "./config.js";
 import { maintain } from "./maintenance.js";
 import { startNotificationWorker } from "./notification-worker.js";
 
 export async function createRuntime() {
   const db = await openDatabase();
   try {
+    // Additive session-only migration also runs when APP_MODE is live.
+    // Never changes customer, booking, payment or admission records.
+    await db.run(
+      `CREATE TABLE IF NOT EXISTS revoked_staff_sessions (tokenHash VARCHAR(64) PRIMARY KEY, expiresAt VARCHAR(30) NOT NULL)${databaseDriver === "sqlite" ? "" : " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"}`,
+    );
     if (demo) {
       await migrate(db);
       await seed(db);

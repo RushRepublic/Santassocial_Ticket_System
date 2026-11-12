@@ -1,5 +1,6 @@
 import {
   randomBytes,
+  randomUUID,
   scryptSync,
   timingSafeEqual,
   createHash,
@@ -34,7 +35,8 @@ export const signSession = (identity, staff = false) =>
     .setIssuer("santa-social")
     .setAudience("santa-social-web")
     .setIssuedAt()
-    .setExpirationTime(staff ? "8h" : "30m")
+    .setJti(randomUUID())
+    .setExpirationTime(staff ? "24h" : "30m")
     .sign(new TextEncoder().encode(config.sessionSecret));
 export async function readSession(token) {
   return (

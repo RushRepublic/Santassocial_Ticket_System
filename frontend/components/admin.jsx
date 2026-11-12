@@ -20,12 +20,8 @@ import {
   Menu,
 } from "lucide-react";
 import { api, post, money, dateTime, eventDate } from "@/lib/api";
-import {
-  staffDestination,
-  staffLoginUrl,
-  hasStaffLogin,
-  setStaffLogin,
-} from "@/lib/staff";
+import { staffDestination } from "@/lib/staff";
+import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
 import { Wordmark, Notice, Loading, Status, DemoBanner } from "./common";
 export function StaffLogin() {
   const router = useRouter();
@@ -33,16 +29,29 @@ export function StaffLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(true);
   useEffect(() => {
-    setStaffLogin(false);
-  }, []);
+    api("/auth/me?scope=staff")
+      .then((user) => {
+        router.replace(
+          staffDestination(
+            user.role,
+            new URLSearchParams(window.location.search).get("next") || "",
+          ),
+        );
+      })
+      .catch(() => {
+        if (new URLSearchParams(window.location.search).get("expired") === "1")
+          setError("Your session has ended. Please sign in again.");
+        setChecking(false);
+      });
+  }, [router]);
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
       const user = await post("/auth/login", { email, password });
-      setStaffLogin(true);
       router.replace(
         staffDestination(
           user.role,
@@ -55,6 +64,7 @@ export function StaffLogin() {
       setBusy(false);
     }
   }
+  if (checking) return <Loading />;
   return (
     <main className="staff-login">
       <Link href="/">
@@ -111,29 +121,12 @@ export function Admin() {
   const router = useRouter();
   const section = path.split("/")[2] || "dashboard";
   const id = path.split("/")[3];
-  const [identity, setIdentity] = useState(null);
+  const identity = useStaffSession(path, ["ADMIN", "CASHIER"]);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!hasStaffLogin()) {
-      router.replace(staffLoginUrl(path));
-      return;
-    }
-    api("/auth/me?scope=staff")
-      .then((user) => {
-        if (!["ADMIN", "CASHIER"].includes(user.role))
-          router.replace(staffDestination(user.role));
-        else setIdentity(user);
-      })
-      .catch(() => {
-        setStaffLogin(false);
-        setIdentity(null);
-        router.replace(staffLoginUrl(path));
-      });
-  }, [router, path]);
   async function logout() {
     await post("/auth/logout", { scope: "staff" });
-    setStaffLogin(false);
+    notifyStaffLogout();
     router.replace("/login");
   }
   if (!identity) return <Loading />;
@@ -562,7 +555,8 @@ function Bookings({ compact = false }) {
           {!compact && (
             <div className="pagination">
               <small>
-                {data.total} bookings · Page {page} of {Math.max(1, data.pages)}
+                {data.total} bookings · Page {page} of{" "}
+                {Math.max(1, data.pages)}
               </small>
               <div>
                 <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
