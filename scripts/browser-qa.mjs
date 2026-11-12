@@ -884,11 +884,11 @@ try {
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
   await auditResponsive(page, "scanner-paid");
   await page
-    .getByRole("heading", { name: "Paid Rs. 1. Approve the Ticket." })
+    .getByRole("heading", { name: "Payment of ₹1 received. Approve the ticket." })
     .waitFor();
   if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
     throw Error("Paid ticket must use the green result state.");
-  await page.getByRole("button", { name: "Cancel & scan another ticket" }).click();
+  await page.getByRole("button", { name: "Cancel and scan another ticket" }).click();
   await page.waitForTimeout(1000);
   if (await page.locator(".scan-result").count())
     throw Error("A QR held in frame was repeatedly submitted after cancelling review.");
@@ -982,7 +982,7 @@ try {
   await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(cashBooking.qrToken);
   await page
-    .getByRole("heading", { name: "Collect Rs. 2 & Approve the Ticket." })
+    .getByRole("heading", { name: "Collect ₹2 and approve the ticket." })
     .waitFor();
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
   await auditResponsive(page, "scanner-cash");

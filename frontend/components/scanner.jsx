@@ -292,14 +292,15 @@ export function Scanner({ history = false }) {
                 </div>
                 <h3 className="scan-payment-heading">
                   {result.paymentStatus === "DUE"
-                    ? `Collect Rs. ${result.amount / 100} & Approve the Ticket.`
-                    : `Paid Rs. ${result.amount / 100}. Approve the Ticket.`}
+                    ? `Collect ${money(result.amount)} and approve the ticket.`
+                    : `Payment of ${money(result.amount)} received. Approve the ticket.`}
                 </h3>
                 <h2>{result.name}</h2>
                 <p>{result.reference}</p>
                 <p>{eventDate(result.eventDate)}</p>
                 <p>
-                  {result.mobile} · {result.email}
+                  {result.mobile}
+                  {result.email ? ` · ${result.email}` : ""}
                 </p>
                 <p className="scanner-payment-highlight">
                   {result.method === "CASH"
@@ -347,10 +348,12 @@ export function Scanner({ history = false }) {
                         checked={cashConfirmed}
                         onChange={(e) => setCashConfirmed(e.target.checked)}
                       />
-                      I have collected {money(result.amount)} in cash and
-                      {result.ticket
-                        ? "will admit only this ticket holder. This settles the entire booking payment."
-                        : "counted the whole group."}
+                      <span>
+                        I have collected {money(result.amount)} in cash and{" "}
+                        {result.ticket
+                          ? "will admit only this ticket holder. This settles the payment for the entire booking."
+                          : "counted everyone in the group."}
+                      </span>
                     </label>
                   ) : (
                     <p role="alert">
@@ -379,7 +382,7 @@ export function Scanner({ history = false }) {
                     setToken("");
                   }}
                 >
-                  Cancel & scan another ticket
+                  Cancel and scan another ticket
                 </button>
               </div>
             )}
