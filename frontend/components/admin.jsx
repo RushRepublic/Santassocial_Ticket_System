@@ -406,7 +406,7 @@ function Bookings({ compact = false }) {
         <div className="admin-page-heading">
           <div>
             <h1>Every booking, in one place.</h1>
-            <p>Manage guests, payments, and group tickets.</p>
+            <p>Manage guests, payments, and tickets.</p>
           </div>
         </div>
       )}
@@ -537,7 +537,11 @@ function Bookings({ compact = false }) {
                       <span
                         className={`entry-dot ${b.checkedInAt ? "entered" : ""}`}
                       />
-                      {b.checkedInAt ? "Checked in" : "Not entered"}
+                      {b.entryMode === "INDIVIDUAL"
+                        ? `${b.approvedTickets} of ${b.people} entered`
+                        : b.checkedInAt
+                          ? "Checked in"
+                          : "Not entered"}
                     </td>
                     <td>
                       <Link
@@ -689,7 +693,11 @@ function BookingDetail({ id }) {
                 <dd>{dateTime(b.createdAt)}</dd>
                 <dt>Entry</dt>
                 <dd>
-                  {b.checkedInAt ? dateTime(b.checkedInAt) : "Not entered"}
+                  {b.entryMode === "INDIVIDUAL"
+                    ? `${b.approvedTickets} of ${b.people} entered (${b.entryStatus.replaceAll("_", " ").toLowerCase()})`
+                    : b.checkedInAt
+                      ? dateTime(b.checkedInAt)
+                      : "Not entered"}
                 </dd>
                 {b.method === "RAZORPAY" && payment && (
                   <>
@@ -707,7 +715,40 @@ function BookingDetail({ id }) {
             </div>
             <div className="admin-card booking-qr-card">
               <h2>Customer QR code</h2>
-              <BookingQr booking={b} />
+              {b.entryMode === "INDIVIDUAL" ? (
+                <>
+                  <p>
+                    Total: {b.people} | Approved: {b.approvedTickets} | Pending:{" "}
+                    {b.pendingTicketCount}
+                  </p>
+                  <h3>Pending tickets</h3>
+                  {data.tickets
+                    .filter((t) => t.status === "NOT_SCANNED")
+                    .map((t) => (
+                      <div key={t.id}>
+                        <p>
+                          {t.number} /{" "}
+                          {t.category === "ADULT" ? "Adult" : "Kid"} / Not
+                          Scanned
+                        </p>
+                        <BookingQr booking={{ ...b, qrToken: t.qrToken }} />
+                      </div>
+                    ))}
+                  {!data.tickets.length && (
+                    <p>Tickets will be issued after successful payment.</p>
+                  )}
+                  <h3>Entry history</h3>
+                  {data.tickets
+                    .filter((t) => t.status === "APPROVED")
+                    .map((t) => (
+                      <p key={t.id}>
+                        {t.number} / Approved / {dateTime(t.approvedAt)}
+                      </p>
+                    ))}
+                </>
+              ) : (
+                <BookingQr booking={b} />
+              )}
             </div>
           </div>
         </>
@@ -730,9 +771,9 @@ function OperationsTable() {
   }, [load]);
   return (
     <div className="admin-card">
-      <h1>Group entry history</h1>
+      <h1>Ticket entry history</h1>
       <p className="muted">
-        All recorded group entries, displayed in Asia/Kolkata.
+        All recorded ticket entries, displayed in Asia/Kolkata.
       </p>
       {error && <Notice>{error}</Notice>}
       {!rows ? (
@@ -741,7 +782,7 @@ function OperationsTable() {
         <div
           className="table-scroll"
           role="region"
-          aria-label="Group entry records"
+          aria-label="Ticket entry records"
           tabIndex={0}
         >
           <table>
@@ -761,6 +802,12 @@ function OperationsTable() {
                     <Link href={`/admin/bookings/${r.bookingId}`}>
                       {r.reference}
                     </Link>
+                    {r.ticketNumber && (
+                      <small>
+                        {r.ticketNumber} /{" "}
+                        {r.category === "ADULT" ? "Adult" : "Kid"}
+                      </small>
+                    )}
                   </td>
                   <td>{r.name}</td>
                   <td>{r.people}</td>

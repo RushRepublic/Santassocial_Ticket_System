@@ -886,8 +886,7 @@ export function Checkout() {
                 Your booking is valid only for {eventDate(draft.eventDate)}.
               </li>
               <li>
-                All {draft.adults + draft.kids} guests must arrive together.
-                Partial entry are not supported.
+                Each guest has an individual QR ticket and may enter separately.
               </li>
               <li>
                 Children under 5 must be supervised by an adult, unless an
@@ -996,7 +995,7 @@ export function Confirmation() {
                 {active
                   ? "A little joy, a lot of memories. We can’t wait to see you."
                   : booking.status === "PENDING_CASH"
-                    ? "Your group QR is ready. Show it at the counter to pay and get approval."
+                    ? "Your individual QR tickets are ready. Show a ticket at the counter to pay and get approval."
                     : "Your entry QR will become available once payment is verified."}
               </p>
               <Status value={booking.status} />
@@ -1018,7 +1017,7 @@ export function Confirmation() {
               {booking.status === "PENDING_CASH" && (
                 <div className="notice">
                   This confirmation is not an entry ticket. Pay{" "}
-                  {money(booking.amount)} at the counter. Show your group QR.
+                  {money(booking.amount)} at the counter. Show a ticket QR.
                   Entry requires payment approval.
                 </div>
               )}
@@ -1032,7 +1031,7 @@ export function Confirmation() {
               )}
               {active ? (
                 <Link href={`/ticket/${booking.id}`} className="button full">
-                  View your group ticket <ArrowRight size={18} />
+                  View your tickets <ArrowRight size={18} />
                 </Link>
               ) : (
                 <button className="button full" onClick={load} disabled={busy}>

@@ -1,6 +1,11 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { paymentDemo, production, config } from "./config.js";
 import { hash, qrToken } from "./security.js";
+import {
+  issueIndividualTickets,
+  inspectIndividual,
+  checkinIndividual,
+} from "./individual-tickets.js";
 export class AppError extends Error {
   status;
   constructor(status, message, details) {
@@ -63,6 +68,7 @@ export async function activate(tx, b, status = "PAID") {
     "UPDATE bookings SET status = ?, qrHash = ?, updatedAt = ? WHERE id = ?",
     [status, hash(qrToken(b)), now(), b.id],
   );
+  await issueIndividualTickets(tx, b);
   await notification(tx, b, "TICKET");
 }
 export function publicBooking(b) {
@@ -89,6 +95,27 @@ export async function getBooking(db, id) {
     )
   )[0];
   if (!b) fail(404, "Booking not found.");
+  const batch = await db.all(
+    "SELECT bookingId FROM ticket_batches WHERE bookingId = ?",
+    [b.id],
+  );
+  const approved = Number(
+    (
+      await db.all(
+        "SELECT COUNT(*) AS n FROM individual_tickets WHERE bookingId = ? AND approvedAt IS NOT NULL",
+        [b.id],
+      )
+    )[0].n,
+  );
+  b.entryMode = batch.length ? "INDIVIDUAL" : "GROUP";
+  b.approvedTickets = batch.length ? approved : b.checkedInAt ? b.people : 0;
+  b.pendingTicketCount = b.people - b.approvedTickets;
+  b.entryStatus =
+    b.approvedTickets === b.people
+      ? "FULLY_ENTERED"
+      : b.approvedTickets
+        ? "PARTIALLY_ENTERED"
+        : "NOT_ENTERED";
   return b;
 }
 export async function createBooking(db, input, mobile, key) {
@@ -152,8 +179,15 @@ export async function createBooking(db, input, mobile, key) {
       "INSERT INTO booking_requests (id,mobile,bookingId,fingerprint) VALUES (?,?,?,?)",
       [key, mobile, id, fingerprint],
     );
+    await tx.run(
+      "INSERT INTO ticket_batches (bookingId,createdAt) VALUES (?,?)",
+      [id, now()],
+    );
     if (amount === 0) await activate(tx, b, "FREE");
-    else if (input.method === "CASH") await notification(tx, b, "CASH_PENDING");
+    else if (input.method === "CASH") {
+      await issueIndividualTickets(tx, b);
+      await notification(tx, b, "CASH_PENDING");
+    }
     return getBooking(tx, id);
   });
 }
@@ -281,7 +315,7 @@ export async function approveCash(db, id, amount, userId) {
     return approveCashInTransaction(tx, id, amount, userId);
   });
 }
-async function approveCashInTransaction(tx, id, amount, userId) {
+export async function approveCashInTransaction(tx, id, amount, userId) {
   const b = await getBooking(tx, id);
   validateTicketDate(b);
   if (b.method !== "CASH")
@@ -350,6 +384,8 @@ export function validateTicketDate(booking) {
   });
 }
 export async function inspectTicket(db, token) {
+  const individual = await inspectIndividual(db, token);
+  if (individual) return individual;
   const b = (
     await db.all(
       "SELECT b.*,p.orderId AS gatewayOrderId,p.paymentId AS gatewayPaymentId FROM bookings b LEFT JOIN payments p ON p.bookingId = b.id WHERE b.qrHash = ?",
@@ -357,6 +393,17 @@ export async function inspectTicket(db, token) {
     )
   )[0];
   if (!b) fail(404, "INVALID TICKET: This QR code is not recognised.");
+  if (
+    (
+      await db.all("SELECT bookingId FROM ticket_batches WHERE bookingId = ?", [
+        b.id,
+      ])
+    ).length
+  )
+    fail(
+      403,
+      "Invalid Ticket: scan an individual ticket QR, not the receipt link.",
+    );
   if (!paymentDemo && b.method === "RAZORPAY" && publicBooking(b).demo)
     fail(
       403,
@@ -391,6 +438,14 @@ export async function verifyTicket(db, token) {
   return b;
 }
 export async function checkin(db, token, userId, key, amountReceived) {
+  if (
+    (
+      await db.all("SELECT id FROM individual_tickets WHERE qrHash = ?", [
+        hash(token),
+      ])
+    ).length
+  )
+    return checkinIndividual(db, token, userId, key, amountReceived);
   return db.transaction(async (tx) => {
     await lockEvent(tx);
     const previous = (

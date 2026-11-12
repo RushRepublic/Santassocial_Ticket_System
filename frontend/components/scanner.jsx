@@ -161,7 +161,11 @@ export function Scanner({ history = false }) {
         },
         { "Idempotency-Key": requestId.current },
       );
-      setEntered(true);
+      setEntered(
+        result.ticket
+          ? "This ticket is approved. Remaining tickets can enter separately."
+          : "The whole group is checked in. No re-entry.",
+      );
       setResult(null);
       setToken("");
     } catch (e) {
@@ -214,7 +218,7 @@ export function Scanner({ history = false }) {
               <ArrowLeft size={16} />
               Back to scanner
             </Link>
-            <h1>Groups welcomed.</h1>
+            <h1>Ticket entry history</h1>
             <p className="muted">Your recent check-ins · Asia/Kolkata</p>
             {rows.map((r) => (
               <div className="history-entry" key={r.id}>
@@ -225,10 +229,16 @@ export function Scanner({ history = false }) {
                     {r.reference} · {r.people} people
                   </p>
                   <small>{dateTime(r.createdAt)}</small>
+                  {r.ticketNumber && (
+                    <p>
+                      {r.ticketNumber} /{" "}
+                      {r.category === "ADULT" ? "Adult" : "Kid"}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
-            {!rows.length && <p>No group entries yet.</p>}
+            {!rows.length && <p>No ticket entries yet.</p>}
           </>
         ) : (
           <>
@@ -236,7 +246,7 @@ export function Scanner({ history = false }) {
               <div className="entry-success" role="status">
                 <Check size={48} />
                 <h2>Welcome to Santa Social!</h2>
-                <p>The whole group is checked in. No re-entry.</p>
+                <p>{entered}</p>
               </div>
             )}
             <div hidden={Boolean(result)}>
@@ -246,7 +256,7 @@ export function Scanner({ history = false }) {
                 ) : (
                   <div>
                     <ScanLine size={76} strokeWidth={1} />
-                    <p>Position the group QR inside the frame</p>
+                    <p>Position the ticket QR inside the frame</p>
                   </div>
                 )}
                 <i />
@@ -299,7 +309,36 @@ export function Scanner({ history = false }) {
                       : "Online payment"}{" "}
                   · {money(result.amount)}
                 </p>
-                <ScannerCounts counts={result} />
+                {result.ticket ? (
+                  <>
+                    <h3>Valid Ticket</h3>
+                    <p>
+                      Ticket Type:{" "}
+                      {result.ticket.category === "ADULT" ? "Adult" : "Kid"}
+                    </p>
+                    <p>Ticket Number: {result.ticket.number}</p>
+                    <p>Entry Status: Not Scanned</p>
+                    <p>
+                      Total Tickets: {result.people} | Approved:{" "}
+                      {result.approvedTickets} | Pending:{" "}
+                      {result.pendingTickets.length}
+                    </p>
+                    <details className="pending-ticket-list">
+                      <summary>Pending tickets</summary>
+                      <ul>
+                        {result.pendingTickets.map((t) => (
+                          <li key={t.id}>
+                            {t.number} /{" "}
+                            {t.category === "ADULT" ? "Adult" : "Kid"} / Not
+                            Scanned
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </>
+                ) : (
+                  <ScannerCounts counts={result} />
+                )}
                 {result.paymentStatus === "DUE" &&
                   (identity?.role === "ADMIN" ? (
                     <label className="cash-collection-confirm">
@@ -309,7 +348,9 @@ export function Scanner({ history = false }) {
                         onChange={(e) => setCashConfirmed(e.target.checked)}
                       />
                       I have collected {money(result.amount)} in cash and
-                      counted the whole group.
+                      {result.ticket
+                        ? "will admit only this ticket holder. This settles the entire booking payment."
+                        : "counted the whole group."}
                     </label>
                   ) : (
                     <p role="alert">
@@ -353,7 +394,16 @@ export function Scanner({ history = false }) {
               </>
             ) : (
               <>
-                <p>{error}</p>
+                {dateError?.code === "ALREADY_APPROVED" ? (
+                  <>
+                    <h2>Already Approved</h2>
+                    <p>Ticket Number: {dateError.ticketNumber}</p>
+                    <p>Entry Status: Approved</p>
+                    <p>Entry Time: {dateTime(dateError.approvedAt)}</p>
+                  </>
+                ) : (
+                  <p>{error}</p>
+                )}
                 {dateError?.code === "ALREADY_CHECKED_IN" && (
                   <ScannerCounts counts={dateError} entered />
                 )}

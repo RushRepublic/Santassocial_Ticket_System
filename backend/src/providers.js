@@ -62,7 +62,7 @@ async function emailFallback(b, type) {
   const text = [
     `Santa Social 9th Edition`,
     type === "TICKET" && active
-      ? "Your group ticket is ready."
+      ? "Your tickets are ready."
       : "Your booking update",
     `Booking: ${b.reference}`,
     `Date: ${b.eventDate}`,
@@ -71,7 +71,9 @@ async function emailFallback(b, type) {
     hasBookingQr(b)
       ? `Secure ticket: ${config.origin}/ticket/${b.id}#${qrToken(b)}`
       : `Status: ${b.status}. This is not an entry ticket.`,
-    "Please ensure your entire group arrives together.",
+    b.entryMode === "INDIVIDUAL"
+      ? "Each guest has an individual QR ticket and may enter separately."
+      : "Please ensure your entire group arrives together.",
   ].join("\n\n");
   await transport.sendMail({
     from: process.env.SMTP_FROM,

@@ -7,7 +7,7 @@ import { openDatabase, migrate } from "../src/db.js";
 import { seed } from "../src/setup.js";
 import { createApp } from "../src/app.js";
 import {
-  createBooking,
+  createBooking as createIndividualBooking,
   approveCash,
   getBooking,
   publicBooking,
@@ -21,6 +21,13 @@ import {
 import { equal, hash, hmac, qrToken, signSession } from "../src/security.js";
 import { config } from "../src/config.js";
 import { dispatchNotifications } from "../src/providers.js";
+// Preserve explicit coverage for existing group bookings without converting production records.
+async function createBooking(db, ...args) {
+  const b = await createIndividualBooking(db, ...args);
+  await db.run("DELETE FROM individual_tickets WHERE bookingId = ?", [b.id]);
+  await db.run("DELETE FROM ticket_batches WHERE bookingId = ?", [b.id]);
+  return getBooking(db, b.id);
+}
 async function fixture(work) {
   process.env.DEMO_DB_PATH = resolve(`data/test-${randomUUID()}.sqlite`);
   const db = await openDatabase();
@@ -692,21 +699,23 @@ test("API journey: OTP, booking, demo payment, ticket retrieval, PDF and role re
       .send({ email: "scanner@santasocial.local", password: "SantaDemo2026!" })
       .expect(200);
     await gate.get("/api/admin/bookings").expect(403);
+    const receipt = await customer.get(`/api/tickets/${b.id}`).expect(200);
+    const scanToken = receipt.body.tickets[0].qrToken;
     await gate
       .post("/api/scanner/verify")
       .set("Origin", config.origin)
-      .send({ token: paid.body.qrToken })
+      .send({ token: scanToken })
       .expect(200);
     await gate
       .post("/api/scanner/checkin")
       .set("Origin", config.origin)
       .set("Idempotency-Key", randomUUID())
-      .send({ token: paid.body.qrToken })
+      .send({ token: scanToken })
       .expect(200);
     await gate
       .post("/api/scanner/verify")
       .set("Origin", config.origin)
-      .send({ token: paid.body.qrToken })
+      .send({ token: scanToken })
       .expect(409);
   }));
 test("15 scanning requests remain correct for independent groups", () =>

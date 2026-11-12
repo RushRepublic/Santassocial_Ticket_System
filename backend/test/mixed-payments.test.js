@@ -119,6 +119,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     assert.equal((await db.all('SELECT * FROM webhook_events')).length,1);
     // Historical simulated online tickets stay visibly simulated and cannot enter.
     const old=await make();
+    await db.run("DELETE FROM ticket_batches WHERE bookingId=?",[old.id]);
     await db.run("UPDATE payments SET orderId=?,paymentId=?,status='CAPTURED' WHERE bookingId=?",
       ['order_demo_legacy','pay_demo_legacy',old.id]);
     await db.run("UPDATE bookings SET status='PAID',qrHash=? WHERE id=?", [
@@ -149,6 +150,9 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const noOrder=await make();
     // Check-in history includes one real and one historical simulated entry.
     for(const record of [b,old]) {
+      // These rows represent historical group entries, not individual approvals.
+      await db.run('DELETE FROM individual_tickets WHERE bookingId=?',[record.id]);
+      await db.run('DELETE FROM ticket_batches WHERE bookingId=?',[record.id]);
       await db.run('INSERT INTO checkins (id,bookingId,staffId,eventDate,adults,kids,people,idempotencyKey,createdAt) VALUES (?,?,?,?,?,?,?,?,?)',
         [randomUUID(),record.id,adminId,record.eventDate,record.adults,record.kids,record.people,randomUUID(),now()]);
       await db.run('UPDATE bookings SET checkedInAt=? WHERE id=?',[now(),record.id]);

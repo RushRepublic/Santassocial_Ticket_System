@@ -1,3 +1,4 @@
+import { receiptTickets } from "./individual-tickets.js";
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -621,7 +622,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     }
     if (!hasBookingQr(b))
       fail(403, "Your ticket will be available after payment approval.");
-    res.json(publicBooking(b));
+    res.json({ ...publicBooking(b), tickets: await receiptTickets(db, b) });
   });
   app.get("/api/tickets/:id/download", async (req, res) => {
     const b = await getBooking(db, param(req));
@@ -632,9 +633,19 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     )
       await own(req, b.id);
     if (!hasBookingQr(b)) fail(403, "Ticket is not active.");
+    const tickets = await receiptTickets(db, b);
+    const selected = req.query.ticketId
+      ? tickets.find((t) => t.id === req.query.ticketId)
+      : tickets[0];
+    if (req.query.ticketId && !selected) fail(404, "Ticket not found.");
     await sendTicketDownload(
       res,
-      { ...b, demo: publicBooking(b).demo },
+      {
+        ...b,
+        demo: publicBooking(b).demo,
+        individualTicket: selected,
+        individualTickets: tickets,
+      },
       req.query.format,
     );
   });
@@ -702,6 +713,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     if (hiddenSimulatedBooking(b)) fail(404, "Booking not found.");
     res.json({
       booking: publicBooking(b),
+      tickets: await receiptTickets(db, b),
       payments: await db.all("SELECT * FROM payments WHERE bookingId = ?", [
         b.id,
       ]),
@@ -786,7 +798,9 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
         );
     } else
       res.json({
-        rows: rows.map(publicBooking),
+        rows: await Promise.all(
+          rows.map(async (r) => publicBooking(await getBooking(db, r.id))),
+        ),
         total,
         page,
         pages: Math.ceil(total / 25),
@@ -798,14 +812,14 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       .parse(req.query.date || "all");
     const visibility = adminBookingVisibility("b");
     const rows = await db.all(
-      "SELECT b.*,p.status AS paymentStatus FROM bookings b JOIN payments p ON p.bookingId = b.id" +
+      "SELECT b.*,p.status AS paymentStatus,COALESCE((SELECT c.people FROM checkins c WHERE c.bookingId = b.id),0) AS enteredPeople FROM bookings b JOIN payments p ON p.bookingId = b.id" +
         ` WHERE ${visibility.sql}` +
         (date === "all" ? "" : " AND b.eventDate = ?"),
       [...visibility.values, ...(date === "all" ? [] : [date])],
     );
     const sum = (rs, key) => rs.reduce((s, r) => s + Number(r[key]), 0);
     const confirmed = rows.filter((r) => ["PAID", "FREE"].includes(r.status));
-    const entered = rows.filter((r) => r.checkedInAt);
+    const entered = rows.filter((r) => r.enteredPeople > 0);
     const captured = rows.filter((r) => r.paymentStatus === "CAPTURED");
     res.json({
       bookings: rows.length,
@@ -824,7 +838,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       pendingCash: rows.filter((r) => r.status === "PENDING_CASH").length,
       confirmed: confirmed.length,
       checkedGroups: entered.length,
-      entered: sum(entered, "people"),
+      entered: sum(entered, "enteredPeople"),
       availability: await availability(db),
       demo: paymentDemo,
       notificationFailures: Number(
@@ -852,14 +866,35 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     async (req, res) => {
       const allStaff = ["ADMIN", "CASHIER"].includes(req.identity.role);
       const visibility = adminBookingVisibility("b");
+      const values = [
+        ...visibility.values,
+        ...(allStaff ? [] : [req.identity.userId]),
+      ];
+      const legacy = await db.all(
+        `SELECT c.*,b.reference,b.name FROM checkins c JOIN bookings b ON b.id = c.bookingId WHERE ${visibility.sql} AND NOT EXISTS (SELECT 1 FROM ticket_batches tb WHERE tb.bookingId = b.id)` +
+          (allStaff ? "" : " AND c.staffId = ?") +
+          " ORDER BY c.createdAt DESC LIMIT 100",
+        values,
+      );
+      const individual = await db.all(
+        `SELECT t.id,t.bookingId,t.approvedBy AS staffId,t.eventDate,t.approvedAt AS createdAt,t.category,t.ordinal,b.reference,b.name FROM individual_tickets t JOIN bookings b ON b.id = t.bookingId WHERE t.approvedAt IS NOT NULL AND ${visibility.sql}` +
+          (allStaff ? "" : " AND t.approvedBy = ?") +
+          " ORDER BY t.approvedAt DESC LIMIT 100",
+        values,
+      );
       res.json(
-        await db.all(
-          "SELECT c.*,b.reference,b.name FROM checkins c JOIN bookings b ON b.id = c.bookingId" +
-            ` WHERE ${visibility.sql}` +
-            (allStaff ? "" : " AND c.staffId = ?") +
-            " ORDER BY c.createdAt DESC LIMIT 100",
-          [...visibility.values, ...(allStaff ? [] : [req.identity.userId])],
-        ),
+        [
+          ...legacy,
+          ...individual.map((t) => ({
+            ...t,
+            people: 1,
+            adults: t.category === "ADULT" ? 1 : 0,
+            kids: t.category === "KID" ? 1 : 0,
+            ticketNumber: `${t.reference}-${t.ordinal}`,
+          })),
+        ]
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, 100),
       );
     },
   );
@@ -942,6 +977,9 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
         status: b.status,
         mobile: b.mobile,
         email: b.email,
+        ticket: b.ticket,
+        pendingTickets: b.pendingTickets,
+        approvedTickets: b.approvedTickets,
         paymentStatus: b.status === "PENDING_CASH" ? "DUE" : "PAID",
         demo: paymentDemo,
       });

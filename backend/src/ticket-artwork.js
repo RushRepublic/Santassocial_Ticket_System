@@ -64,6 +64,7 @@ function text(
 }
 
 export async function renderTicketPng(booking) {
+  const ticket = booking.individualTicket;
   const pending = booking.status === "PENDING_CASH";
   const date = new Intl.DateTimeFormat("en-IN", {
     weekday: "long",
@@ -77,7 +78,7 @@ export async function renderTicketPng(booking) {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(booking.amount / 100);
-  const qr = await QRCode.toDataURL(qrToken(booking), {
+  const qr = await QRCode.toDataURL(ticket?.qrToken || qrToken(booking), {
     width: 780,
     margin: 4,
     errorCorrectionLevel: "M",
@@ -85,7 +86,7 @@ export async function renderTicketPng(booking) {
   });
   const status = pending
     ? `CASH DUE · ${amount} · APPROVAL REQUIRED`
-    : booking.checkedInAt
+    : (ticket ? ticket.status === "APPROVED" : booking.checkedInAt)
       ? "CHECKED IN · NO RE-ENTRY"
       : `CONFIRMED · ${amount} PAID`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="860" height="1740" viewBox="0 0 860 1740">
@@ -95,18 +96,29 @@ export async function renderTicketPng(booking) {
       <rect width="860" height="280" fill="${colors.red}"/>
       <image href="data:image/png;base64,${logo}" x="325" y="48" width="210" height="187"/>
       ${booking.demo ? `<rect y="280" width="860" height="60" fill="#f9e8bf"/>${text("DEMO ONLY · NOT VALID FOR ADMISSION", 430, 319, 22, { color: "#775c22" })}` : ""}
-      ${text(booking.reference, 430, 395, 24, { color: colors.red })}
+      ${text(ticket?.number || booking.reference, 430, 395, 24, { color: colors.red })}
       ${text(booking.name, 430, 477, 64, { bold: true })}
       ${text(date, 430, 541, 30)}
       ${text("11:00 AM – 9:00 PM", 430, 589, 27)}
       ${text("Park Grounds – CODISSIA, Coimbatore", 430, 637, 27)}
+      ${
+        ticket
+          ? text(
+              `${ticket.category === "ADULT" ? "Adult" : "Kids"} Ticket ${ticket.ordinal} of ${booking.people} - ${ticket.status === "APPROVED" ? "Approved / Already Used" : "Not Scanned"}`,
+              430,
+              730,
+              35,
+              { bold: true, color: colors.green },
+            )
+          : `
       <path d="M300 690V810M560 690V810" stroke="${colors.line}" stroke-width="2"/>
       ${[booking.adults, booking.kids, booking.people].map((count, i) => text(count, 170 + 260 * i, 751, 65, { bold: true, color: colors.green })).join("")}
-      ${["ADULTS", "KIDS UNDER 5", "TOTAL GUESTS"].map((label, i) => text(label, 170 + 260 * i, 797, 20, { color: colors.muted, maxWidth: 220 })).join("")}
+      ${["ADULTS", "KIDS UNDER 5", "TOTAL GUESTS"].map((label, i) => text(label, 170 + 260 * i, 797, 20, { color: colors.muted, maxWidth: 220 })).join("")}`
+      }
       ${text(status, 430, 869, 26, { color: pending ? colors.red : colors.green, maxWidth: 780 })}
       <path d="M0 910H860" stroke="${colors.line}" stroke-width="3" stroke-dasharray="12 9"/>
       <image href="${qr}" x="130" y="953" width="600" height="600"/>
-      ${text("Everyone must arrive together.", 430, 1635, 25, { color: colors.muted })}
+      ${text(ticket ? "One ticket admits one person." : "Everyone must arrive together.", 430, 1635, 25, { color: colors.muted })}
       ${text(pending ? "Pay cash at the counter. Approval required before entry." : "Valid only for the selected date. No re-entry.", 430, 1680, 23, { color: pending ? colors.red : colors.muted })}
     </g>
   </svg>`;
@@ -130,6 +142,17 @@ export async function sendTicketDownload(res, booking, format) {
     info: { Title: `Santa Social · ${booking.reference}` },
   });
   pdf.pipe(res);
-  pdf.image(png, 0, 0, { width: 430, height: 870 });
+  const tickets = booking.individualTickets || [];
+  if (tickets.length) {
+    for (let i = 0; i < tickets.length; i++) {
+      if (i) pdf.addPage();
+      pdf.image(
+        await renderTicketPng({ ...booking, individualTicket: tickets[i] }),
+        0,
+        0,
+        { width: 430, height: 870 },
+      );
+    }
+  } else pdf.image(png, 0, 0, { width: 430, height: 870 });
   pdf.end();
 }
