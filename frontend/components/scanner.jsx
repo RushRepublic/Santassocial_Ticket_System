@@ -244,7 +244,7 @@ export function Scanner({ history = false }) {
           <>
             {entered && (
               <div className="entry-success" role="status">
-                <Check size={48} />
+                <Check size={28} aria-hidden="true" />
                 <h2>Welcome to Santa Social!</h2>
                 <p>{entered}</p>
               </div>
