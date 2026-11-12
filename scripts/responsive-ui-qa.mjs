@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const widths = [320, 360, 375, 390, 414, 430, 768, 1024, 1440, 1920];
+const widths = [320, 360, 375, 390, 414, 430, 768, 1024, 1280, 1440, 1920];
 const results = [];
 const audited = new Set();
 const output = "test-results/responsive-ui";

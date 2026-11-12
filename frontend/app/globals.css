@@ -37,6 +37,12 @@
   --line: #e7e2d7;
   --white: #fff;
   --radius: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
 }
 * {
   box-sizing: border-box;
@@ -66,10 +72,10 @@ h3 {
   font-weight: 700;
 }
 h1 {
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: clamp(24px, 3vw, 32px);
 }
 h2 {
-  font-size: 30px;
+  font-size: clamp(20px, 2.5vw, 26px);
 }
 h3 {
   font-size: 20px;
@@ -126,7 +132,7 @@ svg {
   vertical-align: middle;
 }
 small {
-  font-size: 13px;
+  font-size: 14px;
 }
 a.button,
 .button {
@@ -178,7 +184,7 @@ a.button,
   font-size: 14px;
 }
 .eyebrow {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 2px;
   margin-bottom: 14px;
@@ -277,7 +283,7 @@ a.button,
 }
 .hero-content > .eyebrow {
   color: #fff9de;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 3px;
   margin-bottom: 30px;
 }
@@ -506,7 +512,7 @@ a.button,
 }
 .footer-main > div:last-child {
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
 }
 .footer-main > div:last-child p {
   margin: 15px 0 0;
@@ -545,7 +551,7 @@ a.button,
   background: #fff0cc;
   color: #75500e;
   border-bottom: 1px solid #e9d4a5;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.3px;
   padding: 8px 15px;
   text-align: center;
@@ -597,7 +603,7 @@ a.button,
   background: #ede8dc;
   display: grid;
   place-items: center;
-  font-size: 13px;
+  font-size: 14px;
 }
 .steps small {
   font-size: 14px;
@@ -684,7 +690,7 @@ a.button,
   background: #f8ece8;
   color: var(--red);
   border-radius: 50%;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -728,7 +734,7 @@ a.button,
   gap: 2px;
 }
 .date-option small {
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.5px;
 }
 .date-option b {
@@ -736,7 +742,7 @@ a.button,
 }
 .date-option em {
   font-style: normal;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .radio-dot {
@@ -753,7 +759,7 @@ a.button,
   outline: 1px solid var(--red);
 }
 .field-hint {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   margin: 10px 0 0;
   line-height: 1.5;
@@ -839,7 +845,7 @@ input::placeholder {
   border: 0;
   padding: 0 10px;
   color: var(--green);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 .inline-otp {
@@ -904,13 +910,13 @@ input::placeholder {
   margin: 0 0 5px;
 }
 .quantity-row h3 b {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--red);
   margin-left: 8px;
 }
 .quantity-row p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   margin: 0;
 }
@@ -942,7 +948,7 @@ input::placeholder {
   gap: 5px;
   text-align: center;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   margin: 18px 0 0;
 }
 .booking-sidebar {
@@ -977,7 +983,7 @@ input::placeholder {
   padding: 28px;
 }
 .sidebar-body > .eyebrow {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--red);
 }
 .sidebar-body > h2 {
@@ -998,7 +1004,7 @@ input::placeholder {
   color: var(--red);
 }
 .event-details small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .summary {
@@ -1019,7 +1025,7 @@ input::placeholder {
 }
 .summary-total {
   border-top: 1px dashed #d9d1c0;
-  padding-top: 15px !important;
+  padding-top: 16px;
   margin-top: 16px;
 }
 .summary-total strong {
@@ -1027,7 +1033,7 @@ input::placeholder {
   color: var(--red);
 }
 .summary > small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .group-note {
@@ -1041,7 +1047,7 @@ input::placeholder {
   color: var(--green);
 }
 .group-note p {
-  font-size: 13px;
+  font-size: 14px;
   margin: 0;
   line-height: 1.5;
 }
@@ -1122,7 +1128,7 @@ input::placeholder {
   color: #71571c;
   padding: 14px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   margin: 20px 0;
   line-height: 1.7;
 }
@@ -1152,14 +1158,14 @@ input::placeholder {
 .payment-option small {
   display: block;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   margin-top: 5px;
 }
 .entry-rules {
   padding: 20px;
   background: #faf8f2;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   color: #67695d;
 }
 .entry-rules h3 {
@@ -1291,7 +1297,7 @@ input::placeholder {
   border-radius: 6px;
 }
 .confirmation-reference small {
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 2px;
 }
 .confirmation-reference strong {
@@ -1306,7 +1312,7 @@ input::placeholder {
   display: inline-block;
   border-radius: 4px;
   padding: 4px 7px;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.5px;
   background: #eeece6;
@@ -1350,7 +1356,7 @@ input::placeholder {
   margin: 5px 0;
 }
 .retrieved-booking small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   display: block;
 }
@@ -1359,7 +1365,7 @@ input::placeholder {
 }
 .ticket-page {
   max-width: 850px;
-  padding: 55px 25px 80px;
+  padding: var(--space-6) var(--space-6) var(--space-8);
   margin: auto;
   text-align: center;
 }
@@ -1382,7 +1388,7 @@ input::placeholder {
   color: #d7dfd2;
   padding: 25px;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 2px;
 }
 .ticket-top .wordmark {
@@ -1393,21 +1399,21 @@ input::placeholder {
 }
 .ticket-demo {
   background: #f9e8bf;
-  font-size: 13px;
+  font-size: 14px;
   padding: 7px;
   letter-spacing: 1px;
   color: #775c22;
 }
 .ticket-body {
-  padding: 25px 28px 20px;
+  padding: var(--space-6);
 }
 .ticket-body > .eyebrow {
   color: var(--red);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 1px;
 }
 .ticket-body h2 {
-  font-size: 29px;
+  font-size: 28px;
 }
 .ticket-body p:not(.eyebrow) {
   font-size: 16px;
@@ -1435,17 +1441,17 @@ input::placeholder {
   border: 0;
 }
 .ticket-counts strong {
-  font-size: 29px;
+  font-size: 28px;
   color: var(--green);
 }
 .ticket-counts small {
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 1px;
   color: var(--muted);
 }
 .ticket-status {
   color: var(--green);
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
@@ -1475,11 +1481,11 @@ input::placeholder {
   right: -27px;
 }
 .ticket-qr {
-  padding: 22px 30px 30px;
+  padding: var(--space-4) var(--space-6) var(--space-6);
 }
 .ticket-qr img {
   margin: auto;
-  max-width: 210px;
+  max-width: 240px;
   width: 100%;
   height: auto;
 }
@@ -1490,7 +1496,7 @@ input::placeholder {
   font-size: 14px;
 }
 .ticket-qr small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .ticket-actions {
@@ -1536,7 +1542,7 @@ input::placeholder {
 }
 .empty {
   text-align: center;
-  padding: 80px 25px;
+  padding: 32px 24px;
 }
 .modal-backdrop {
   position: fixed;
@@ -1557,7 +1563,7 @@ input::placeholder {
   width: 100%;
 }
 .modal-card h2 {
-  font-size: 30px;
+  font-size: clamp(20px, 2.5vw, 26px);
 }
 .modal-card .eyebrow {
   color: var(--red);
@@ -1601,17 +1607,17 @@ input::placeholder {
 .staff-login > .narrow-card {
   color: var(--ink);
   text-align: left;
-  margin-top: 35px;
-  padding: 35px 40px;
+  margin-top: var(--space-6);
+  padding: var(--space-8);
 }
 .staff-login .narrow-card > .eyebrow {
   text-align: center;
   color: var(--red);
-  font-size: 13px;
+  font-size: 14px;
 }
 .staff-login h1 {
   text-align: center;
-  font-size: 33px;
+  font-size: 32px;
 }
 .staff-login .narrow-card > .muted {
   text-align: center;
@@ -1642,7 +1648,7 @@ input::placeholder {
   text-align: center;
 }
 .admin-sidebar > .eyebrow {
-  font-size: 13px;
+  font-size: 14px;
   color: #c5cebf;
   letter-spacing: 1.6px;
   margin: 28px 12px 16px;
@@ -1683,13 +1689,13 @@ input::placeholder {
   flex-shrink: 0;
 }
 .admin-profile b {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   display: block;
 }
 .admin-profile small {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   color: #c5cebf;
   margin-top: 3px;
 }
@@ -1710,10 +1716,10 @@ input::placeholder {
   justify-content: space-between;
   align-items: center;
   height: 72px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .admin-topbar > span > b {
-  font-size: 13px;
+  font-size: 14px;
   border-left: 1px solid var(--line);
   padding-left: 12px;
   margin-left: 12px;
@@ -1753,18 +1759,18 @@ input::placeholder {
   margin-bottom: 30px;
 }
 .admin-page-heading .eyebrow {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--red);
   letter-spacing: 1.4px;
   margin-bottom: 12px;
 }
 .admin-page-heading h1 {
-  font-size: 33px;
+  font-size: 32px;
   letter-spacing: -0.5px;
   margin: 0 0 9px;
 }
 .admin-page-heading p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   margin: 0;
 }
@@ -1779,7 +1785,7 @@ input::placeholder {
 }
 .date-filter button {
   padding: 7px 11px;
-  font-size: 12px;
+  font-size: 14px;
   white-space: nowrap;
   border-radius: 3px;
   color: var(--muted);
@@ -1806,7 +1812,7 @@ input::placeholder {
   gap: 8px;
   align-items: center;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .stat-card svg {
   color: var(--red);
@@ -1821,7 +1827,7 @@ input::placeholder {
   margin: 20px 0 12px;
 }
 .stat-card small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .admin-card {
@@ -1852,7 +1858,7 @@ input::placeholder {
 }
 .card-heading > a {
   color: var(--red);
-  font-size: 13px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1870,7 +1876,7 @@ input::placeholder {
 }
 .follow-up-stat .error-text {
   margin-top: 10px;
-  font-size: 11px;
+  font-size: 14px;
 }
 .capacity-number {
   display: flex;
@@ -1885,7 +1891,7 @@ input::placeholder {
 }
 .capacity-number span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .progress-bar {
   background: #f0eee5;
@@ -1901,7 +1907,7 @@ input::placeholder {
 }
 .admin-card > p {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .day-capacity {
   display: grid;
@@ -1915,7 +1921,7 @@ input::placeholder {
   display: flex;
   gap: 12px;
   align-items: center;
-  font-size: 13px;
+  font-size: 14px;
 }
 .day-capacity small {
   display: block;
@@ -1959,7 +1965,7 @@ input::placeholder {
   padding: 10px 14px;
 }
 .count-badge {
-  font-size: 11px;
+  font-size: 14px;
   background: #f3f1e8;
   border-radius: 4px;
   padding: 4px 8px;
@@ -2011,7 +2017,7 @@ th {
   color: var(--muted);
   background: #f9f8f2;
   padding: 13px 12px;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.3px;
   font-weight: 500;
 }
@@ -2026,11 +2032,11 @@ td b {
 td small {
   display: block;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   margin-top: 5px;
 }
 td .status {
-  font-size: 13px;
+  font-size: 14px;
 }
 td > a:hover {
   color: var(--red);
@@ -2054,10 +2060,10 @@ td > a:hover {
 }
 .pagination small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .pagination button {
-  font-size: 13px;
+  font-size: 14px;
   border: 1px solid var(--line);
   border-radius: 3px;
   padding: 6px 10px;
@@ -2066,7 +2072,7 @@ td > a:hover {
 .detail-list {
   display: grid;
   grid-template-columns: 1fr 1.6fr;
-  font-size: 13px;
+  font-size: 14px;
   gap: 18px;
 }
 .detail-list dt {
@@ -2103,14 +2109,14 @@ td > a:hover {
   margin-top: 28px;
 }
 .settings-card label {
-  font-size: 13px;
+  font-size: 14px;
 }
 .settings-card input:not([type="checkbox"]) {
   max-width: 360px;
 }
 .danger,
 .error-text {
-  color: #a33830 !important;
+  color: #a33830;
 }
 .scanner-app {
   min-height: 100vh;
@@ -2138,7 +2144,7 @@ td > a:hover {
   padding: 28px 24px 48px;
 }
 .scanner-main > .eyebrow {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--red);
 }
 .scanner-main h1 {
@@ -2168,7 +2174,7 @@ td > a:hover {
   gap: 20px;
 }
 .camera-frame p {
-  font-size: 13px;
+  font-size: 14px;
 }
 .camera-frame video {
   width: 100%;
@@ -2233,7 +2239,7 @@ td > a:hover {
   text-align: center;
 }
 .scan-result h2 {
-  font-size: 30px;
+  font-size: clamp(20px, 2.5vw, 26px);
   margin: 0 0 10px;
 }
 .cash-due .cash-due-banner {
@@ -2277,7 +2283,7 @@ td > a:hover {
   color: var(--green);
 }
 .scanner-counts small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 .entry-success {
@@ -2294,7 +2300,7 @@ td > a:hover {
   margin: 15px 0;
 }
 .entry-success p {
-  font-size: 13px;
+  font-size: 14px;
   margin: 0;
 }
 .scanner-error {
@@ -2319,11 +2325,11 @@ td > a:hover {
   color: var(--green);
 }
 .history-entry p {
-  font-size: 13px;
+  font-size: 14px;
   margin: 6px 0;
 }
 .history-entry small {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 @media (min-width: 1600px) {
@@ -2350,16 +2356,16 @@ td > a:hover {
     gap: 7px;
   }
   .date-option .date-number {
-    font-size: 23px;
+    font-size: 20px;
   }
   .date-option b {
     font-size: 16px;
   }
   .date-option small {
-    font-size: 13px;
+    font-size: 14px;
   }
   .date-option em {
-    font-size: 13px;
+    font-size: 14px;
   }
   .date-option .radio-dot {
     width: 12px;
@@ -2391,7 +2397,7 @@ td > a:hover {
     padding: 17px;
   }
   .stat-card strong {
-    font-size: 29px;
+    font-size: 28px;
   }
   .dashboard-panels {
     gap: 18px;
@@ -2401,7 +2407,7 @@ td > a:hover {
     align-items: start;
   }
   .admin-page-heading h1 {
-    font-size: 29px;
+    font-size: 28px;
   }
   .gallery-track > button {
     flex-basis: 26%;
@@ -2425,7 +2431,7 @@ td > a:hover {
     inset: 20% 0 25%;
   }
   .hero-content > .eyebrow {
-    font-size: 11px;
+    font-size: 14px;
   }
   .hero-lower {
     left: 25px;
@@ -2444,7 +2450,7 @@ td > a:hover {
     padding: 65px 25px;
   }
   .section h2 {
-    font-size: 29px;
+    font-size: 28px;
   }
   .venue {
     gap: 30px;
@@ -2495,11 +2501,11 @@ td > a:hover {
     flex-direction: column;
   }
   .admin-sidebar nav a {
-    font-size: 13px;
+    font-size: 14px;
     padding: 12px 9px;
   }
   .admin-sidebar > .eyebrow {
-    font-size: 13px;
+    font-size: 14px;
   }
   .booking-callout h2 {
     font-size: 42px;
@@ -2556,17 +2562,17 @@ td > a:hover {
     letter-spacing: -3px;
   }
   .wordmark-large small {
-    font-size: 13px;
+    font-size: 14px;
     letter-spacing: 7px;
     margin-top: 18px;
   }
   .hero-content > .eyebrow {
-    font-size: 10px;
+    font-size: 14px;
     letter-spacing: 2px;
     margin-bottom: 28px;
   }
   .hero-date {
-    font-size: 13px;
+    font-size: 14px;
     letter-spacing: 3px;
     margin: 25px 0 13px;
   }
@@ -2676,7 +2682,7 @@ td > a:hover {
     padding: 50px 22px;
   }
   .booking-callout > .eyebrow {
-    font-size: 13px;
+    font-size: 14px;
   }
   .booking-callout h2 {
     font-size: 36px;
@@ -2685,7 +2691,7 @@ td > a:hover {
     font-size: 16px;
   }
   .booking-callout small {
-    font-size: 13px;
+    font-size: 14px;
   }
   .venue {
     grid-template-columns: 1fr;
@@ -2747,7 +2753,7 @@ td > a:hover {
     line-height: 1.15;
   }
   .page-intro .eyebrow {
-    font-size: 9px;
+    font-size: 14px;
     letter-spacing: 1.7px;
   }
   .page-intro > p:last-child {
@@ -2761,12 +2767,12 @@ td > a:hover {
     gap: 5px;
   }
   .steps small {
-    font-size: 13px;
+    font-size: 14px;
   }
   .steps span {
     width: 23px;
     height: 23px;
-    font-size: 13px;
+    font-size: 14px;
   }
   .steps i {
     margin: 0 7px;
@@ -2787,7 +2793,7 @@ td > a:hover {
     gap: 10px;
   }
   .section-label p {
-    font-size: 13px;
+    font-size: 14px;
   }
   .date-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2798,16 +2804,16 @@ td > a:hover {
     gap: 7px;
   }
   .date-option .date-number {
-    font-size: 23px;
+    font-size: 20px;
   }
   .date-option b {
     font-size: 16px;
   }
   .date-option small {
-    font-size: 13px;
+    font-size: 14px;
   }
   .date-option em {
-    font-size: 13px;
+    font-size: 14px;
   }
   .date-option .radio-dot {
     width: 12px;
@@ -2823,11 +2829,11 @@ td > a:hover {
     font-size: 16px;
   }
   .quantity-row h3 b {
-    font-size: 13px;
+    font-size: 14px;
     margin-left: 4px;
   }
   .quantity-row p {
-    font-size: 13px;
+    font-size: 14px;
   }
   .quantity-control {
     gap: 4px;
@@ -2864,19 +2870,19 @@ td > a:hover {
     font-size: 16px;
   }
   .payment-option small {
-    font-size: 13px;
+    font-size: 14px;
   }
   .entry-rules {
     padding: 16px;
   }
   .confirmation h1 {
-    font-size: 29px;
+    font-size: 28px;
   }
   .ticket-page {
-    padding: 35px 17px 55px;
+    padding: var(--space-6) var(--space-4) var(--space-8);
   }
   .ticket-page .page-intro h1 {
-    font-size: 33px;
+    font-size: 32px;
   }
   .ticket-actions {
     grid-template-columns: minmax(0, 1fr);
@@ -2888,7 +2894,7 @@ td > a:hover {
     padding: 11px 12px;
   }
   .ticket-body {
-    padding: 25px 18px;
+    padding: var(--space-4);
   }
   .ticket-body p:not(.eyebrow) {
     font-size: 16px;
@@ -2903,10 +2909,10 @@ td > a:hover {
     padding: 32px 17px;
   }
   .staff-login > .narrow-card {
-    padding: 30px 23px;
+    padding: var(--space-6);
   }
   .staff-login h1 {
-    font-size: 29px;
+    font-size: 28px;
   }
   .admin-sidebar {
     transform: translateX(-100%);
@@ -2932,22 +2938,22 @@ td > a:hover {
   }
   .admin-topbar > span {
     margin-right: auto;
-    font-size: 13px;
+    font-size: 14px;
   }
   .admin-topbar > span > b {
     display: none;
   }
   .admin-topbar > a {
-    font-size: 13px;
+    font-size: 14px;
   }
   .admin-content {
     padding: 25px 15px;
   }
   .admin-page-heading h1 {
-    font-size: 29px;
+    font-size: 28px;
   }
   .admin-page-heading .eyebrow {
-    font-size: 13px;
+    font-size: 14px;
   }
   .admin-page-heading {
     gap: 18px;
@@ -2961,17 +2967,17 @@ td > a:hover {
     padding: 17px 13px;
   }
   .stat-card > div {
-    font-size: 13px;
+    font-size: 14px;
   }
   .stat-card svg {
     width: 15px;
   }
   .stat-card strong {
-    font-size: 29px;
+    font-size: 28px;
     margin: 17px 0 10px;
   }
   .stat-card small {
-    font-size: 13px;
+    font-size: 14px;
   }
   .admin-card {
     padding: 20px 16px;
@@ -2984,10 +2990,10 @@ td > a:hover {
     gap: 10px;
   }
   .card-heading > .status {
-    font-size: 13px;
+    font-size: 14px;
   }
   .card-heading > a {
-    font-size: 13px;
+    font-size: 14px;
   }
   .day-capacity {
     gap: 10px;
@@ -3014,14 +3020,14 @@ td > a:hover {
     flex: 1;
   }
   .date-filter button {
-    font-size: 11px;
+    font-size: 14px;
     padding: 7px 9px;
   }
   .bookings-card .admin-page-heading h1 {
     font-size: 27px;
   }
   .table-scroll {
-    margin: 0 -16px;
+    margin: 0;
   }
   .settings-card h1 {
     font-size: 27px;
@@ -3031,7 +3037,7 @@ td > a:hover {
   }
   .detail-list {
     grid-template-columns: 1fr 1.5fr;
-    font-size: 13px;
+    font-size: 14px;
     gap: 16px;
   }
   .scanner-main {
@@ -3041,11 +3047,11 @@ td > a:hover {
     font-size: 30px;
   }
   .demo-banner {
-    font-size: 13px;
+    font-size: 14px;
     padding: 8px 10px;
   }
   .scanner-main .demo-code {
-    font-size: 13px;
+    font-size: 14px;
   }
   .scanner-app > header {
     padding: 17px 20px;
@@ -3062,7 +3068,7 @@ td > a:hover {
     margin: -22px -22px 25px;
   }
   .notice {
-    font-size: 13px;
+    font-size: 14px;
   }
   .retrieved-booking .button {
     padding: 10px 14px;
@@ -3080,7 +3086,7 @@ td > a:hover {
     margin-bottom: 18px;
   }
   .section-label h2 {
-    font-size: 23px;
+    font-size: 20px;
   }
   .date-option {
     display: grid;
@@ -3165,7 +3171,7 @@ td > a:hover {
     font-size: 26px;
   }
   .scanner-counts small {
-    font-size: 12px;
+    font-size: 14px;
     letter-spacing: 0;
   }
 }
@@ -3328,13 +3334,254 @@ td:first-child > a {
 }
 
 /* Individual tickets retain the original card and branding. */
-.ticket-navigation {display:flex;align-items:center;justify-content:center;gap:20px;margin:0 auto 20px;max-width:100%;}
-.ticket-navigation .button {padding:10px;min-width:44px;min-height:44px;}
-.ticket-carousel {display:flex;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;width:100%;max-width:430px;margin:auto;scrollbar-width:none;}
-.ticket-carousel::-webkit-scrollbar {display:none;}
-.ticket-slide {flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always;padding:4px;box-sizing:border-box;}
-.ticket-slide .digital-ticket {width:100%;max-width:100%;margin:0;}
-.ticket-slide .ticket-qr img {max-width:100%;height:auto;aspect-ratio:1;object-fit:contain;}
-.ticket-entry-status {font-weight:700;color:#153622;}
-.pending-ticket-list {text-align:left;margin:20px;overflow-wrap:anywhere;}
-@media(prefers-reduced-motion:reduce){.ticket-carousel{scroll-behavior:auto;}}
+.ticket-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 0 auto 20px;
+  max-width: 100%;
+}
+.ticket-navigation .button {
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+}
+.ticket-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  width: 100%;
+  max-width: 430px;
+  margin: auto;
+  scrollbar-width: none;
+}
+.ticket-carousel::-webkit-scrollbar {
+  display: none;
+}
+.ticket-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  padding: 4px;
+  box-sizing: border-box;
+}
+.ticket-slide .digital-ticket {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+.ticket-slide .ticket-qr img {
+  max-width: min(100%, 240px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+.ticket-entry-status {
+  font-weight: 700;
+  color: #153622;
+}
+.pending-ticket-list {
+  text-align: left;
+  margin: 20px;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticket-carousel {
+    scroll-behavior: auto;
+  }
+}
+
+/* Shared reflow and spacing: keep the original brand and component structure. */
+.booking-page,
+.ticket-page,
+.scanner-main,
+.admin-content {
+  min-width: 0;
+}
+.ticket-navigation {
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.ticket-navigation > span {
+  min-width: 100px;
+  font-weight: 600;
+}
+.ticket-carousel:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+.ticket-body h2 {
+  margin-block: var(--space-3);
+}
+.ticket-body h3 {
+  margin-bottom: var(--space-2);
+}
+.ticket-qr small {
+  display: block;
+  margin-top: var(--space-2);
+}
+.ticket-entry-status {
+  border-radius: var(--radius);
+  background: #eef3eb;
+  padding: var(--space-2);
+}
+.ticket-status {
+  flex-wrap: wrap;
+}
+.section-label {
+  align-items: center;
+}
+.section-label h2 {
+  margin: 0;
+}
+.field-hint,
+.secure-note {
+  font-size: 14px;
+}
+.phone-input {
+  min-width: 0;
+}
+.phone-input input {
+  flex: 1;
+  width: 0;
+}
+.inline-otp-controls {
+  gap: var(--space-2);
+}
+.stat-grid {
+  gap: var(--space-4);
+  align-items: stretch;
+}
+.stat-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.stat-card strong {
+  font-size: clamp(28px, 2.5vw, 34px);
+}
+.admin-page-heading,
+.card-heading {
+  flex-wrap: wrap;
+}
+.admin-content .date-filter {
+  max-width: 100%;
+}
+.table-scroll {
+  overscroll-behavior-x: contain;
+}
+.admin-topbar {
+  gap: var(--space-3);
+}
+.scan-result > p,
+.scanner-error p,
+.history-entry {
+  overflow-wrap: anywhere;
+}
+.scan-result > .scanner-payment-highlight {
+  margin-block: var(--space-4);
+}
+.pending-ticket-list {
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  background: #faf8f2;
+  border-radius: var(--radius);
+}
+.pending-ticket-list h3 {
+  margin-bottom: var(--space-2);
+}
+.pending-ticket-list ul {
+  padding-left: var(--space-6);
+  margin-bottom: 0;
+}
+.scanner-counts {
+  margin-block: var(--space-4);
+}
+.camera-frame {
+  margin-top: 0;
+}
+.staff-login {
+  min-height: 100dvh;
+}
+@media (max-width: 700px) {
+  h1,
+  .page-intro h1,
+  .staff-login h1,
+  .confirmation h1,
+  .admin-page-heading h1,
+  .bookings-card .admin-page-heading h1,
+  .scanner-main h1,
+  .scanner-error h2 {
+    font-size: 24px;
+  }
+  .section-label h2,
+  .checkout-layout .form-section > h2 {
+    font-size: 20px;
+  }
+  .admin-content {
+    padding: var(--space-6) var(--space-4);
+  }
+  .admin-page-heading {
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+  .stat-card,
+  .admin-card {
+    padding: var(--space-4);
+  }
+  .stat-card strong {
+    margin-block: var(--space-3);
+  }
+  .stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  }
+  .ticket-actions {
+    gap: var(--space-3);
+  }
+  .scan-result {
+    padding: var(--space-4);
+  }
+  .valid-ticket {
+    margin: -16px -16px 16px;
+    padding: var(--space-4);
+  }
+  .scanner-error {
+    padding: var(--space-4);
+  }
+  .scanner-error p {
+    font-size: 16px;
+  }
+}
+@media (max-width: 360px) {
+  .quantity-row {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .quantity-row > div:not(.quantity-control) {
+    flex: 1 1 100px;
+  }
+  .quantity-control {
+    flex-shrink: 0;
+  }
+  .date-option {
+    padding: var(--space-2);
+  }
+  .date-option em {
+    font-size: 14px;
+  }
+  .ticket-top {
+    padding: var(--space-4);
+  }
+  .ticket-qr {
+    padding-inline: var(--space-4);
+  }
+  .ticket-body {
+    padding-inline: var(--space-3);
+  }
+  .admin-topbar {
+    padding-inline: var(--space-3);
+  }
+}

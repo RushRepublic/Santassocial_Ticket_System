@@ -2,6 +2,8 @@ import { chromium, expect } from "@playwright/test";
 import { existsSync, mkdirSync } from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
 import QRCode from "qrcode";
+import sharp from "sharp";
+import jsQR from "jsqr";
 import {
   auditResponsive,
   assertResponsiveAudits,
@@ -80,6 +82,22 @@ try {
     throw Error("Expected five individual tickets");
   await page.goto(origin + `/ticket/${b.id}#${b.qrToken}`);
   await expect(page.getByText("Ticket 1 of 5", { exact: true })).toBeVisible();
+  // Decode the rendered QR at the narrowest viewport, including its quiet zone.
+  await page.setViewportSize({ width: 320, height: 900 });
+  const qrImage = page
+    .locator(".ticket-slide")
+    .first()
+    .locator(".ticket-qr img");
+  await qrImage.scrollIntoViewIfNeeded();
+  const { data, info } = await sharp(await qrImage.screenshot())
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  if (
+    jsQR(new Uint8ClampedArray(data), info.width, info.height)?.data !==
+    receipt.tickets[0].qrToken
+  )
+    throw Error("Rendered mobile QR is clipped or cannot be decoded.");
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await auditResponsive(page, `individual-receipt-${width}`);
@@ -187,6 +205,7 @@ try {
   await expect(
     page.getByRole("button", { name: "Approve ticket", exact: true }),
   ).toHaveCount(0);
+  await auditResponsive(page, "individual-already-approved");
   await scan(receipt.tickets[3]);
   await expect(
     page.getByText("Total Tickets: 5 | Approved: 3 | Pending: 2", {
@@ -196,8 +215,12 @@ try {
   await expect(page.locator(".pending-ticket-list li")).toHaveCount(2);
   const partialReceipt = await context.newPage();
   await partialReceipt.goto(origin + `/ticket/${b.id}#${b.qrToken}`);
-  await expect(partialReceipt.getByText("2 tickets remaining", {exact: true})).toBeVisible();
-  await expect(partialReceipt.locator(".ticket-slide").first()).toContainText(receipt.tickets[3].number);
+  await expect(
+    partialReceipt.getByText("2 tickets remaining", { exact: true }),
+  ).toBeVisible();
+  await expect(partialReceipt.locator(".ticket-slide").first()).toContainText(
+    receipt.tickets[3].number,
+  );
   await expect(partialReceipt.locator(".ticket-slide")).toHaveCount(5);
   await partialReceipt.close();
   await auditResponsive(page, "individual-scanner-mobile");
@@ -239,6 +262,7 @@ try {
   await expect(
     page.getByRole("button", { name: "Approve ticket", exact: true }),
   ).toHaveCount(0);
+  await auditResponsive(page, "individual-invalid-date");
   await page.goto(origin + `/ticket/${b.id}#${b.qrToken}`);
   await expect(page.getByText("Fully entered", { exact: true })).toBeVisible();
   await expect(
