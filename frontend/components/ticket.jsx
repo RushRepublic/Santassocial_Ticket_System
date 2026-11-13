@@ -3,8 +3,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import {
-  ChevronLeft,
-  ChevronRight,
   Download,
   Share2,
   ImageDown,
@@ -181,34 +179,9 @@ export function GroupTicket({ id }) {
   return (
     <main className="ticket-page">
       <h1 className="sr-only">Your Santa Social ticket</h1>
-      {booking.entryMode === "INDIVIDUAL" && (
-        <p role="status">
-          {booking.entryStatus === "FULLY_ENTERED"
-            ? "Fully entered"
-            : `${booking.pendingTicketCount} tickets remaining`}
-        </p>
-      )}
-      <nav className="ticket-navigation" aria-label="Ticket navigation">
-        <button
-          className="button outline"
-          aria-label="Previous ticket"
-          disabled={selected === 0}
-          onClick={() => navigate(selected - 1)}
-        >
-          <ChevronLeft />
-        </button>
-        <span aria-live="polite">
-          Ticket {selected + 1} of {tickets.length}
-        </span>
-        <button
-          className="button outline"
-          aria-label="Next ticket"
-          disabled={selected === tickets.length - 1}
-          onClick={() => navigate(selected + 1)}
-        >
-          <ChevronRight />
-        </button>
-      </nav>
+      <span className="sr-only" aria-live="polite">
+        Ticket {selected + 1} of {tickets.length}
+      </span>
       <div
         className="ticket-carousel"
         ref={carousel}

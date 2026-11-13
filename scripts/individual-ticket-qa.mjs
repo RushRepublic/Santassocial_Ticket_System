@@ -81,7 +81,10 @@ try {
   if (receipt.tickets.length !== 5)
     throw Error("Expected five individual tickets");
   await page.goto(origin + `/ticket/${b.id}#${b.qrToken}`);
-  await expect(page.getByText("Ticket 1 of 5", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ticket 1 of 5", { exact: true })).toBeAttached();
+  await expect(page.getByText("Ticket 1 of 5", { exact: true })).toHaveClass("sr-only");
+  await expect(page.locator(".ticket-navigation")).toHaveCount(0);
+  await expect(page.getByText(/tickets remaining/)).toHaveCount(0);
   // Decode the rendered QR at the narrowest viewport, including its quiet zone.
   await page.setViewportSize({ width: 320, height: 900 });
   const qrImage = page
@@ -102,12 +105,11 @@ try {
     await page.setViewportSize({ width, height: 1000 });
     await auditResponsive(page, `individual-receipt-${width}`);
     for (let i = 1; i < 5; i++) {
-      await page
-        .getByRole("button", { name: "Next ticket", exact: true })
-        .click();
+      await page.locator(".ticket-carousel").focus();
+      await page.keyboard.press("ArrowRight");
       await expect(
         page.getByText(`Ticket ${i + 1} of 5`, { exact: true }),
-      ).toBeVisible();
+      ).toBeAttached();
     }
     const region = page.getByRole("region", {
       name: "Your tickets. Swipe or use arrow keys.",
@@ -116,11 +118,11 @@ try {
     await page.keyboard.press("ArrowLeft");
     await expect(
       page.getByText("Ticket 4 of 5", { exact: true }),
-    ).toBeVisible();
+    ).toBeAttached();
     await region.evaluate((el) => el.scrollTo({ left: 0 }));
     await expect(
       page.getByText("Ticket 1 of 5", { exact: true }),
-    ).toBeVisible();
+    ).toBeAttached();
     await page.screenshot({
       path: `test-results/individual-receipt-${width}.png`,
       fullPage: true,
@@ -143,7 +145,7 @@ try {
     type: "touchEnd",
     touchPoints: [],
   });
-  await expect(page.getByText("Ticket 2 of 5", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ticket 2 of 5", { exact: true })).toBeAttached();
   const download = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Save QR image", exact: true })
@@ -217,7 +219,7 @@ try {
   await partialReceipt.goto(origin + `/ticket/${b.id}#${b.qrToken}`);
   await expect(
     partialReceipt.getByText("2 tickets remaining", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(partialReceipt.locator(".ticket-slide").first()).toContainText(
     receipt.tickets[3].number,
   );
@@ -264,13 +266,14 @@ try {
   ).toHaveCount(0);
   await auditResponsive(page, "individual-invalid-date");
   await page.goto(origin + `/ticket/${b.id}#${b.qrToken}`);
-  await expect(page.getByText("Fully entered", { exact: true })).toBeVisible();
+  await expect(page.getByText("Fully entered", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Status: Approved / Already Used")).toHaveCount(5);
   await expect(
     page.getByText("Status: Approved / Already Used").first(),
   ).toBeVisible();
   assertResponsiveAudits();
   console.log(
-    "Individual receipt: touch swipe, arrows, keyboard, mobile/tablet/desktop, export, actual camera QR decoder, partial 3/5 then 5/5, duplicate and future-date UI passed.",
+    "Individual receipt: touch swipe, keyboard, mobile/tablet/desktop, export, actual camera QR decoder, partial 3/5 then 5/5, duplicate and future-date UI passed.",
   );
 } finally {
   await browser.close();
