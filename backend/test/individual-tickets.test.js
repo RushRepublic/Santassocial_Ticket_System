@@ -24,7 +24,7 @@ async function fixture(work) {
   process.env.DEMO_DB_PATH = resolve(`data/individual-${randomUUID()}.sqlite`);
   const db = await openDatabase();
   const date = config.demoDate;
-  config.demoDate = "2026-11-11";
+  config.demoDate = "2026-11-13";
   try {
     await migrate(db);
     await seed(db);
@@ -38,7 +38,7 @@ async function fixture(work) {
 }
 const input = (extra = {}) => ({
   name: "Individual QA",
-  eventDate: "2026-11-11",
+  eventDate: "2026-11-13",
   adults: 3,
   kids: 2,
   method: "CASH",
@@ -146,10 +146,10 @@ test("both IST event dates and wrong/outside days enforce API restrictions witho
     const app = createApp(db);
     const cookie = `santa_staff_session=${await signSession({ userId: admin, role: "ADMIN" }, true)}`;
     const bookings = [
-      await book(db, { eventDate: "2026-11-11", adults: 1, kids: 0 }),
-      await book(db, { eventDate: "2026-11-12", adults: 1, kids: 0 }),
+      await book(db, { eventDate: "2026-11-13", adults: 1, kids: 0 }),
+      await book(db, { eventDate: "2026-11-14", adults: 1, kids: 0 }),
     ];
-    for (const day of ["2026-11-11", "2026-11-12", "2026-11-13"]) {
+    for (const day of ["2026-11-13", "2026-11-14", "2026-11-15"]) {
       config.demoDate = day;
       for (const b of bookings) {
         const [t] = await receiptTickets(db, b);

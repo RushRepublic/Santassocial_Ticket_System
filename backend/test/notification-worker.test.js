@@ -15,7 +15,7 @@ import { config } from "../src/config.js";
 const input = {
   name: "Delivery Guest",
   email: "qa@example.com",
-  eventDate: "2026-11-11",
+  eventDate: "2026-11-13",
   adults: 1,
   kids: 0,
   method: "CASH",

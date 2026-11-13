@@ -8,7 +8,7 @@ const ticket = {
   mobile: "9876543210",
   name: "Sample Guest",
   reference: "SS2026-SAMPLE",
-  eventDate: "2026-11-11",
+  eventDate: "2026-11-13",
   adults: 2,
   kids: 1,
   amount: 200,
@@ -60,7 +60,7 @@ test("paid and pending cash notifications use seven ordered variables and the or
     ...ticket,
     type: "CASH_PENDING",
     status: "PENDING_CASH",
-    eventDate: "2026-11-12",
+    eventDate: "2026-11-14",
   });
   for (const { payload } of calls) {
     assert.equal(payload.template.name, "santa_social_ticket");
@@ -75,8 +75,8 @@ test("paid and pending cash notifications use seven ordered variables and the or
   const values = calls.map((c) =>
     c.payload.template.components[0].parameters.map((v) => v.text),
   );
-  assert.equal(values[0][2], "Wednesday, 11 November 2026");
-  assert.equal(values[1][2], "Thursday, 12 November 2026");
+  assert.equal(values[0][2], "Friday, 13 November 2026");
+  assert.equal(values[1][2], "Saturday, 14 November 2026");
   assert.match(values[0][5], /^Paid:/);
   assert.match(values[1][5], /Cash due:.*Approval required/);
   await assert.rejects(
@@ -137,7 +137,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     import { createBooking, getBooking, now, settleCaptured, approveCash } from './src/services.js';
     import { startNotificationWorker } from './src/notification-worker.js';
     import { dispatchNotifications } from './src/providers.js';
-    const clock=new Date('2026-11-11T06:00:00Z').getTime();
+    const clock=new Date('2026-11-13T06:00:00Z').getTime();
     mock.timers.enable({apis:['Date'],now:clock});
     const sql=new DatabaseSync(':memory:');
     sql.exec(readFileSync('migrations/001_initial.sql','utf8'));
@@ -160,7 +160,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     await post('/otp/verify',{mobile:'9876543210',challengeId:sent.body.challengeId,otp:code==='000000'?'111111':'000000'}).expect(400);
     await post('/otp/verify',{mobile:'9876543210',challengeId:sent.body.challengeId,otp:code}).expect(200);
     await post('/otp/verify',{mobile:'9876543210',challengeId:sent.body.challengeId,otp:code}).expect(400);
-    const booking=await createBooking(db,{name:'Sample Guest',email:'sample@example.com',eventDate:'2026-11-11',adults:2,kids:1,method:'CASH'},'9876543210',randomUUID());
+    const booking=await createBooking(db,{name:'Sample Guest',email:'sample@example.com',eventDate:'2026-11-13',adults:2,kids:1,method:'CASH'},'9876543210',randomUUID());
     await dispatchNotifications(db);
     assert.equal((await db.all('SELECT status FROM notification_logs WHERE bookingId=?',[booking.id]))[0].status,'SENT');
     const notification=calls.at(-1).template.components[0].parameters.map(p=>p.text);
@@ -178,7 +178,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
       await localPost('/otp/verify',{mobile,challengeId:r.body.challengeId,otp}).expect(400);
     }
     // Historical simulated online jobs must not produce paid WhatsApp messages.
-    const old=await createBooking(db,{name:'Historical Sample',email:'sample@example.com',eventDate:'2026-11-11',adults:1,kids:0,method:'RAZORPAY'},'9876543210',randomUUID());
+    const old=await createBooking(db,{name:'Historical Sample',email:'sample@example.com',eventDate:'2026-11-13',adults:1,kids:0,method:'RAZORPAY'},'9876543210',randomUUID());
     await db.run('UPDATE payments SET orderId=?,paymentId=?,status=? WHERE bookingId=?',['order_demo_old','pay_demo_old','CAPTURED',old.id]);
     await db.run('UPDATE bookings SET status=? WHERE id=?',['PAID',old.id]);
     await db.run('INSERT INTO notification_logs(id,bookingId,type,status,nextAttemptAt) VALUES(?,?,?,?,?)',[randomUUID(),old.id,'TICKET','QUEUED',now()]);
@@ -193,7 +193,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     assert.equal((await getBooking(db,booking.id)).status,'PENDING_CASH');
     // The live worker delivers online capture and cash approval without a cron run.
     fail=false;
-    const online=await createBooking(db,{name:'Online Guest',email:'sample@example.com',eventDate:'2026-11-11',adults:1,kids:0,method:'RAZORPAY'},'9876543210',randomUUID());
+    const online=await createBooking(db,{name:'Online Guest',email:'sample@example.com',eventDate:'2026-11-13',adults:1,kids:0,method:'RAZORPAY'},'9876543210',randomUUID());
     await db.run('UPDATE payments SET orderId=? WHERE bookingId=?',['order_live_notification',online.id]);
     await settleCaptured(db,'order_live_notification','pay_live_notification',100,'INR');
     const adminId=randomUUID();

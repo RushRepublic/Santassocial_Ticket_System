@@ -26,14 +26,14 @@ import { MobileVerification } from "./mobile-verification";
 const initial = {
   name: "",
   mobile: "",
-  eventDate: "2026-11-11",
+  eventDate: "2026-11-13",
   adults: 1,
   kids: 0,
   method: "RAZORPAY",
   key: "",
 };
 const draftSchema = z.object({
-  eventDate: z.enum(["2026-11-11", "2026-11-12"], {
+  eventDate: z.enum(["2026-11-13", "2026-11-14"], {
     error: "Please select an event date.",
   }),
   name: z.string().trim().min(2, "Please enter your full name.").max(120),
@@ -44,7 +44,7 @@ const draftSchema = z.object({
 function readDraft() {
   try {
     const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
-    if (draft && !["2026-11-11", "2026-11-12"].includes(draft.eventDate))
+    if (draft && !["2026-11-13", "2026-11-14"].includes(draft.eventDate))
       return {
         ...draft,
         eventDate: "",
@@ -201,7 +201,7 @@ export function Register() {
               <VenueLocation />
             </div>
             <div className="date-options">
-              {["2026-11-11", "2026-11-12"].map((date) => (
+              {["2026-11-13", "2026-11-14"].map((date) => (
                 <button
                   type="button"
                   aria-pressed={draft.eventDate === date}
@@ -555,7 +555,7 @@ export function Checkout() {
         return;
       }
       const d = readDraft();
-      if (!d || !["2026-11-11", "2026-11-12"].includes(d.eventDate)) {
+      if (!d || !["2026-11-13", "2026-11-14"].includes(d.eventDate)) {
         router.replace("/");
         return;
       }

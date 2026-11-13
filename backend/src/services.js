@@ -39,7 +39,7 @@ export async function availability(db) {
     cashHoldMinutes: null,
     remaining: null,
     unlimited: true,
-    days: ["2026-11-11", "2026-11-12"].map((date) => ({
+    days: ["2026-11-13", "2026-11-14"].map((date) => ({
       date,
       remaining: null,
       bookable: date >= eventToday(),
@@ -192,7 +192,7 @@ export async function createBooking(db, input, mobile, key) {
   });
 }
 export function assertBookableDate(date) {
-  if (!["2026-11-11", "2026-11-12"].includes(date) || date < eventToday())
+  if (!["2026-11-13", "2026-11-14"].includes(date) || date < eventToday())
     fail(
       400,
       "This event date is no longer available for booking. Please choose an available date.",
@@ -360,7 +360,7 @@ export function validateTicketDate(booking) {
   const scanningDate = eventToday();
   if (
     booking.eventDate === scanningDate &&
-    ["2026-11-11", "2026-11-12"].includes(scanningDate)
+    ["2026-11-13", "2026-11-14"].includes(scanningDate)
   )
     return;
   const label = (date) =>
@@ -370,7 +370,7 @@ export function validateTicketDate(booking) {
       day: "numeric",
       year: "numeric",
     }).format(new Date(`${date}T12:00:00+05:30`));
-  const eventDay = ["2026-11-11", "2026-11-12"].includes(scanningDate);
+  const eventDay = ["2026-11-13", "2026-11-14"].includes(scanningDate);
   const direction = booking.eventDate < scanningDate ? "Past" : "Future";
   const title = eventDay
     ? `Invalid Ticket \u2013 ${direction} Event Date`

@@ -38,7 +38,7 @@ try {
   const booking = await api("/bookings", {
     name: "Payment QA Guest",
     method: "RAZORPAY",
-    eventDate: "2026-11-11",
+    eventDate: "2026-11-13",
     adults: 1,
     kids: 0,
   });
@@ -142,7 +142,7 @@ try {
   const resumed = await api("/bookings", {
     name: "Mobile Return QA",
     method: "RAZORPAY",
-    eventDate: "2026-11-11",
+    eventDate: "2026-11-13",
     adults: 1,
     kids: 0,
   });
@@ -193,7 +193,7 @@ try {
   const handled = await api("/bookings", {
     name: "Mobile SDK Handler QA",
     method: "RAZORPAY",
-    eventDate: "2026-11-11",
+    eventDate: "2026-11-13",
     adults: 1,
     kids: 0,
   });
@@ -220,7 +220,7 @@ try {
   const cash = await api("/bookings", {
     name: "Switch Payment QA",
     method: "CASH",
-    eventDate: "2026-11-11",
+    eventDate: "2026-11-13",
     adults: 1,
     kids: 0,
   });

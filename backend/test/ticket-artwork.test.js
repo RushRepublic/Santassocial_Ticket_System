@@ -16,7 +16,7 @@ for (const [method, status] of [
       ticketNonce: "c".repeat(64),
       reference: "SS2026-ARTWORK",
       name: "Sri & Family <Guest>",
-      eventDate: "2026-11-11",
+      eventDate: "2026-11-13",
       adults: 3,
       kids: 2,
       people: 5,
@@ -24,7 +24,7 @@ for (const [method, status] of [
       method,
       status,
       demo: true,
-      holdUntil: "2026-11-11T20:00:00.000Z",
+      holdUntil: "2026-11-13T20:00:00.000Z",
     };
     const png = await renderTicketPng(booking);
     const { data, info } = await sharp(png)
