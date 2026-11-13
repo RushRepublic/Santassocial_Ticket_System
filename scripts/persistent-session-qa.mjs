@@ -15,6 +15,18 @@ const options = {
   viewport: { width: 390, height: 844 },
   ...(existsSync(executablePath) ? { executablePath } : {}),
 };
+const staff = process.env.QA_EXPECT_ROLE === "staff";
+const assertRole = async (page) => {
+  await expect(page).toHaveURL(
+    new RegExp(staff ? "/admin/bookings$" : "/admin/dashboard$"),
+  );
+  await expect(
+    page.getByRole("link", { name: "Overview", exact: true, includeHidden: true }),
+  ).toHaveCount(staff ? 0 : 1);
+  expect(
+    (await page.request.get(origin + "/api/admin/dashboard")).status(),
+  ).toBe(staff ? 403 : 200);
+};
 let context = await chromium.launchPersistentContext(profile, options);
 try {
   let page = await context.newPage();
@@ -33,6 +45,7 @@ try {
     .fill(process.env.QA_ADMIN_PASSWORD || "Session-QA-2026!");
   await page.getByRole("button", { name: "Sign in securely" }).click();
   await page.locator(".admin-sidebar").waitFor({ state: "attached" });
+  await assertRole(page);
   const original = (await context.cookies()).find(
     (c) => c.name === "santa_staff_session",
   );
@@ -53,7 +66,7 @@ try {
     (await context.cookies()).find((c) => c.name === original.name).expires,
   ).toBe(original.expires);
   await page.screenshot({
-    path: "test-results/session-dashboard-mobile.png",
+    path: `test-results/session-${staff ? "staff" : "admin"}-mobile.png`,
     fullPage: true,
   });
   await context.close();
@@ -62,6 +75,7 @@ try {
   page = await context.newPage();
   await page.goto(origin + "/admin/dashboard");
   await page.locator(".admin-sidebar").waitFor({ state: "attached" });
+  await assertRole(page);
   const other = await context.newPage();
   await other.goto(origin + "/scanner");
   await other.locator(".scanner-main").waitFor();
@@ -70,7 +84,7 @@ try {
   ).toBe(original.value);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.screenshot({
-    path: "test-results/session-dashboard-desktop.png",
+    path: `test-results/session-${staff ? "staff" : "admin"}-desktop.png`,
     fullPage: true,
   });
   await other.getByRole("button", { name: "Sign out", exact: true }).click();

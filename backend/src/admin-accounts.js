@@ -44,3 +44,70 @@ export async function createAdmin(db, input) {
     throw error;
   }
 }
+
+// Provisioning runs only from the private CLI; existing passwords are never replaced.
+export async function provisionStaff(db, input) {
+  const email = z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(190)
+    .pipe(z.email())
+    .parse(input.email);
+  return db.transaction(async (tx) => {
+    const matches = await tx.all(
+      "SELECT id,name,email,active FROM users WHERE LOWER(email) = ?",
+      [email],
+    );
+    if (matches.length > 1)
+      throw new Error(
+        "Multiple accounts match this email. Resolve the duplicates before provisioning.",
+      );
+    const existing = matches[0];
+    if (existing && !existing.active)
+      throw new Error(
+        "This account is inactive. Review it before provisioning.",
+      );
+    const createdAt = new Date().toISOString();
+    let account;
+    if (existing) {
+      await tx.run("UPDATE users SET role = ?, email = ? WHERE id = ?", [
+        "staff",
+        email,
+        existing.id,
+      ]);
+      account = { id: existing.id, name: existing.name, email, role: "staff" };
+    } else {
+      const validated = adminInput.parse({ ...input, email });
+      account = {
+        id: randomUUID(),
+        name: validated.name,
+        email,
+        role: "staff",
+      };
+      await tx.run(
+        "INSERT INTO users (id,name,email,passwordHash,role,active,createdAt) VALUES (?,?,?,?,?,?,?)",
+        [
+          account.id,
+          account.name,
+          email,
+          passwordHash(validated.password),
+          "staff",
+          1,
+          createdAt,
+        ],
+      );
+    }
+    await tx.run(
+      "INSERT INTO audit_logs (id,userId,action,entityId,createdAt) VALUES (?,?,?,?,?)",
+      [
+        randomUUID(),
+        null,
+        existing ? "CLI_UPDATE_STAFF_ROLE" : "CLI_CREATE_STAFF",
+        account.id,
+        createdAt,
+      ],
+    );
+    return account;
+  });
+}

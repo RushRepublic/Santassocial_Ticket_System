@@ -19,6 +19,7 @@ export function Scanner({ history = false }) {
   const identity = useStaffSession(history ? "/scanner/history" : "/scanner", [
     "ADMIN",
     "SCANNER",
+    "staff",
   ]);
   const ready = Boolean(identity);
   const [camera, setCamera] = useState(true);
@@ -161,7 +162,7 @@ export function Scanner({ history = false }) {
           <Wordmark />
         </Link>
         <div>
-          {identity?.role === "ADMIN" && (
+          {["ADMIN", "staff"].includes(identity?.role) && (
             <Link href="/admin/dashboard" aria-label="Back to dashboard">
               <LayoutDashboard size={20} />
             </Link>
@@ -317,7 +318,7 @@ export function Scanner({ history = false }) {
                   <ScannerCounts counts={result} />
                 )}
                 {result.paymentStatus === "DUE" &&
-                  (identity?.role === "ADMIN" ? (
+                  (["ADMIN", "staff"].includes(identity?.role) ? (
                     <label className="cash-collection-confirm">
                       <input
                         type="checkbox"
@@ -342,7 +343,8 @@ export function Scanner({ history = false }) {
                   disabled={
                     busy ||
                     (result.paymentStatus === "DUE" &&
-                      (identity?.role !== "ADMIN" || !cashConfirmed))
+                      (!["ADMIN", "staff"].includes(identity?.role) ||
+                        !cashConfirmed))
                   }
                   onClick={confirm}
                 >

@@ -117,7 +117,7 @@ export async function checkinIndividual(
         userId,
       ])
     )[0];
-    if (!["ADMIN", "SCANNER"].includes(user?.role))
+    if (!["ADMIN", "SCANNER", "staff"].includes(user?.role))
       fail(403, "Staff permission is required.");
     const previous = (
       await tx.all("SELECT * FROM individual_tickets WHERE approvalKey = ?", [
@@ -140,7 +140,7 @@ export async function checkinIndividual(
     const b = await inspectIndividual(tx, token);
     if (!b) fail(404, "Invalid Ticket");
     if (b.status === "PENDING_CASH") {
-      if (user.role !== "ADMIN")
+      if (!["ADMIN", "staff"].includes(user.role))
         fail(403, "Only an admin can collect cash at the gate.");
       if (amountReceived !== b.amount)
         fail(400, "Collect the exact booking amount before entry.");

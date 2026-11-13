@@ -121,7 +121,7 @@ export function Admin() {
   const router = useRouter();
   const section = path.split("/")[2] || "dashboard";
   const id = path.split("/")[3];
-  const identity = useStaffSession(path, ["ADMIN", "CASHIER"]);
+  const identity = useStaffSession(path, ["ADMIN", "CASHIER", "staff"]);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   async function logout() {
@@ -129,7 +129,12 @@ export function Admin() {
     notifyStaffLogout();
     router.replace("/login");
   }
-  if (!identity) return <Loading />;
+  const restrictedOverview =
+    identity?.role === "staff" && !["bookings", "checkins"].includes(section);
+  useEffect(() => {
+    if (restrictedOverview) router.replace("/admin/bookings");
+  }, [restrictedOverview, router]);
+  if (!identity || restrictedOverview) return <Loading />;
   return (
     <div className="admin-layout">
       <aside
@@ -141,19 +146,21 @@ export function Admin() {
         </Link>
         <p className="eyebrow">EVENT MANAGEMENT</p>
         <nav aria-label="Event management">
-          {navigation.map(([key, label, Icon]) => (
-            <Link
-              onClick={() => setOpen(false)}
-              key={key}
-              href={`/admin/${key}`}
-              className={section === key ? "active" : ""}
-              aria-current={section === key ? "page" : undefined}
-            >
-              <Icon size={19} />
-              {label}
-            </Link>
-          ))}
-          {identity.role === "ADMIN" && (
+          {navigation
+            .filter(([key]) => identity.role !== "staff" || key !== "dashboard")
+            .map(([key, label, Icon]) => (
+              <Link
+                onClick={() => setOpen(false)}
+                key={key}
+                href={`/admin/${key}`}
+                className={section === key ? "active" : ""}
+                aria-current={section === key ? "page" : undefined}
+              >
+                <Icon size={19} />
+                {label}
+              </Link>
+            ))}
+          {["ADMIN", "staff"].includes(identity.role) && (
             <Link href="/scanner">
               <ScanLine size={19} />
               Open gate scanner
@@ -175,7 +182,7 @@ export function Admin() {
         </div>
       </aside>
       <div
-        className={`admin-main ${identity.role === "ADMIN" ? "admin-with-scanner-shortcut" : ""}`}
+        className={`admin-main ${["ADMIN", "staff"].includes(identity.role) ? "admin-with-scanner-shortcut" : ""}`}
       >
         <div className="admin-topbar">
           <button
@@ -211,7 +218,7 @@ export function Admin() {
             <Dashboard />
           )}
         </main>
-        {identity.role === "ADMIN" && (
+        {["ADMIN", "staff"].includes(identity.role) && (
           <Link
             className="button admin-scanner-shortcut"
             href="/scanner"

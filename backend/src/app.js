@@ -287,7 +287,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     const b = await getBooking(db, id);
     if (
       req.identity?.mobile !== b.mobile &&
-      !["ADMIN", "CASHIER"].includes(req.staffIdentity?.role || "")
+      !["ADMIN", "CASHIER", "staff"].includes(req.staffIdentity?.role || "")
     )
       fail(403, "This booking belongs to another customer.");
     return b;
@@ -417,12 +417,16 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     }),
     async (req, res) => {
       const input = z
-        .object({ email: z.email(), password: z.string().max(200) })
+        .object({
+          email: z.string().trim().toLowerCase().pipe(z.email()),
+          password: z.string().max(200),
+        })
         .parse(req.body);
       const user = (
-        await db.all("SELECT * FROM users WHERE email = ? AND active = 1", [
-          input.email.toLowerCase(),
-        ])
+        await db.all(
+          "SELECT * FROM users WHERE LOWER(email) = ? AND active = 1",
+          [input.email.toLowerCase()],
+        )
       )[0];
       if (!user || !passwordMatches(input.password, user.passwordHash))
         fail(401, "Incorrect email or password.");
@@ -702,7 +706,8 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       req.query.format,
     );
   });
-  const staff = auth(["ADMIN", "CASHIER"]);
+  const staff = auth(["ADMIN", "CASHIER", "staff"]);
+  const overviewAccess = auth(["ADMIN", "CASHIER"]);
   app.post("/api/admin/bookings/:id/approve", staff, async (req, res) =>
     res.json(
       await approveCash(
@@ -732,7 +737,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   });
   app.post(
     "/api/admin/bookings/:id/cancel",
-    auth(["ADMIN"]),
+    auth(["ADMIN", "staff"]),
     async (req, res) => {
       await db.transaction(async (tx) => {
         await lockEvent(tx);
@@ -859,7 +864,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
         pages: Math.ceil(total / 25),
       });
   });
-  app.get("/api/admin/dashboard", staff, async (req, res) => {
+  app.get("/api/admin/dashboard", overviewAccess, async (req, res) => {
     const date = z
       .union([z.literal("all"), z.iso.date()])
       .parse(req.query.date || "all");
@@ -915,9 +920,11 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   });
   app.get(
     "/api/admin/checkins",
-    auth(["ADMIN", "CASHIER", "SCANNER"]),
+    auth(["ADMIN", "CASHIER", "SCANNER", "staff"]),
     async (req, res) => {
-      const allStaff = ["ADMIN", "CASHIER"].includes(req.identity.role);
+      const allStaff = ["ADMIN", "CASHIER", "staff"].includes(
+        req.identity.role,
+      );
       const visibility = adminBookingVisibility("b");
       const values = [
         ...visibility.values,
@@ -951,10 +958,10 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       );
     },
   );
-  app.get("/api/admin/settings", auth(["ADMIN"]), async (_req, res) =>
+  app.get("/api/admin/settings", auth(["ADMIN", "staff"]), async (_req, res) =>
     res.json(await availability(db)),
   );
-  app.put("/api/admin/settings", auth(["ADMIN"]), async (req, res) => {
+  app.put("/api/admin/settings", auth(["ADMIN", "staff"]), async (req, res) => {
     const input = z
       .object({
         capacity: z
@@ -1008,7 +1015,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   });
   app.post(
     "/api/scanner/verify",
-    auth(["ADMIN", "SCANNER"]),
+    auth(["ADMIN", "SCANNER", "staff"]),
     async (req, res) => {
       const b = await inspectTicket(
         db,
@@ -1040,7 +1047,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   );
   app.post(
     "/api/scanner/checkin",
-    auth(["ADMIN", "SCANNER"]),
+    auth(["ADMIN", "SCANNER", "staff"]),
     async (req, res) =>
       res.json(
         await checkin(

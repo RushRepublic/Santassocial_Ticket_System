@@ -465,7 +465,7 @@ export async function checkin(db, token, userId, key, amountReceived) {
           userId,
         ])
       )[0];
-      if (collector?.role !== "ADMIN")
+      if (!["ADMIN", "staff"].includes(collector?.role))
         fail(403, "Only an admin can collect cash at the gate.");
       const pending = await inspectTicket(tx, token);
       if (pending.method !== "CASH")

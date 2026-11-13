@@ -152,10 +152,12 @@ try {
     .click();
   await (await download).saveAs("test-results/individual-ticket.png");
   await page.goto(origin + "/login?next=%2Fscanner");
-  await page.getByLabel("Email address").fill("individual-qa@example.test");
+  await page
+    .getByLabel("Email address")
+    .fill(process.env.QA_ADMIN_EMAIL || "individual-qa@example.test");
   await page
     .getByLabel("Password", { exact: true })
-    .fill("Individual-QA-2026!");
+    .fill(process.env.QA_ADMIN_PASSWORD || "Individual-QA-2026!");
   await page.getByRole("button", { name: /Sign in securely/ }).click();
   await page.waitForURL(origin + "/scanner");
   async function scan(t) {
