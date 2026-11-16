@@ -70,7 +70,7 @@ try {
   });
   const b = await post("/bookings", {
     name: "Individual Browser QA",
-    eventDate: "2026-11-13",
+    eventDate: "2026-11-17",
     adults: 3,
     kids: 2,
     method: "CASH",
@@ -246,7 +246,7 @@ try {
     .click();
   const future = await post("/bookings", {
     name: "Future QR QA",
-    eventDate: "2026-11-14",
+    eventDate: "2026-11-18",
     adults: 1,
     kids: 0,
     method: "CASH",
@@ -259,7 +259,7 @@ try {
     page.getByRole("heading", { name: "Invalid Ticket", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Registered Event Date: Saturday, 14 November 2026", {
+    page.getByText("Registered Event Date: Wednesday, 18 November 2026", {
       exact: true,
     }),
   ).toBeVisible();

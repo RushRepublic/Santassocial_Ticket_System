@@ -1,22 +1,22 @@
-# Event dates: November 13-14, 2026
+# Event dates: November 17-18, 2026
 
-Active registration dates are Friday, 13 November 2026 and Saturday, 14 November 2026. Complete dates and weekdays use the existing date formatter. Production scanning uses the backend server calendar date in Asia/Kolkata; local demo overrides do not bypass production validation.
+Active registration dates are Tuesday, 17 November 2026 and Wednesday, 18 November 2026. Complete dates and weekdays use the existing date formatter. Production scanning uses the backend server calendar date in Asia/Kolkata; local demo overrides do not bypass production validation.
 
 ## Production data safety
 
-No schema change or customer migration is required to configure future registrations. Existing bookings, individual tickets, QR identifiers, payments and approvals are retained. Previously issued November 11/12 tickets remain historical and cannot be admitted on the new dates.
+No schema change or customer migration is required to configure future registrations. Existing bookings, individual tickets, QR identifiers, payments and approvals are retained. Previously issued November 13/14 tickets remain historical and cannot be admitted on the new dates.
 
 Production database access is not available in this workspace, so affected counts and previous WhatsApp delivery cannot be confirmed. Run these read-only queries in the existing production database to audit the impact:
 
 ```sql
 SELECT eventDate, status, COUNT(*) AS bookings, SUM(people) AS guests
-FROM bookings WHERE eventDate IN ('2026-11-11','2026-11-12')
+FROM bookings WHERE eventDate IN ('2026-11-13','2026-11-14')
 GROUP BY eventDate, status;
 
 SELECT eventDate, COUNT(*) AS tickets,
        SUM(approvedAt IS NOT NULL) AS approved,
        SUM(approvedAt IS NULL) AS pending
-FROM individual_tickets WHERE eventDate IN ('2026-11-11','2026-11-12')
+FROM individual_tickets WHERE eventDate IN ('2026-11-13','2026-11-14')
 GROUP BY eventDate;
 ```
 
