@@ -947,17 +947,17 @@ export function Checkout() {
             server.
           </p>
           <div className="entry-rules">
-            <h3>A few things before the fun</h3>
+            <h3>Before the Fun Kicks Off!</h3>
             <ul>
               <li>
                 Your booking is valid only for {eventDate(draft.eventDate)}.
               </li>
               <li>
-                Each guest has an individual QR ticket and may enter separately.
+                Each guest receives an individual QR ticket and can enter separately.
               </li>
               <li>
-                Children under 5 must be supervised by an adult, unless an
-                approved event policy applies.
+                Children under 5 must be accompanied by an adult, unless
+                otherwise permitted under an approved event policy.
               </li>
             </ul>
           </div>
