@@ -25,14 +25,14 @@ export function TicketPolicies() {
         <h4>2. No Cancellation Requests</h4>
         <p>
           Requests to cancel confirmed ticket bookings will not be accepted,
-          irrespective of when the request is submitted. This applies to all
+          regardless of when the request is submitted. This applies to all
           ticket categories, booking channels and promotional ticket purchases
           unless otherwise required by applicable law.
         </p>
         <h4>3. Event Date And Personal Availability</h4>
         <p>
           Santa Social is scheduled to take place on the dates and at the venue
-          communicated through our official website and authorised ticketing
+          specified on our official website and authorised ticketing
           platforms. Attendees are responsible for reviewing the event details
           and ensuring their availability before purchasing tickets.
         </p>
@@ -73,7 +73,7 @@ export function TicketPolicies() {
           Cancellation Policy.
         </p>
         <p>
-          For any queries or clarification regarding ticket bookings, please
+          For any queries or clarifications regarding ticket bookings, please
           contact the Rush Republic management team through the official
           communication channels provided on our website.
         </p>

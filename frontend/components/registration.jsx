@@ -553,7 +553,7 @@ function EntryAgreement({ agreed, onChange }) {
         }}
       >
         <h2 id="checkout-terms-title" tabIndex={-1}>
-          TERMS AND CONDITION
+          Santa Social Cancellation &amp; Refund Policy
         </h2>
         <div
           className="terms-policy-body"

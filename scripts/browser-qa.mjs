@@ -218,7 +218,7 @@ async function verifyTermsPopup() {
     throw Error("Terms and Conditions must appear in blue.");
   await terms.click();
   const popup = page.getByRole("dialog", {
-    name: "TERMS AND CONDITION",
+    name: "Santa Social Cancellation & Refund Policy",
     exact: true,
   });
   await popup.waitFor();
