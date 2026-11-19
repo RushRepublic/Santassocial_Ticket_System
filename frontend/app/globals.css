@@ -622,6 +622,14 @@ a.button,
   background: var(--red);
   color: white;
 }
+.welcome-heading {
+  margin: 0 auto 24px;
+  text-align: center;
+  color: var(--red);
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 700;
+  line-height: 1.2;
+}
 .booking-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(290px, 1fr);

@@ -187,7 +187,7 @@ export function Register() {
   return (
     <main className="booking-page">
       <h1 className="sr-only">Your booking</h1>
-      <Steps step={1} />
+      <h2 className="welcome-heading">Welcome to Santa Social</h2>
       <div className="booking-layout registration-layout">
         <form className="form-card" onSubmit={next}>
           <div className="form-section">
