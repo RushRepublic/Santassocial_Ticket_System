@@ -19,6 +19,7 @@ try {
   const context = await browser.newContext();
   await context.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = async () => {
+      window.__qaCameraStarts = (window.__qaCameraStarts || 0) + 1;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 640;
       const ctx = canvas.getContext("2d");
@@ -66,6 +67,8 @@ try {
   await post("/payments/razorpay/order", { bookingId: online.id });
   const paid = await post("/demo/payments/complete", { bookingId: online.id });
   const cash = await post("/bookings", { ...input, method: "CASH" });
+  const counterCash = await post("/bookings", { ...input, method: "CASH" });
+  const fallbackCash = await post("/bookings", { ...input, method: "CASH" });
   const future = await post("/bookings", { ...input, eventDate: "2026-11-20", method: "CASH" });
 
   // Open the secure receipt with no customer session, as from WhatsApp.
@@ -97,6 +100,7 @@ try {
   await page.getByLabel("Password", { exact: true }).fill(process.env.QA_ADMIN_PASSWORD || "Individual-QA-2026!");
   await page.getByRole("button", { name: /Sign in securely/ }).click();
   await page.waitForURL(origin + "/scanner");
+  await post(`/admin/bookings/${counterCash.id}/approve`, { amountReceived: counterCash.amount });
   const scan = async (booking) => {
     await page.evaluate(() => { window.__qaQr = ""; });
     await page.waitForTimeout(1700);
@@ -108,24 +112,98 @@ try {
   await expect(page.getByText("Registered Event Date: Friday, 20 November 2026")).toBeVisible();
   await expect(approve).toHaveCount(0);
   await scan(cash);
-  const collect = page.getByRole("button", { name: "Confirm Cash Payment", exact: true });
-  await expect(collect).toBeDisabled();
+  const approveCash = page.getByRole("button", { name: "Approve Group Ticket", exact: true });
+  const acknowledge = page.getByRole("checkbox", { name: "I have collected ₹3 in cash.", exact: true });
+  const pending = page.locator(".scan-result.cash-due");
+  await expect(pending.getByText("CASH PAYMENT PENDING", { exact: true })).toBeVisible();
+  await expect(acknowledge).not.toBeChecked();
+  await expect(approveCash).toBeDisabled();
   await expect(approve).toHaveCount(0);
-  await page.getByRole("checkbox").check();
-  await collect.click();
-  await expect(page.getByRole("heading", { name: "Valid Group Ticket" })).toBeVisible();
-  const collected = await (await page.request.get(`${origin}/api/bookings/${cash.id}`)).json();
-  expect(collected).toMatchObject({ status: "PAID", checkedInAt: null, qrToken: cash.qrToken });
+  await expect(page.getByText("PAYMENT VERIFIED", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Guests in this booking").locator("b")).toHaveText(["3", "2", "5"]);
-  await approve.click();
-  await expect(page.getByText("The whole group is checked in. No re-entry.")).toBeVisible();
+  for (const width of [360, 375, 390, 414, 430, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await pending.evaluate((card) => (
+      document.documentElement.scrollWidth <= innerWidth &&
+      card.scrollWidth <= card.clientWidth &&
+      card.querySelector(".button").getBoundingClientRect().height >= 44
+    ))).toBe(true);
+    await pending.screenshot({ path: `test-results/group-cash-scanner-${width}.png` });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await acknowledge.check();
+  await expect(approveCash).toBeEnabled();
+  let approvalRequests = 0;
+  let firstKey;
+  let releaseFailure;
+  const failure = new Promise((resolve) => { releaseFailure = resolve; });
+  await page.route("**/api/scanner/checkin", async (route) => {
+    approvalRequests++;
+    const request = route.request();
+    expect(request.postDataJSON()).toMatchObject({ token: cash.qrToken, amountReceived: cash.amount, cashAcknowledged: true });
+    if (approvalRequests === 1) {
+      firstKey = request.headers()["idempotency-key"];
+      await failure;
+      await route.fulfill({ status: 500, json: { error: "Simulated approval failure." } });
+    } else {
+      expect(request.headers()["idempotency-key"]).toBe(firstKey);
+      await route.continue();
+    }
+  });
+  await approveCash.evaluate((button) => { button.click(); button.click(); });
+  const busy = page.getByRole("button", { name: "Approving Group Ticket...", exact: true });
+  await expect(busy).toBeDisabled();
+  await expect.poll(() => approvalRequests).toBe(1);
+  releaseFailure();
+  await expect(pending.getByRole("alert")).toHaveText("Simulated approval failure.");
+  await expect(acknowledge).toBeChecked();
+  await expect(approveCash).toBeEnabled();
+  const unchanged = await (await page.request.get(`${origin}/api/bookings/${cash.id}`)).json();
+  expect(unchanged).toMatchObject({ status: "PENDING_CASH", checkedInAt: null });
+  const starts = await page.evaluate(() => window.__qaCameraStarts);
+  const video = page.locator("video");
+  await video.evaluate((preview) => preview.pause());
+  await approveCash.click();
+  await expect(page.getByText("Cash payment confirmed and the whole group is checked in. No re-entry.")).toBeVisible();
+  const collected = await (await page.request.get(`${origin}/api/bookings/${cash.id}`)).json();
+  expect(collected).toMatchObject({ status: "PAID", qrToken: cash.qrToken, approvedTickets: 5 });
+  expect(collected.checkedInAt).toBeTruthy();
+  await expect(pending).toHaveCount(0);
+  await expect(page.getByText("PAYMENT VERIFIED", { exact: true })).toHaveCount(0);
+  await expect(acknowledge).toHaveCount(0);
+  await expect(video).toBeVisible();
+  await expect.poll(() => video.evaluate((preview) => !preview.paused && preview.srcObject?.active)).toBe(true);
+  expect(await page.evaluate(() => window.__qaCameraStarts)).toBe(starts);
+  expect(approvalRequests).toBe(2);
+  await page.unroute("**/api/scanner/checkin");
   await scan(cash);
   await expect(page.getByRole("heading", { name: "Already Approved", exact: true })).toBeVisible();
   await expect(page.getByText(`Booking ID: ${cash.reference}`, { exact: true })).toBeVisible();
   await expect(page.getByText(/Approved At:/)).toBeVisible();
   await expect(page.getByLabel("Previously entered guests").locator("b")).toHaveText(["3", "2", "5"]);
+  await expect(approveCash).toHaveCount(0);
   await expect(approve).toHaveCount(0);
-  console.log("Group online and cash receipts, real QR decoding, separate cash approval, duplicate and invalid-date UI passed.");
+  for (const booking of [paid, counterCash]) {
+    await scan(booking);
+    await expect(page.getByText("PAYMENT VERIFIED", { exact: true })).toBeVisible();
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await approve.click();
+    await expect(page.getByText("The whole group is checked in. No re-entry.", { exact: true })).toBeVisible();
+  }
+  await scan(fallbackCash);
+  await expect(acknowledge).not.toBeChecked();
+  await acknowledge.check();
+  await video.evaluate((preview) => {
+    window.__qaPriorTrack = preview.srcObject.getTracks()[0];
+    preview.pause();
+    preview.play = async () => { throw new DOMException("Playback blocked", "NotAllowedError"); };
+  });
+  await approveCash.click();
+  await expect(page.getByText("Camera could not resume automatically. Tap Start camera scanner.")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__qaPriorTrack.readyState)).toBe("ended");
+  await page.getByRole("button", { name: "Start camera scanner" }).click();
+  await expect.poll(() => video.evaluate((preview) => !preview.paused && preview.srcObject?.active)).toBe(true);
+  console.log("Group receipts, atomic cash approval and retry, camera resume, already-paid and online entry, duplicate and invalid-date UI passed.");
 } finally {
   await browser.close();
 }

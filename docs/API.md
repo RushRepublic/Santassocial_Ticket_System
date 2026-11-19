@@ -34,7 +34,6 @@ Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentic
 | GET     | `/admin/checkins`             | Admin/cashier: latest 100; scanner: own latest 100                                                       |
 | GET/PUT | `/admin/settings`             | Admin only; inventory row locked on changes                                                              |
 | POST    | `/scanner/verify`             | Admin/scanner; `{token}`; checks payment, date, previous entry                                           |
-| POST    | `/scanner/collect-cash`       | Admin/Staff; `{token, amountReceived}`; confirms exact group cash payment without entry                  |
 | POST    | `/scanner/checkin`            | Admin/scanner; `{token}` and `Idempotency-Key`; revalidates atomically                                   |
 
 ## Booking request
@@ -75,7 +74,7 @@ For secure shared ticket links, the browser reads the URL fragment and supplies 
 
 Cash reservations now include `qrToken` immediately without a payment deadline. `/tickets/:id` and downloads permit these provisional cash tickets and label the amount due. Online-pending, expired and cancelled bookings do not expose a QR. Migration backfills QR hashes for existing cash reservations without changing their deterministic token or payment status.
 
-`POST /scanner/verify` is lookup only: it returns booking/group details plus `amount` (paise), `method`, `status`, `mobile`, `email` and `paymentStatus` (`DUE` for pending cash, `PAID` for approved/free bookings). A successful lookup of unpaid cash does not authorize entry. For a group QR, use `POST /scanner/collect-cash` with the exact amount before calling `POST /scanner/checkin` with `{token}` to admit the full group. Existing individual cash tickets still accept `{token, amountReceived}` on check-in under the existing permissions. Check-in requires `Idempotency-Key`; scanner-only staff cannot collect cash. Date, duplicate-entry and role checks remain enforced. Admin/cashier `/admin/bookings/:id/approve` remains payment-only approval at a separate counter.
+`POST /scanner/verify` is lookup only: it returns booking/group details plus `amount` (paise), `method`, `status`, `mobile`, `email` and `paymentStatus` (`DUE` for pending cash, `PAID` for approved/free bookings). For a pending cash group, authorised staff call `POST /scanner/checkin` with `{token, amountReceived, cashAcknowledged: true}` to record the exact payment and admit the full group in one transaction. Paid and free tickets use `{token}`. Existing individual cash tickets still accept `{token, amountReceived}` under the existing permissions. Check-in requires `Idempotency-Key`; scanner-only staff cannot collect cash. Date, duplicate-entry and role checks remain enforced. Admin/cashier `/admin/bookings/:id/approve` remains payment-only approval at a separate counter.
 
 ## Live admin reporting
 

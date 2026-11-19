@@ -438,26 +438,9 @@ export async function verifyTicket(db, token) {
     fail(403, "PAYMENT PENDING: Collect cash and approve before entry.");
   return b;
 }
-export async function collectGroupCash(db, token, userId, amount) {
-  return db.transaction(async (tx) => {
-    await lockEvent(tx);
-    const collector = (
-      await tx.all("SELECT role FROM users WHERE id = ? AND active = 1", [
-        userId,
-      ])
-    )[0];
-    if (!["ADMIN", "staff"].includes(collector?.role))
-      fail(403, "Only an admin can collect cash at the gate.");
-    const booking = await inspectTicket(tx, token);
-    if (booking.ticket || booking.method !== "CASH")
-      fail(400, "Only cash group tickets can be collected here.");
-    if (amount !== booking.amount)
-      fail(400, "Amount received must match the booking total in paise.");
-    await expire(tx);
-    await approveCashInTransaction(tx, booking.id, amount, userId);
-  });
-}
-export async function checkin(db, token, userId, key, amountReceived) {
+export async function checkin(
+  db, token, userId, key, amountReceived, cashAcknowledged,
+) {
   if (
     (
       await db.all("SELECT id FROM individual_tickets WHERE qrHash = ?", [
@@ -478,9 +461,25 @@ export async function checkin(db, token, userId, key, amountReceived) {
       validateTicketDate(b);
       return previous;
     }
-    const b = await verifyTicket(tx, token);
-    if (amountReceived !== undefined)
-      fail(400, "Confirm cash payment separately before approving group entry.");
+    const b = await inspectTicket(tx, token);
+    if (b.status === "PENDING_CASH" && b.method === "CASH") {
+      const collector = (
+        await tx.all("SELECT role FROM users WHERE id = ? AND active = 1", [
+          userId,
+        ])
+      )[0];
+      if (!["ADMIN", "staff"].includes(collector?.role))
+        fail(403, "Only authorised staff can collect cash at the gate.");
+      if (cashAcknowledged !== true || amountReceived === undefined)
+        fail(403, "Confirm that you collected the cash before approving entry.");
+      await approveCashInTransaction(tx, b.id, amountReceived, userId);
+      await audit(tx, userId, "GROUP_CASH_ACKNOWLEDGED", b.id);
+    } else if (amountReceived !== undefined || cashAcknowledged !== undefined) {
+      fail(
+        409,
+        "This ticket does not require cash collection. Scan it again to check its current status.",
+      );
+    }
     const at = now();
     const result = await tx.run(
       "UPDATE bookings SET checkedInAt = ?, updatedAt = ? WHERE id = ? AND checkedInAt IS NULL",

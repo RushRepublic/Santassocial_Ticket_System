@@ -9,7 +9,6 @@ import { createApp } from "../src/app.js";
 import { createAdmin } from "../src/admin-accounts.js";
 import {
   createBooking,
-  collectGroupCash,
   approveCash,
   getBooking,
   publicBooking,
@@ -126,7 +125,7 @@ test("new bookings issue one group QR regardless of quantity and only after cash
       assert.equal(message.ticketLink, receipts.get(message.reference));
   }));
 
-test("cash group QR requires separate payment confirmation and admits the whole group once", () =>
+test("cash group approval requires acknowledgement, rolls back failures, and admits the whole group once", () =>
   fixture(async (db) => {
     const app = createApp(db);
     const adminId = await staff(db);
@@ -181,50 +180,59 @@ test("cash group QR requires separate payment confirmation and admits the whole 
     assert.equal(inspected.body.mobile, b.mobile);
     await scan(customerCookie, "/api/scanner/verify", {}).expect(403);
     await scan(scannerCookie, "/api/scanner/checkin", {}).expect(403);
-    await scan(scannerCookie, "/api/scanner/collect-cash", {
-      amountReceived: b.amount,
-    }).expect(403);
+    const cashApproval = { amountReceived: b.amount, cashAcknowledged: true };
+    await scan(scannerCookie, "/api/scanner/checkin", cashApproval).expect(403);
     await scan(adminCookie, "/api/scanner/checkin", {
       amountReceived: b.amount,
     }).expect(403);
-    await scan(adminCookie, "/api/scanner/collect-cash", {
+    await scan(adminCookie, "/api/scanner/checkin", {
+      ...cashApproval,
       amountReceived: b.amount - 1,
     }).expect(400);
-    assert.equal((await getBooking(db, b.id)).status, "PENDING_CASH");
-    await scan(adminCookie, "/api/scanner/collect-cash", {
-      amountReceived: b.amount,
-    }).expect(200);
-    const collected = await getBooking(db, b.id);
-    assert.equal(collected.status, "PAID");
-    assert.equal(collected.checkedInAt, null);
-    assert.equal((await db.all("SELECT * FROM checkins WHERE bookingId = ?", [b.id])).length, 0);
+    await scan(adminCookie, "/api/scanner/checkin", {
+      ...cashApproval, cashAcknowledged: false,
+    }).expect(400);
+    await db.run("CREATE TRIGGER fail_cash_entry BEFORE INSERT ON checkins BEGIN SELECT RAISE(ABORT, 'injected entry failure'); END");
     const key = randomUUID();
+    await scan(adminCookie, "/api/scanner/checkin", cashApproval, key).expect(500);
+    const collected = await getBooking(db, b.id);
+    assert.equal(collected.status, "PENDING_CASH");
+    assert.equal(collected.checkedInAt, null);
+    const [rolledBack] = await db.all("SELECT status,approvedAt,approvedBy,receipt FROM payments WHERE bookingId = ?", [b.id]);
+    assert.deepEqual({ ...rolledBack }, {
+      status: "PENDING", approvedAt: null, approvedBy: null, receipt: null,
+    });
+    assert.deepEqual(await db.all("SELECT id FROM checkins WHERE bookingId = ?", [b.id]), []);
+    assert.deepEqual(await db.all("SELECT id FROM notification_logs WHERE bookingId = ? AND type = 'TICKET'", [b.id]), []);
+    await db.run("DROP TRIGGER fail_cash_entry");
+    const secondKey = randomUUID();
     const results = await Promise.all([
-      scan(
-        adminCookie,
-        "/api/scanner/checkin",
-        {},
-        key,
-      ),
-      scan(secondAdminCookie, "/api/scanner/checkin", {}),
+      scan(adminCookie, "/api/scanner/checkin", cashApproval, key),
+      scan(secondAdminCookie, "/api/scanner/checkin", cashApproval, secondKey),
     ]);
     assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
-    const winningKey = results[0].status === 200 ? key : null;
-    if (winningKey)
-      await scan(
-        adminCookie,
-        "/api/scanner/checkin",
-        {},
-        winningKey,
-      ).expect(200);
+    const firstWon = results[0].status === 200;
+    const replay = await scan(
+      firstWon ? adminCookie : secondAdminCookie,
+      "/api/scanner/checkin",
+      cashApproval,
+      firstWon ? key : secondKey,
+    ).expect(200);
+    assert.deepEqual(replay.body, results[firstWon ? 0 : 1].body);
     const paid = await getBooking(db, b.id);
     assert.equal(paid.status, "PAID");
     assert.equal(publicBooking(paid).qrToken, token);
     assert.ok(paid.checkedInAt);
-    assert.equal(
-      (await db.all("SELECT * FROM checkins WHERE bookingId = ?", [b.id]))
-        .length,
-      1,
+    const entries = await db.all("SELECT * FROM checkins WHERE bookingId = ?", [b.id]);
+    assert.equal(entries.length, 1);
+    assert.deepEqual([entries[0].adults, entries[0].kids, entries[0].people], [3, 2, 5]);
+    const [payment] = await db.all("SELECT * FROM payments WHERE bookingId = ?", [b.id]);
+    assert.equal(payment.status, "CAPTURED");
+    assert.equal(payment.approvedBy, entries[0].staffId);
+    assert.ok(payment.approvedAt);
+    assert.deepEqual(
+      (await db.all("SELECT userId FROM audit_logs WHERE entityId = ? AND action = 'GROUP_CASH_ACKNOWLEDGED'", [b.id])).map((row) => row.userId),
+      [entries[0].staffId],
     );
     assert.equal(
       (
@@ -271,7 +279,7 @@ test("expired, cancelled and wrong-day cash QR cannot collect money or admit; le
           b.id,
         ]);
       await assert.rejects(
-        collectGroupCash(db, qrToken(b), adminId, b.amount),
+        checkin(db, qrToken(b), adminId, randomUUID(), b.amount, true),
       );
       assert.notEqual((await getBooking(db, b.id)).status, "PAID");
       assert.equal(
@@ -960,7 +968,7 @@ test("scanner and direct approval APIs enforce both event days without consuming
             const token = publicBooking(await getBooking(db, b.id)).qrToken;
             const body = {
               token,
-              ...(method === "CASH" ? { amountReceived: b.amount } : {}),
+              ...(method === "CASH" ? { amountReceived: b.amount, cashAcknowledged: true } : {}),
             };
             config.demoDate = scanDay;
             const valid = ticketDay === scanDay;
@@ -1004,9 +1012,7 @@ test("scanner and direct approval APIs enforce both event days without consuming
             }
             config.demoDate = ticketDay;
             await post("/api/scanner/verify", { token }).expect(200);
-            if (method === "CASH")
-              await post("/api/scanner/collect-cash", body).expect(200);
-            await post("/api/scanner/checkin", { token }).expect(200);
+            await post("/api/scanner/checkin", body).expect(200);
             await post("/api/scanner/checkin", { token }).expect(409);
           }
         }

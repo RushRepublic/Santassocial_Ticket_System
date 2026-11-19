@@ -985,13 +985,12 @@ try {
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
   await auditResponsive(page, "scanner-cash");
   const approveCash = page.getByRole("button", {
-    name: "Confirm Cash Payment",
+    name: "Approve Group Ticket",
   });
   if (!(await approveCash.isDisabled()))
     throw Error("Cash collection must require explicit confirmation.");
   await page.getByRole("checkbox").check();
   await approveCash.click();
-  await page.getByRole("button", { name: "Approve Group Entry" }).click();
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
     .waitFor();

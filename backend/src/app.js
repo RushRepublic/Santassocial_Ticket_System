@@ -37,7 +37,6 @@ import {
   expire,
   availability,
   createBooking,
-  collectGroupCash,
   assertBookableDate,
   replacePaymentMethod,
   getBooking,
@@ -1057,20 +1056,6 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     },
   );
   app.post(
-    "/api/scanner/collect-cash",
-    auth(["ADMIN", "staff"]),
-    async (req, res) => {
-      const { token, amountReceived } = z
-        .object({
-          token: z.string().regex(/^ss_[a-f0-9]{64}$/),
-          amountReceived: z.number().int().nonnegative(),
-        })
-        .parse(req.body);
-      await collectGroupCash(db, token, req.identity.userId, amountReceived);
-      res.json({ paymentStatus: "PAID" });
-    },
-  );
-  app.post(
     "/api/scanner/checkin",
     auth(["ADMIN", "SCANNER", "staff"]),
     async (req, res) =>
@@ -1086,6 +1071,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
           req.body.amountReceived === undefined
             ? undefined
             : z.number().int().nonnegative().parse(req.body.amountReceived),
+          z.literal(true).optional().parse(req.body.cashAcknowledged),
         ),
       ),
   );

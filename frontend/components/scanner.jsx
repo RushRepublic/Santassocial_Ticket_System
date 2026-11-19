@@ -14,6 +14,9 @@ import {
 import { api, post, eventDate, dateTime, money } from "@/lib/api";
 import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
 import { Wordmark, Loading, DemoBanner } from "./common";
+const groupCashSuccess =
+  "Cash payment confirmed and the whole group is checked in. No re-entry.";
+
 export function Scanner({ history = false }) {
   const router = useRouter();
   const identity = useStaffSession(history ? "/scanner/history" : "/scanner", [
@@ -23,6 +26,7 @@ export function Scanner({ history = false }) {
   ]);
   const ready = Boolean(identity);
   const [camera, setCamera] = useState(true);
+  const [cameraRun, setCameraRun] = useState(0);
   const [token, setToken] = useState("");
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -122,45 +126,75 @@ export function Scanner({ history = false }) {
       instance?.destroy();
       scannerRef.current = null;
     };
-  }, [camera, ready, history]);
+  }, [camera, cameraRun, ready, history]);
+  useEffect(() => {
+    if (entered !== groupCashSuccess) return;
+    const timer = setTimeout(() => setEntered(false), 4000);
+    return () => clearTimeout(timer);
+  }, [entered]);
+  useEffect(() => {
+    const preview = video.current;
+    if (entered !== groupCashSuccess || !camera || !preview) return;
+    // The preview was hidden during review. Reuse its stream when possible.
+    if (!preview.srcObject?.active) {
+      setCameraRun((run) => run + 1);
+      return;
+    }
+    if (!preview.paused) return;
+    let cancelled = false;
+    preview.play().catch(() => {
+      if (cancelled) return;
+      setCamera(false);
+      setError("Camera could not resume automatically. Tap Start camera scanner.");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [entered, camera]);
   async function confirm() {
-    if (!result || busy) return;
+    if (!result || busy || lock.current) return;
     const due = result.paymentStatus === "DUE";
+    if (due && !cashConfirmed) return;
+    lock.current = true;
     setBusy(true);
     setError("");
     setDateError(null);
     try {
-      if (groupCashDue) {
-        await post("/scanner/collect-cash", {
-          token,
-          amountReceived: result.amount,
-        });
-        setResult({ ...result, paymentStatus: "PAID" });
-        setCashConfirmed(false);
-        return;
-      }
       await post(
         "/scanner/checkin",
         {
           token,
           ...(due ? { amountReceived: result.amount } : {}),
+          ...(groupCashDue ? { cashAcknowledged: cashConfirmed } : {}),
         },
         { "Idempotency-Key": requestId.current },
       );
       setEntered(
         result.ticket
           ? "This ticket is approved. Remaining tickets can enter separately."
-          : "The whole group is checked in. No re-entry.",
+          : groupCashDue
+            ? groupCashSuccess
+            : "The whole group is checked in. No re-entry.",
       );
       setResult(null);
       setToken("");
-    } catch (e) {
+      setCashConfirmed(false);
       reviewing.current = false;
+    } catch (e) {
       setError(e.message);
       setDateError(e.details || null);
-      setResult(null);
+      if (
+        !groupCashDue ||
+        e.details?.eventDate ||
+        e.details?.code === "ALREADY_CHECKED_IN"
+      ) {
+        setResult(null);
+        setToken("");
+        setCashConfirmed(false);
+        reviewing.current = false;
+      }
     } finally {
-      if (!groupCashDue) reviewing.current = false;
+      lock.current = false;
       setBusy(false);
     }
   }
@@ -348,13 +382,14 @@ export function Scanner({ history = false }) {
                       <input
                         type="checkbox"
                         checked={cashConfirmed}
+                        disabled={busy}
                         onChange={(e) => setCashConfirmed(e.target.checked)}
                       />
                       <span>
-                        I have collected {money(result.amount)} in cash and{" "}
+                        I have collected {money(result.amount)} in cash
                         {result.ticket
-                          ? "will admit only this ticket holder. This settles the payment for the entire booking."
-                          : "will confirm payment before approving group entry."}
+                          ? " and will admit only this ticket holder. This settles the payment for the entire booking."
+                          : "."}
                       </span>
                     </label>
                   ) : (
@@ -363,6 +398,9 @@ export function Scanner({ history = false }) {
                       entry.
                     </p>
                   ))}
+                {error && (
+                  <div className="scanner-error" role="alert">{error}</div>
+                )}
                 <button
                   className={`button ${result.paymentStatus === "DUE" ? "" : "green"} full`}
                   disabled={
@@ -374,7 +412,7 @@ export function Scanner({ history = false }) {
                   onClick={confirm}
                 >
                   {groupCashDue
-                    ? busy ? "Confirming…" : "Confirm Cash Payment"
+                    ? busy ? "Approving Group Ticket..." : "Approve Group Ticket"
                     : busy ? "Approving…" : result.ticket ? "Approve ticket" : "Approve Group Entry"}
                   <Check size={20} />
                 </button>
@@ -385,6 +423,9 @@ export function Scanner({ history = false }) {
                     reviewing.current = false;
                     setResult(null);
                     setToken("");
+                    setCashConfirmed(false);
+                    setError("");
+                    setDateError(null);
                   }}
                 >
                   Cancel and scan another ticket
@@ -393,7 +434,7 @@ export function Scanner({ history = false }) {
             )}
           </>
         )}
-        {error && (
+        {error && !result && (
           <div className="scanner-error" role="alert">
             {dateError?.eventDate ? (
               <>
