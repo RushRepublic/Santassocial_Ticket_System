@@ -4,6 +4,7 @@ import { CheckCircle2, MessageCircle } from "lucide-react";
 import { api, post } from "@/lib/api";
 import { Notice } from "./common";
 
+const MAX_ATTEMPTS = 5;
 export function MobileVerification({
   mobile,
   onChange,
@@ -16,7 +17,10 @@ export function MobileVerification({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now);
+  const [failures, setFailures] = useState(0);
   const generation = useRef(0);
+  const inFlight = useRef(false);
+  const otpInput = useRef(null);
   const validMobile = /^[6-9]\d{9}$/.test(mobile);
   const verified = verifiedUntil > now;
   const remaining = Math.max(
@@ -37,6 +41,7 @@ export function MobileVerification({
     const current = ++generation.current;
     setChallenge(null);
     setOtp("");
+    setFailures(0);
     setVerifiedUntil(0);
     setBusy("");
     setError("");
@@ -88,6 +93,7 @@ export function MobileVerification({
         demoCode: result.demoCode || "",
       });
       setOtp("");
+      setFailures(0);
     } catch (error) {
       if (current === generation.current) setError(error.message);
     } finally {
@@ -95,17 +101,31 @@ export function MobileVerification({
     }
   }
 
-  async function verify() {
-    if (!challenge || otp.length !== 6 || busy || disabled) return;
+  async function verify(code) {
+    if (
+      !challenge ||
+      code.length !== 6 ||
+      busy ||
+      disabled ||
+      inFlight.current ||
+      failures >= MAX_ATTEMPTS
+    )
+      return;
     if (Date.now() >= challenge.expiresAt) {
-      setError("Your code expired. Request a new code.");
+      setOtp("");
+      setError("OTP expired. Please request a new code.");
       return;
     }
     const current = generation.current;
+    inFlight.current = true;
     setBusy("verify");
     setError("");
     try {
-      await post("/otp/verify", { mobile, challengeId: challenge.id, otp });
+      await post("/otp/verify", {
+        mobile,
+        challengeId: challenge.id,
+        otp: code,
+      });
       const identity = await api("/auth/me?scope=customer");
       if (current !== generation.current) return;
       const expiresAt = Number(identity.exp) * 1000;
@@ -117,10 +137,34 @@ export function MobileVerification({
       setOtp("");
       onVerified(mobile);
     } catch (error) {
-      if (current === generation.current) setError(error.message);
+      if (current === generation.current) {
+        setOtp("");
+        if (error.status === 400) {
+          const used = failures + 1;
+          setFailures(used);
+          setError(
+            Date.now() >= challenge.expiresAt
+              ? "OTP expired. Please request a new code."
+              : used >= MAX_ATTEMPTS
+                ? "Maximum verification attempts reached. Please request a new OTP."
+                : "Incorrect OTP. Please try again.",
+          );
+        } else setError(error.message);
+      }
     } finally {
-      if (current === generation.current) setBusy("");
+      inFlight.current = false;
+      if (current === generation.current) {
+        setBusy("");
+        otpInput.current?.focus();
+      }
     }
+  }
+
+  function changeOtp(event) {
+    const next = event.target.value.replace(/\D/g, "").slice(0, 6);
+    if (busy || inFlight.current) return;
+    setOtp(next);
+    if (next.length === 6) void verify(next);
   }
 
   return (
@@ -183,41 +227,41 @@ export function MobileVerification({
           <div className="inline-otp-controls">
             <input
               id="booking-otp"
+              ref={otpInput}
               value={otp}
               inputMode="numeric"
               autoComplete="one-time-code"
+              pattern="[0-9]*"
               maxLength={6}
               autoFocus
               placeholder="6-digit OTP"
-              onChange={(event) =>
-                setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
+              onChange={changeOtp}
+              readOnly={!!busy}
+              aria-busy={busy === "verify"}
+              disabled={
+                disabled || !remaining || failures >= MAX_ATTEMPTS
               }
-              disabled={!!busy || disabled || !remaining}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void verify();
-                }
-              }}
             />
-            <button
-              type="button"
-              className="button"
-              onClick={verify}
-              disabled={!!busy || disabled || otp.length !== 6 || !remaining}
-            >
-              {busy === "verify" ? "Verifying…" : "Verify OTP"}
-            </button>
           </div>
           <p className="field-hint" role="status">
-            {remaining
-              ? `Code expires in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`
-              : "Code expired. Request a new code."}{" "}
-            · Maximum 5 attempts.
+            {busy === "verify" ? (
+              <>
+                <span className="spinner spinner-sm" aria-hidden="true" />{" "}
+                Verifying OTP...
+              </>
+            ) : (
+              <>
+                {remaining
+                  ? `Code expires in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`
+                  : "Code expired. Request a new code."}{" "}
+                · Maximum 5 attempts.
+              </>
+            )}
           </p>
         </div>
       )}
-      {error && <Notice>{error}</Notice>}
+      {verified && <Notice success>Mobile Number Verified</Notice>}
+      {error && !verified && <Notice>{error}</Notice>}
     </div>
   );
 }
