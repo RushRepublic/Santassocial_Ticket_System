@@ -63,19 +63,6 @@ function readDraft() {
 function saveDraft(draft) {
   sessionStorage.setItem("santa-draft", JSON.stringify(draft));
 }
-export function Steps({ step }) {
-  return (
-    <div className="steps">
-      {["Your booking", "Checkout"].map((s, i) => (
-        <div key={s} className={step >= i + 1 ? "active" : ""}>
-          <span>{step > i + 1 ? <Check size={13} /> : i + 1}</span>
-          <small>{s}</small>
-          {i < 1 && <i />}
-        </div>
-      ))}
-    </div>
-  );
-}
 export function BookingSidebar({ draft, children, showVenue = true }) {
   return (
     <aside className="booking-sidebar">
@@ -848,7 +835,6 @@ export function Checkout() {
   return (
     <main className="booking-page">
       <h1 className="sr-only">Checkout</h1>
-      <Steps step={2} />
       <div className="booking-layout checkout-layout">
         <div className="form-card">
           <div className="section-label">

@@ -595,49 +595,6 @@ a.button,
 .page-intro > p:last-child {
   color: var(--muted);
 }
-.steps {
-  display: flex;
-  justify-content: center;
-  gap: 0;
-  margin: 0 auto 24px;
-  max-width: 360px;
-}
-.steps > div {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--muted);
-  flex: 1;
-}
-.steps > div:last-child {
-  flex: 0 0 auto;
-}
-.steps span {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #ede8dc;
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-}
-.steps small {
-  font-size: 14px;
-  white-space: nowrap;
-}
-.steps i {
-  height: 1px;
-  background: var(--line);
-  flex: 1;
-  margin: 0 15px;
-}
-.steps .active {
-  color: var(--red);
-}
-.steps .active span {
-  background: var(--red);
-  color: white;
-}
 .welcome-heading {
   margin: 0 auto 24px;
   text-align: center;
@@ -2809,24 +2766,6 @@ td > a:hover {
   }
   .page-intro > p:last-child {
     font-size: 14px;
-  }
-  .steps {
-    margin: 0 auto 24px;
-    max-width: 260px;
-  }
-  .steps > div {
-    gap: 5px;
-  }
-  .steps small {
-    font-size: 14px;
-  }
-  .steps span {
-    width: 23px;
-    height: 23px;
-    font-size: 14px;
-  }
-  .steps i {
-    margin: 0 7px;
   }
   .booking-layout {
     display: flex;
