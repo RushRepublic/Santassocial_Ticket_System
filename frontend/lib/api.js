@@ -34,12 +34,7 @@ export async function api(path, options = {}) {
 }
 export const post = (path, body, headers) =>
   api(path, { method: "POST", body: JSON.stringify(body), headers });
-export const money = (paise) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(paise / 100);
+export { money } from "../../backend/src/pricing.js";
 export const eventDate = (value) =>
   new Date(`${value}T12:00:00+05:30`).toLocaleDateString("en-IN", {
     weekday: "long",

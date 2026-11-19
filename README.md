@@ -47,7 +47,7 @@ Customer and staff interfaces use the same API/database. `/admin` also opens the
 
 ## Booking-to-entry behavior
 
-- Select one event date, supply the primary guest’s details, verify the mobile by OTP, and choose a payment method. Age 5+ costs ₹1; under 5 is free. Prices are calculated on the server in integer paise.
+- Select one event date, supply the primary guest’s details, verify the mobile by OTP, and choose a payment method. Age 5+ costs ₹1; under 5 is free. New online and cash bookings include a 2.5% platform fee on the ticket subtotal, rounded once to the nearest paise. Existing bookings retain their saved totals.
 - Registration has no overall or daily attendance cap and no payment deadline. Existing group-size and adult-supervision rules still apply; children-only free bookings require an explicitly enabled policy.
 - Online reservations activate only after captured payment evidence. Razorpay signatures use server-stored order IDs. Raw webhook signatures are verified before parsing; event IDs and payment IDs prevent duplicate settlement. A background process reconciles pending gateway orders.
 - New bookings receive one group QR. Cash reservations can display their QR immediately. At the gate, authorised staff acknowledge collecting the exact amount and approve cash payment and group entry together. Online QR tickets become available only after server-confirmed capture. The secure receipt, PDF and PNG show the same group QR.

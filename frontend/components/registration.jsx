@@ -24,6 +24,11 @@ import { api, post, money, eventDate } from "@/lib/api";
 import { discoverySources } from "@/lib/discovery-source";
 import { VenueLocation, Notice, Loading, Status } from "./common";
 import { MobileVerification } from "./mobile-verification";
+import {
+  ADULT_TICKET_PAISE,
+  PLATFORM_FEE_PERCENT,
+  quoteBooking,
+} from "../../backend/src/pricing.js";
 const initial = {
   name: "",
   mobile: "",
@@ -63,7 +68,10 @@ function readDraft() {
 function saveDraft(draft) {
   sessionStorage.setItem("santa-draft", JSON.stringify(draft));
 }
-export function BookingSidebar({ draft, children, showVenue = true }) {
+function bookingPricing({ ticketSubtotal, platformFee, amount }) {
+  return { ticketSubtotal, platformFee, amount };
+}
+export function BookingSidebar({ draft, pricing, children, showVenue = true }) {
   return (
     <aside className="booking-sidebar">
       <div className="sidebar-body">
@@ -81,15 +89,23 @@ export function BookingSidebar({ draft, children, showVenue = true }) {
           </p>
           <p>
             <span>{draft.adults} × Adult ticket</span>
-            <b>{money(draft.adults * 100)}</b>
+            <b>{money(pricing.ticketSubtotal)}</b>
           </p>
           <p>
             <span>{draft.kids} × Kids ticket</span>
             <b>Free</b>
           </p>
+          <p>
+            <span>Ticket Subtotal</span>
+            <b>{money(pricing.ticketSubtotal)}</b>
+          </p>
+          <p>
+            <span>Platform Fee ({PLATFORM_FEE_PERCENT}%)</span>
+            <b>{money(pricing.platformFee)}</b>
+          </p>
           <p className="summary-total">
             <span>Total</span>
-            <strong>{money(draft.adults * 100)}</strong>
+            <strong>{money(pricing.amount)}</strong>
           </p>
         </div>
         {children}
@@ -317,7 +333,7 @@ export function Register() {
                 <div>
                   <h3>
                     {kind === "adults" ? "Adults" : "Little ones"}{" "}
-                    <b>{kind === "adults" ? "₹1" : "Free"}</b>
+                    <b>{kind === "adults" ? money(ADULT_TICKET_PAISE) : "Free"}</b>
                   </h3>
                   <p>
                     {kind === "adults"
@@ -594,6 +610,7 @@ export function Checkout() {
             kids: b.kids,
             method: b.method === "CASH" ? "CASH" : "RAZORPAY",
             bookingId: b.id,
+            pricing: bookingPricing(b),
             key: crypto.randomUUID(),
           };
           saveDraft(d);
@@ -614,9 +631,18 @@ export function Checkout() {
         return;
       }
       api("/auth/me?scope=customer")
-        .then((user) => {
-          if (user.mobile !== d.mobile) router.replace("/");
-          else setDraft(d);
+        .then(async (user) => {
+          if (user.mobile !== d.mobile) {
+            router.replace("/");
+            return;
+          }
+          const restored = d.bookingId
+            ? {
+                ...d,
+                pricing: bookingPricing(await api(`/bookings/${d.bookingId}`)),
+              }
+            : d;
+          setDraft(restored);
         })
         .catch(() => router.replace("/"));
     }
@@ -720,7 +746,7 @@ export function Checkout() {
     setError("");
     setPendingPaymentId(null);
     try {
-      const { key, mobile, bookingId, ...input } = draft;
+      const { key, mobile, bookingId, pricing: _savedPricing, ...input } = draft;
       let b = bookingId
         ? await api(`/bookings/${bookingId}`)
         : await post("/bookings", input, { "Idempotency-Key": key });
@@ -737,9 +763,16 @@ export function Checkout() {
         if (new URLSearchParams(location.search).has("id"))
           router.replace(`/checkout?id=${b.id}`);
       }
-      const updated = { ...draft, bookingId: b.id };
+      const updated = { ...draft, bookingId: b.id, pricing: bookingPricing(b) };
       saveDraft(updated);
       setDraft(updated);
+      if (
+        b.amount !== pricing.amount &&
+        ["PENDING_CASH", "PENDING_PAYMENT"].includes(b.status)
+      ) {
+        setAgreed(false);
+        throw Error("The booking total has changed. Review the amount before continuing.");
+      }
       if (
         b.status === "PENDING_CASH" ||
         b.status === "FREE" ||
@@ -832,6 +865,9 @@ export function Checkout() {
     }
   }
   if (!draft) return <Loading />;
+  const pricing = draft.bookingId && draft.pricing
+    ? draft.pricing
+    : quoteBooking(draft.adults);
   return (
     <main className="booking-page">
       <h1 className="sr-only">Checkout</h1>
@@ -854,7 +890,7 @@ export function Checkout() {
               </p>
             </div>
           </div>
-          <BookingSidebar draft={draft} showVenue={false} />
+          <BookingSidebar draft={draft} pricing={pricing} showVenue={false} />
           <div className="form-section">
             <h2>How would you like to pay?</h2>
             {["RAZORPAY", "CASH"].map((method) => (
@@ -882,7 +918,9 @@ export function Checkout() {
                   <small>
                     {method === "RAZORPAY"
                       ? "UPI, cards, netbanking · Powered by Razorpay"
-                      : "Get your QR now. Pay cash and get approval at the counter"}
+                      : pricing.amount
+                        ? `Get your QR now. Pay ${money(pricing.amount)} at the counter and get approval`
+                        : "Get your QR now. No payment is due"}
                   </small>
                 </span>
                 <span className="radio-dot" />
@@ -921,11 +959,11 @@ export function Checkout() {
               ? checkingPayment
                 ? "Verifying payment…"
                 : "Preparing your booking…"
-              : draft.adults === 0
+              : pricing.amount === 0
                 ? "Confirm free booking"
                 : draft.method === "CASH"
                   ? "Reserve & pay at counter"
-                  : `Continue to payment · ${money(draft.adults * 100)}`}
+                  : `Continue to payment · ${money(pricing.amount)}`}
             <ArrowRight size={18} />
           </button>
           <p className="secure-note">

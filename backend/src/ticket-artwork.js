@@ -5,6 +5,7 @@ import sharp from "sharp";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
 import { qrToken } from "./security.js";
+import { money } from "./pricing.js";
 
 const logo = readFileSync(
   new URL("../assets/santa-social-9th-edition.png", import.meta.url),
@@ -73,11 +74,7 @@ export async function renderTicketPng(booking) {
     year: "numeric",
     timeZone: "Asia/Kolkata",
   }).format(new Date(`${booking.eventDate}T12:00:00+05:30`));
-  const amount = new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(booking.amount / 100);
+  const amount = money(booking.amount);
   const qr = await QRCode.toDataURL(ticket?.qrToken || qrToken(booking), {
     width: 780,
     margin: 4,

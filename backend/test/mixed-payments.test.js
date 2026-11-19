@@ -75,7 +75,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     await db.run('INSERT INTO events (id,name,capacity) VALUES (?,?,?)', ['santa-2026','Santa Social',0]);
     const evidence = new Map();
     const gateway = { orders: { create: async input => {
-      assert.equal(input.currency,'INR'); assert.equal(input.amount,100);
+      assert.equal(input.currency,'INR'); assert.equal(input.amount,103);
       return {id:'order_'+randomUUID()};
     }, fetchPayments:async orderId=>({items:[...evidence.values()].filter(p=>p.order_id===orderId)})}, payments:{fetch:async id=>evidence.get(id)} };
     const app=createApp(db,{paymentGateway:()=>gateway});
@@ -96,12 +96,12 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const id='pay_synthetic';
     const payload={bookingId:b.id,razorpay_order_id:order.orderId,razorpay_payment_id:id,
       razorpay_signature:hmac(order.orderId+'|'+id,process.env.RAZORPAY_KEY_SECRET)};
-    evidence.set(id,{id,order_id:order.orderId,status:'authorized',amount:100,currency:'INR'});
+    evidence.set(id,{id,order_id:order.orderId,status:'authorized',amount:103,currency:'INR'});
     await post('/payments/razorpay/verify',payload).expect(202);
     assert.equal(publicBooking(await getBooking(db,b.id)).qrToken,null);
-    evidence.set(id,{id,order_id:order.orderId,status:'captured',amount:1,currency:'INR'});
+    evidence.set(id,{id,order_id:order.orderId,status:'captured',amount:100,currency:'INR'});
     await post('/payments/razorpay/verify',payload).expect(400);
-    evidence.get(id).amount=100;
+    evidence.get(id).amount=103;
     await post('/payments/razorpay/verify',{...payload,razorpay_signature:'invalid'}).expect(400);
     const paid=(await post('/payments/razorpay/verify',payload).expect(200)).body;
     assert.equal(paid.status,'PAID'); assert.equal(paid.demo,false); assert.ok(paid.qrToken);
@@ -109,7 +109,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const second=await make();
     const secondOrder=(await post('/payments/razorpay/order',{bookingId:second.id}).expect(200)).body;
     const event=JSON.stringify({event:'payment.captured',payload:{payment:{entity:{id:'pay_webhook',
-      order_id:secondOrder.orderId,status:'captured',amount:100,currency:'INR'}}}});
+      order_id:secondOrder.orderId,status:'captured',amount:103,currency:'INR'}}}});
     const webhook=signature=>request(app).post('/api/webhooks/razorpay').set('Content-Type','application/json')
       .set('x-razorpay-event-id','evt_synthetic').set('x-razorpay-signature',signature).send(event);
     await webhook('invalid').expect(400);
@@ -146,7 +146,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
       .set('Idempotency-Key',randomUUID()).send({name,email:'cash@example.com',eventDate:'2026-11-19',adults:1,kids:0,method:'CASH',discoverySource:'previous_visitor'}).expect(201)).body;
     const unpaidCash=await cash('Unpaid Cash');
     const paidCash=await cash('Paid Cash');
-    await approveCash(db,paidCash.id,100,adminId);
+    await approveCash(db,paidCash.id,103,adminId);
     const noOrder=await make();
     // Check-in history includes one real and one historical simulated entry.
     for(const record of [b,old]) {
@@ -166,8 +166,8 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const expected=[b.id,second.id,unpaidCash.id,paidCash.id,noOrder.id].sort();
     const summary=(await get('/dashboard').expect(200)).body;
     assert.equal(summary.demo,false); assert.equal(summary.bookings,5);
-    assert.equal(summary.attendees,3); assert.equal(summary.revenue,300);
-    assert.equal(summary.onlineRevenue,200); assert.equal(summary.cashRevenue,100);
+    assert.equal(summary.attendees,3); assert.equal(summary.revenue,309);
+    assert.equal(summary.onlineRevenue,206); assert.equal(summary.cashRevenue,103);
     assert.equal(summary.pendingCash,1); assert.equal(summary.entered,1);
     assert.equal(summary.notificationFailures,1);
     assert.equal((await get('/dashboard?date=2026-11-20').expect(200)).body.bookings,0);
@@ -199,7 +199,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
       razorpay_signature:hmac(mobileOrder.orderId+'|'+mobileId,process.env.RAZORPAY_KEY_SECRET)};
     const redirect=body=>request(app).post('/api/payments/razorpay/return?bookingId='+mobileBooking.id)
       .type('form').send(body).expect(303);
-    evidence.set(mobileId,{id:mobileId,order_id:mobileOrder.orderId,status:'authorized',amount:100,currency:'INR'});
+    evidence.set(mobileId,{id:mobileId,order_id:mobileOrder.orderId,status:'authorized',amount:103,currency:'INR'});
     const unsigned=await redirect({...mobilePayload,razorpay_signature:'invalid'});
     assert.ok(!unsigned.headers.location.includes('/ticket/'));
     const awaiting=await redirect(mobilePayload);
@@ -209,7 +209,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
       .send({bookingId:mobileBooking.id}).expect(401);
     assert.equal((await post('/payments/razorpay/status',{bookingId:mobileBooking.id}).expect(200)).body.status,'PENDING_PAYMENT');
     evidence.get(mobileId).status='captured';
-    evidence.get(mobileId).amount_refunded=100;
+    evidence.get(mobileId).amount_refunded=103;
     assert.equal((await post('/payments/razorpay/status',{bookingId:mobileBooking.id}).expect(200)).body.status,'PENDING_PAYMENT');
     evidence.get(mobileId).amount_refunded=0;
     const recovered=(await post('/payments/razorpay/status',{bookingId:mobileBooking.id}).expect(200)).body;
@@ -225,7 +225,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const directId='pay_direct_mobile';
     const directPayload={razorpay_order_id:directOrder.orderId,razorpay_payment_id:directId,
       razorpay_signature:hmac(directOrder.orderId+'|'+directId,process.env.RAZORPAY_KEY_SECRET)};
-    evidence.set(directId,{id:directId,order_id:mobileOrder.orderId,status:'captured',amount:100,currency:'INR'});
+    evidence.set(directId,{id:directId,order_id:mobileOrder.orderId,status:'captured',amount:103,currency:'INR'});
     const directReturn=()=>request(app).post('/api/payments/razorpay/return?bookingId='+direct.id).type('form').send(directPayload).expect(303);
     assert.ok(!(await directReturn()).headers.location.includes('/ticket/'));
     assert.equal((await getBooking(db,direct.id)).status,'PENDING_PAYMENT');

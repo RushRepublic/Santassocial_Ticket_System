@@ -4,6 +4,8 @@ All routes are under `/api`, served directly by Express in the combined deployme
 
 Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentication, 403 = permission, 404 = missing resource, 409 = state conflict, 429 = rate limit, 503 = unconfigured provider. Booking amounts and approval amounts are integer **paise**.
 
+New booking totals include a 2.5% platform fee, rounded once on the ticket subtotal. Public booking responses include `ticketSubtotal`, `platformFee` and the authoritative `amount` in paise. Existing bookings and payment method changes keep the saved amount.
+
 | Method  | Endpoint                      | Access / behavior                                                                                        |
 | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
 | GET     | `/health`                     | Public; verifies database connectivity and reports mode                                                  |

@@ -1,6 +1,7 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { paymentDemo, production, config } from "./config.js";
 import { hash, qrToken } from "./security.js";
+import { quoteBooking, savedBookingPricing } from "./pricing.js";
 import {
   issueIndividualTickets,
   inspectIndividual,
@@ -75,6 +76,7 @@ export function publicBooking(b) {
   const { ticketNonce, qrHash, gatewayOrderId, gatewayPaymentId, ...safe } = b;
   return {
     ...safe,
+    ...savedBookingPricing(b),
     holdUntil: null,
     qrToken: hasBookingQr(b) ? qrToken(b) : null,
     demo:
@@ -118,7 +120,7 @@ export async function getBooking(db, id) {
         : "NOT_ENTERED";
   return b;
 }
-export async function createBooking(db, input, mobile, key) {
+export async function createBooking(db, input, mobile, key, savedAmount) {
   assertBookableDate(input.eventDate);
   const fingerprint = hash(JSON.stringify(input));
   return db.transaction(async (tx) => {
@@ -138,7 +140,7 @@ export async function createBooking(db, input, mobile, key) {
     if (input.adults === 0 && !e.allowKidsOnly)
       fail(400, "A supervising adult is required for children under five.");
     const id = randomUUID(),
-      amount = input.adults * 100,
+      amount = savedAmount ?? quoteBooking(input.adults).amount,
       status =
         amount === 0
           ? "FREE"
@@ -217,7 +219,8 @@ export async function replacePaymentMethod(db, id, mobile, method, key) {
       "SELECT id FROM booking_requests WHERE id = ?",
       [key],
     );
-    if (previous.length) return createBooking(nested, input, mobile, key);
+    if (previous.length)
+      return createBooking(nested, input, mobile, key, original.amount);
     if (original.method === method) return original;
     if (
       !["PENDING_CASH", "PENDING_PAYMENT"].includes(original.status) ||
@@ -246,7 +249,9 @@ export async function replacePaymentMethod(db, id, mobile, method, key) {
       "UPDATE bookings SET status = 'CANCELLED', updatedAt = ? WHERE id = ?",
       [now(), id],
     );
-    const replacement = await createBooking(nested, input, mobile, key);
+    const replacement = await createBooking(
+      nested, input, mobile, key, original.amount,
+    );
     await audit(tx, null, `PAYMENT_METHOD_REPLACED:${replacement.id}`, id);
     return replacement;
   });

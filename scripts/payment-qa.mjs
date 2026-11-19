@@ -125,11 +125,11 @@ try {
     .click();
   await page.waitForURL(`${origin}/ticket/${booking.id}`);
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   await page.goto(`${origin}/booking-success?id=${booking.id}`);
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   if (
     await page
@@ -160,10 +160,13 @@ try {
   await page.getByRole("button", { name: /Continue to payment/ }).click();
   await page.waitForFunction(() => Boolean(window.__qaCheckoutOptions));
   const mobileOptions = await page.evaluate(() => ({
+    amount: window.__qaCheckoutOptions.amount,
     redirect: window.__qaCheckoutOptions.redirect,
     callback: window.__qaCheckoutOptions.callback_url,
     hasHandler: typeof window.__qaCheckoutOptions.handler === "function",
   }));
+  if (mobileOptions.amount !== 103)
+    throw Error("Razorpay Checkout must receive the fee-inclusive total in paise.");
   if (
     mobileOptions.redirect ||
     mobileOptions.callback ||
@@ -183,7 +186,7 @@ try {
   await api("/demo/payments/complete", { bookingId: resumed.id });
   await page.waitForURL(`${origin}/ticket/${resumed.id}`);
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   await page.evaluate(() => delete document.hidden);
   await page.goto(`${origin}/checkout?id=${resumed.id}`);
@@ -213,7 +216,7 @@ try {
   await page.getByRole("button", { name: /Continue to payment/ }).click();
   await page.waitForURL(`${origin}/ticket/${handled.id}`);
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   captureOnVerify = false;
   console.log(
@@ -233,7 +236,7 @@ try {
   await page.getByRole("button", { name: /Reserve & pay at counter/ }).click();
   await page.waitForURL(`${origin}/booking-pending?id=${cash.id}`);
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   await page.goBack();
   for (const width of [1440, 375]) {
@@ -273,7 +276,7 @@ try {
       "Changing back to cash failed to reserve with the selected method",
     );
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   const oldOnline = await (
     await page.request.get(`${origin}/api/bookings/${switched.bookingId}`)

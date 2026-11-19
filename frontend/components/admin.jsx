@@ -687,7 +687,11 @@ function BookingDetail({ id }) {
                 <dd>
                   {b.adults} adults + {b.kids} kids = {b.people}
                 </dd>
-                <dt>Amount</dt>
+                <dt>Ticket Subtotal</dt>
+                <dd>{money(b.ticketSubtotal)}</dd>
+                <dt>Platform Fee</dt>
+                <dd>{money(b.platformFee)}</dd>
+                <dt>Grand Total</dt>
                 <dd>
                   {money(b.amount)} · {b.method}
                 </dd>
