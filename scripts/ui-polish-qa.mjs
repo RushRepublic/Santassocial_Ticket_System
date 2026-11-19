@@ -60,10 +60,10 @@ try {
   await page
     .getByPlaceholder("10-digit mobile number")
     .fill("98" + String(Date.now()).slice(-8));
-  await page.getByRole("button", { name: "Add kids", exact: true }).click();
-  await page.getByRole("button", { name: "Add kids", exact: true }).click();
-  await page.getByRole("button", { name: "Add adults", exact: true }).click();
-  await page.getByRole("button", { name: "Add adults", exact: true }).click();
+  for (let i = 0; i < 10; i++)
+    await page.getByRole("button", { name: "Add adults", exact: true }).click();
+  for (let i = 0; i < 5; i++)
+    await page.getByRole("button", { name: "Add kids", exact: true }).click();
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   const code = await page.locator(".demo-code b").innerText();
   await auditResponsive(page, "inline-otp");
@@ -99,10 +99,12 @@ try {
   const summary = page.locator(".booking-sidebar .summary");
   for (const width of [360, 390, 430, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect(summary.locator("p").filter({ hasText: "Ticket Subtotal" }).locator("b")).toHaveText("₹3");
-    await expect(summary.locator("p").filter({ hasText: "Platform Fee (2.5%)" }).locator("b")).toHaveText("₹0.08");
-    await expect(summary.locator(".summary-total strong")).toHaveText("₹3.08");
-    await expect(page.getByRole("button", { name: "Continue to payment · ₹3.08", exact: true })).toBeVisible();
+    await expect(summary.getByText("Ticket Subtotal", { exact: true })).toHaveCount(0);
+    await expect(summary.locator("p").filter({ hasText: "11 × Adult ticket" }).locator("b")).toHaveText("₹11");
+    await expect(summary.locator("p").filter({ hasText: "5 × Kids ticket" }).locator("b")).toHaveText("Free");
+    await expect(summary.locator("p").filter({ hasText: "Platform Fee (2.5%)" }).locator("b")).toHaveText("₹0.28");
+    await expect(summary.locator(".summary-total strong")).toHaveText("₹11.28");
+    await expect(page.getByRole("button", { name: "Continue to payment · ₹11.28", exact: true })).toBeVisible();
     expect(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.QA_PRICING_SCREENSHOTS === "1")
       await summary.screenshot({ path: `test-results/checkout-platform-fee-${width}.png` });
@@ -117,7 +119,11 @@ try {
   await page.getByRole("button", { name: /Pay cash at the counter/ }).click();
   await page.getByRole("button", { name: /Pay online/ }).click();
   await page.getByRole("checkbox").check();
+  const orderResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/api/payments/razorpay/order"),
+  );
   await page.getByRole("button", { name: /Continue to payment/ }).click();
+  expect((await (await orderResponse).json()).amount).toBe(1128);
   await page.getByRole("button", { name: "Simulate unsuccessful payment" }).click();
   await page.getByRole("link", { name: "Edit", exact: true }).click();
   await page.waitForURL(origin + "/");
@@ -131,8 +137,8 @@ try {
   const paidId = new URL(page.url()).pathname.split("/").at(-1);
   const paid = await (await page.request.get(`${origin}/api/bookings/${paidId}`)).json();
   expect(paid.status).toBe("PAID");
-  expect(paid).toMatchObject({ ticketSubtotal: 300, platformFee: 8, amount: 308, people: 5 });
-  await expect(page.locator(".ticket-status")).toContainText("₹3.08");
+  expect(paid).toMatchObject({ ticketSubtotal: 1100, platformFee: 28, amount: 1128, people: 16 });
+  await expect(page.locator(".ticket-status")).toContainText("₹11.28");
   expect(paid.discoverySource).toBe("word_of_mouth");
 
   await page.goto(origin);
@@ -148,8 +154,8 @@ try {
   const cashId = new URL(page.url()).searchParams.get("id");
   const cash = await (await page.request.get(`${origin}/api/bookings/${cashId}`)).json();
   expect(cash.status).toBe("PENDING_CASH");
-  expect(cash).toMatchObject({ ticketSubtotal: 300, platformFee: 8, amount: 308, people: 5 });
-  await expect(page.locator(".ticket-status")).toContainText("₹3.08");
+  expect(cash).toMatchObject({ ticketSubtotal: 1100, platformFee: 28, amount: 1128, people: 16 });
+  await expect(page.locator(".ticket-status")).toContainText("₹11.28");
   expect(cash.discoverySource).toBe("previous_visitor");
   await page.goto(origin + "/login?next=%2Fadmin%2Fdashboard");
   await page
@@ -165,6 +171,7 @@ try {
   await expect(page.locator(".stat-card").first()).toBeVisible();
   await auditResponsive(page, "admin-overview");
   await page.goto(`${origin}/admin/bookings/${paidId}`);
+  await expect(page.getByText("Ticket Subtotal", { exact: true })).toBeVisible();
   await expect(page.getByText("How did you hear about us?", { exact: true })).toBeVisible();
   await expect(page.getByText("Word of Mouth", { exact: true })).toBeVisible();
   for (const section of ["bookings", "checkins"]) {

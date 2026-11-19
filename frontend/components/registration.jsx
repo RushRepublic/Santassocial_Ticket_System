@@ -96,10 +96,6 @@ export function BookingSidebar({ draft, pricing, children, showVenue = true }) {
             <b>Free</b>
           </p>
           <p>
-            <span>Ticket Subtotal</span>
-            <b>{money(pricing.ticketSubtotal)}</b>
-          </p>
-          <p>
             <span>Platform Fee ({PLATFORM_FEE_PERCENT}%)</span>
             <b>{money(pricing.platformFee)}</b>
           </p>
