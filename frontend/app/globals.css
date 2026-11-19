@@ -653,6 +653,24 @@ a.button,
   margin-bottom: 24px;
   padding-bottom: 24px;
 }
+.free-tickets {
+  max-width: 860px;
+  margin-inline: auto;
+}
+.free-tickets .form-section:last-of-type {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+.free-tickets .form-section > label {
+  margin-bottom: 0;
+}
+.free-tickets .form-section > input + label {
+  margin-top: 18px;
+}
+.free-ticket-action {
+  display: flex;
+  justify-content: center;
+}
 .form-section:last-of-type {
   border-bottom: 0;
   margin-bottom: 0;

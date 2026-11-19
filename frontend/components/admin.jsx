@@ -23,6 +23,7 @@ import { api, post, money, dateTime, eventDate } from "@/lib/api";
 import { discoverySources } from "@/lib/discovery-source";
 import { staffDestination } from "@/lib/staff";
 import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
+import { FreeTickets } from "./free-tickets";
 import { Wordmark, Notice, Loading, Status, DemoBanner } from "./common";
 export function StaffLogin() {
   const router = useRouter();
@@ -131,7 +132,8 @@ export function Admin() {
     router.replace("/login");
   }
   const restrictedOverview =
-    identity?.role === "staff" && !["bookings", "checkins"].includes(section);
+    identity?.role === "staff" &&
+    !["bookings", "checkins", "free-tickets"].includes(section);
   useEffect(() => {
     if (restrictedOverview) router.replace("/admin/bookings");
   }, [restrictedOverview, router]);
@@ -165,6 +167,17 @@ export function Admin() {
             <Link href="/scanner">
               <ScanLine size={19} />
               Open gate scanner
+            </Link>
+          )}
+          {identity.canIssueFreeTickets && (
+            <Link
+              href="/admin/free-tickets"
+              onClick={() => setOpen(false)}
+              className={section === "free-tickets" ? "active" : ""}
+              aria-current={section === "free-tickets" ? "page" : undefined}
+            >
+              <Ticket size={19} />
+              Free Tickets
             </Link>
           )}
         </nav>
@@ -215,6 +228,12 @@ export function Admin() {
             )
           ) : section === "checkins" ? (
             <OperationsTable />
+          ) : section === "free-tickets" ? (
+            identity.canIssueFreeTickets ? (
+              <FreeTickets />
+            ) : (
+              <Notice>Your account cannot access Free Tickets.</Notice>
+            )
           ) : (
             <Dashboard />
           )}
@@ -697,6 +716,12 @@ function BookingDetail({ id }) {
                 </dd>
                 <dt>Created</dt>
                 <dd>{dateTime(b.createdAt)}</dd>
+                {data.issuance && (
+                  <>
+                    <dt>Issued by</dt>
+                    <dd>{data.issuance.name || data.issuance.userId}</dd>
+                  </>
+                )}
                 <dt>How did you hear about us?</dt>
                 <dd>{discoverySources[b.discoverySource] ?? "Not recorded"}</dd>
                 <dt>Entry</dt>

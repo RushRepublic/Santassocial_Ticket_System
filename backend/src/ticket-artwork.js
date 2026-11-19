@@ -81,11 +81,13 @@ export async function renderTicketPng(booking) {
     errorCorrectionLevel: "M",
     color: { dark: colors.green, light: "#ffffff" },
   });
-  const status = pending
-    ? `CASH DUE · ${amount} · APPROVAL REQUIRED`
-    : (ticket ? ticket.status === "APPROVED" : booking.checkedInAt)
-      ? "CHECKED IN · NO RE-ENTRY"
-      : `CONFIRMED · ${amount} PAID`;
+  const status = booking.status === "FREE"
+    ? "Free Ticket"
+    : pending
+      ? `CASH DUE · ${amount} · APPROVAL REQUIRED`
+      : (ticket ? ticket.status === "APPROVED" : booking.checkedInAt)
+        ? "CHECKED IN · NO RE-ENTRY"
+        : `CONFIRMED · ${amount} PAID`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="860" height="1740" viewBox="0 0 860 1740">
     <rect x="1" y="1" width="858" height="1738" rx="22" fill="white" stroke="${colors.line}" stroke-width="2"/>
     <defs><clipPath id="card"><rect width="860" height="1740" rx="22"/></clipPath></defs>

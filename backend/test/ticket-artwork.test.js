@@ -9,6 +9,7 @@ for (const [method, status] of [
   ["RAZORPAY", "PAID"],
   ["CASH", "PENDING_CASH"],
   ["CASH", "PAID"],
+  ["FREE", "FREE"],
 ]) {
   test(`${method} ${status} exports a complete branded image with a decodable group QR`, async () => {
     const booking = {
@@ -20,7 +21,7 @@ for (const [method, status] of [
       adults: 3,
       kids: 2,
       people: 5,
-      amount: 60000,
+      amount: method === "FREE" ? 0 : 60000,
       method,
       status,
       demo: true,

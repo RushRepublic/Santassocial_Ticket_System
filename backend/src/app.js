@@ -37,6 +37,8 @@ import {
   expire,
   availability,
   createBooking,
+  createComplimentaryBooking,
+  complimentaryIssueAction,
   assertBookableDate,
   replacePaymentMethod,
   getBooking,
@@ -67,6 +69,10 @@ const bookingSchema = z.object({
     { error: "Please select how you heard about Santa Social." },
   ),
 });
+const freeTicketIssuerEmail = "mathu.y@thinkcodesoft.com";
+const freeTicketSchema = bookingSchema
+  .pick({ name: true, adults: true, kids: true })
+  .extend({ mobile: mobileSchema, eventDate: z.iso.date() });
 const requestKey = (req) =>
   z.string().min(16).max(100).parse(req.get("Idempotency-Key"));
 const param = (req, name = "id") => String(req.params[name]);
@@ -238,12 +244,18 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
             return undefined;
           const user = (
             await db.all(
-              "SELECT id,role,name FROM users WHERE id = ? AND active = 1",
+              "SELECT id,role,name,email FROM users WHERE id = ? AND active = 1",
               [value.userId],
             )
           )[0];
           return user
-            ? { ...value, role: user.role, name: user.name }
+            ? {
+                ...value,
+                role: user.role,
+                name: user.name,
+                canIssueFreeTickets:
+                  user.role === "ADMIN" && user.email === freeTicketIssuerEmail,
+              }
             : undefined;
         }
         return value.mobile ? value : undefined;
@@ -711,6 +723,29 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     );
   });
   const staff = auth(["ADMIN", "CASHIER", "staff"]);
+  const requireFreeTicketIssuer = [
+    auth(["ADMIN"]),
+    (req, _res, next) =>
+      next(
+        req.staffIdentity?.canIssueFreeTickets
+          ? undefined
+          : new AppError(403, "Your account cannot issue free tickets."),
+      ),
+  ];
+  app.get("/api/admin/free-tickets", requireFreeTicketIssuer, async (_req, res) => {
+    const { days, maxGroup, allowKidsOnly } = await availability(db);
+    res.json({ days, maxGroup, allowKidsOnly });
+  });
+  app.post("/api/admin/free-tickets", requireFreeTicketIssuer, async (req, res) => {
+    const booking = await createComplimentaryBooking(
+      db,
+      freeTicketSchema.parse(req.body),
+      requestKey(req),
+      req.staffIdentity.userId,
+    );
+    if (!hasBookingQr(booking)) fail(409, "This ticket is no longer active.");
+    res.status(201).json({ id: booking.id, qrToken: qrToken(booking) });
+  });
   const overviewAccess = auth(["ADMIN", "CASHIER"]);
   app.post("/api/admin/bookings/:id/approve", staff, async (req, res) =>
     res.json(
@@ -773,8 +808,16 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   app.get("/api/admin/bookings/:id", staff, async (req, res) => {
     const b = await getBooking(db, param(req));
     if (hiddenSimulatedBooking(b)) fail(404, "Booking not found.");
+    const issuance =
+      b.method === "FREE"
+        ? (await db.all(
+            "SELECT a.userId, a.createdAt, u.name FROM audit_logs a LEFT JOIN users u ON u.id = a.userId WHERE a.entityId = ? AND a.action = ?",
+            [b.id, complimentaryIssueAction],
+          ))[0]
+        : null;
     res.json({
       booking: publicBooking(b),
+      issuance: issuance ?? null,
       tickets: await receiptTickets(db, b),
       payments: await db.all("SELECT * FROM payments WHERE bookingId = ?", [
         b.id,

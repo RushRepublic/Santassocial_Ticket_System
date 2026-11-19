@@ -64,13 +64,13 @@ export async function notification(tx, b, type) {
       [randomUUID(), b.id, type, "QUEUED", now()],
     );
 }
-export async function activate(tx, b, status = "PAID") {
+export async function activate(tx, b, status = "PAID", { notify = true } = {}) {
   await tx.run(
     "UPDATE bookings SET status = ?, qrHash = ?, updatedAt = ? WHERE id = ?",
     [status, hash(qrToken(b)), now(), b.id],
   );
   await issueIndividualTickets(tx, b);
-  await notification(tx, b, "TICKET");
+  if (notify) await notification(tx, b, "TICKET");
 }
 export function publicBooking(b) {
   const { ticketNonce, qrHash, gatewayOrderId, gatewayPaymentId, ...safe } = b;
@@ -120,9 +120,17 @@ export async function getBooking(db, id) {
         : "NOT_ENTERED";
   return b;
 }
-export async function createBooking(db, input, mobile, key, savedAmount) {
-  assertBookableDate(input.eventDate);
-  const fingerprint = hash(JSON.stringify(input));
+export const complimentaryIssueAction = "COMPLIMENTARY_TICKET_ISSUED";
+
+export function createComplimentaryBooking(db, { mobile, ...input }, key, issuerId) {
+  return createBooking(db, input, mobile, key, 0, issuerId);
+}
+
+export async function createBooking(db, input, mobile, key, savedAmount, issuerId) {
+  if (!issuerId) assertBookableDate(input.eventDate);
+  const fingerprint = hash(
+    JSON.stringify(issuerId ? [complimentaryIssueAction, issuerId, input] : input),
+  );
   return db.transaction(async (tx) => {
     const e = await lockEvent(tx);
     await expire(tx);
@@ -134,6 +142,7 @@ export async function createBooking(db, input, mobile, key, savedAmount) {
         fail(409, "This request key is already in use.");
       return getBooking(tx, previous.bookingId);
     }
+    if (issuerId) assertBookableDate(input.eventDate);
     const people = input.adults + input.kids;
     if (people < 1 || people > e.maxGroup)
       fail(400, `Choose between 1 and ${e.maxGroup} guests.`);
@@ -183,8 +192,10 @@ export async function createBooking(db, input, mobile, key, savedAmount) {
       [key, mobile, id, fingerprint],
     );
     // Only existing individual bookings have a ticket batch.
-    if (amount === 0) await activate(tx, b, "FREE");
-    else if (input.method === "CASH")
+    if (amount === 0) {
+      await activate(tx, b, "FREE", { notify: !issuerId });
+      if (issuerId) await audit(tx, issuerId, complimentaryIssueAction, id);
+    } else if (input.method === "CASH")
       await notification(tx, b, "CASH_PENDING");
     return getBooking(tx, id);
   });

@@ -150,7 +150,7 @@ export function Loading() {
 export function Status({ value }) {
   return (
     <span className={`status status-${value.toLowerCase()}`}>
-      {value.replaceAll("_", " ")}
+      {value === "FREE" ? "Free Ticket" : value.replaceAll("_", " ")}
     </span>
   );
 }

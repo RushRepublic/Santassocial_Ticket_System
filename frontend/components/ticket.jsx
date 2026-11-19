@@ -273,15 +273,17 @@ export function GroupTicket({ id }) {
                   className={`ticket-status ${booking.status === "PENDING_CASH" ? "ticket-cash-due" : ""}`}
                 >
                   <CheckCircle size={15} />
-                  {booking.status === "PENDING_CASH"
-                    ? `CASH DUE · ${money(booking.amount)} · APPROVAL REQUIRED`
-                    : (
+                  {booking.status === "FREE"
+                    ? "Free Ticket"
+                    : booking.status === "PENDING_CASH"
+                      ? `CASH DUE · ${money(booking.amount)} · APPROVAL REQUIRED`
+                      : (
                           ticket.category
                             ? ticket.status === "APPROVED"
                             : booking.checkedInAt
                         )
-                      ? "CHECKED IN · NO RE-ENTRY"
-                      : `CONFIRMED · ${money(booking.amount)} PAID`}
+                        ? "CHECKED IN · NO RE-ENTRY"
+                        : `CONFIRMED · ${money(booking.amount)} PAID`}
                 </div>
               </div>
               <div className="ticket-perforation" />

@@ -16,6 +16,7 @@ import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
 import { Wordmark, Loading, DemoBanner } from "./common";
 const groupCashSuccess =
   "Cash payment confirmed and the whole group is checked in. No re-entry.";
+const freeGroupSuccess = "Free ticket approved. The whole group is checked in.";
 
 export function Scanner({ history = false }) {
   const router = useRouter();
@@ -36,6 +37,9 @@ export function Scanner({ history = false }) {
   const [rows, setRows] = useState([]);
   const [cashConfirmed, setCashConfirmed] = useState(false);
   const groupCashDue = result?.paymentStatus === "DUE" && !result.ticket;
+  const freeGroup = result?.status === "FREE" && !result.ticket;
+  const resumeAfterApproval =
+    entered === groupCashSuccess || entered === freeGroupSuccess;
   const video = useRef(null);
   const scannerRef = useRef(null);
   const lock = useRef(false);
@@ -128,13 +132,13 @@ export function Scanner({ history = false }) {
     };
   }, [camera, cameraRun, ready, history]);
   useEffect(() => {
-    if (entered !== groupCashSuccess) return;
+    if (!resumeAfterApproval) return;
     const timer = setTimeout(() => setEntered(false), 4000);
     return () => clearTimeout(timer);
-  }, [entered]);
+  }, [resumeAfterApproval]);
   useEffect(() => {
     const preview = video.current;
-    if (entered !== groupCashSuccess || !camera || !preview) return;
+    if (!resumeAfterApproval || !camera || !preview) return;
     // The preview was hidden during review. Reuse its stream when possible.
     if (!preview.srcObject?.active) {
       setCameraRun((run) => run + 1);
@@ -150,7 +154,7 @@ export function Scanner({ history = false }) {
     return () => {
       cancelled = true;
     };
-  }, [entered, camera]);
+  }, [resumeAfterApproval, camera]);
   async function confirm() {
     if (!result || busy || lock.current) return;
     const due = result.paymentStatus === "DUE";
@@ -174,7 +178,9 @@ export function Scanner({ history = false }) {
           ? "This ticket is approved. Remaining tickets can enter separately."
           : groupCashDue
             ? groupCashSuccess
-            : "The whole group is checked in. No re-entry.",
+            : freeGroup
+              ? freeGroupSuccess
+              : "The whole group is checked in. No re-entry.",
       );
       setResult(null);
       setToken("");
@@ -309,17 +315,21 @@ export function Scanner({ history = false }) {
                   <Check />
                   {result.paymentStatus === "DUE"
                     ? "CASH PAYMENT PENDING"
-                    : "PAYMENT VERIFIED"}
+                    : freeGroup
+                      ? "FREE TICKET"
+                      : "PAYMENT VERIFIED"}
                 </div>
-                <h3 className="scan-payment-heading">
-                  {result.paymentStatus === "DUE"
-                    ? result.ticket
-                      ? `Collect ${money(result.amount)} and approve the ticket.`
-                      : `Collect ${money(result.amount)} before approving group entry.`
-                    : result.ticket
-                      ? `Payment of ${money(result.amount)} received. Approve the ticket.`
-                      : `Payment of ${money(result.amount)} received.`}
-                </h3>
+                {!freeGroup && (
+                  <h3 className="scan-payment-heading">
+                    {result.paymentStatus === "DUE"
+                      ? result.ticket
+                        ? `Collect ${money(result.amount)} and approve the ticket.`
+                        : `Collect ${money(result.amount)} before approving group entry.`
+                      : result.ticket
+                        ? `Payment of ${money(result.amount)} received. Approve the ticket.`
+                        : `Payment of ${money(result.amount)} received.`}
+                  </h3>
+                )}
                 <h2>{result.name}</h2>
                 <p>
                   {result.ticket ? result.reference : `Booking ID: ${result.reference}`}
@@ -329,14 +339,16 @@ export function Scanner({ history = false }) {
                   {result.mobile}
                   {result.email ? ` · ${result.email}` : ""}
                 </p>
-                <p className="scanner-payment-highlight">
-                  {result.method === "CASH"
-                    ? "Cash"
-                    : result.method === "FREE"
-                      ? "Free admission"
-                      : "Online payment"}{" "}
-                  · {money(result.amount)}
-                </p>
+                {!freeGroup && (
+                  <p className="scanner-payment-highlight">
+                    {result.method === "CASH"
+                      ? "Cash"
+                      : result.method === "FREE"
+                        ? "Free admission"
+                        : "Online payment"}{" "}
+                    · {money(result.amount)}
+                  </p>
+                )}
                 {result.ticket ? (
                   <>
                     <h3>Valid Ticket</h3>
@@ -366,7 +378,13 @@ export function Scanner({ history = false }) {
                   </>
                 ) : (
                   <>
-                    <h3>{groupCashDue ? "Group Ticket" : "Valid Group Ticket"}</h3>
+                    <h3>
+                      {freeGroup
+                        ? "Valid Free Ticket"
+                        : groupCashDue
+                          ? "Group Ticket"
+                          : "Valid Group Ticket"}
+                    </h3>
                     <p>Entry Status: Not Approved</p>
                     <ScannerCounts counts={result} />
                     {result.paymentStatus !== "DUE" && (
@@ -411,7 +429,7 @@ export function Scanner({ history = false }) {
                   }
                   onClick={confirm}
                 >
-                  {groupCashDue
+                  {groupCashDue || freeGroup
                     ? busy ? "Approving Group Ticket..." : "Approve Group Ticket"
                     : busy ? "Approving…" : result.ticket ? "Approve ticket" : "Approve Group Entry"}
                   <Check size={20} />
