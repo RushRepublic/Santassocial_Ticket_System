@@ -20,6 +20,7 @@ import {
   Menu,
 } from "lucide-react";
 import { api, post, money, dateTime, eventDate } from "@/lib/api";
+import { discoverySources } from "@/lib/discovery-source";
 import { staffDestination } from "@/lib/staff";
 import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
 import { Wordmark, Notice, Loading, Status, DemoBanner } from "./common";
@@ -692,6 +693,8 @@ function BookingDetail({ id }) {
                 </dd>
                 <dt>Created</dt>
                 <dd>{dateTime(b.createdAt)}</dd>
+                <dt>How did you hear about us?</dt>
+                <dd>{discoverySources[b.discoverySource] ?? "Not recorded"}</dd>
                 <dt>Entry</dt>
                 <dd>
                   {b.entryMode === "INDIVIDUAL"

@@ -70,6 +70,7 @@ try {
   });
   const b = await post("/bookings", {
     name: "Individual Browser QA",
+    discoverySource: "google",
     eventDate: "2026-11-19",
     adults: 3,
     kids: 2,
@@ -246,6 +247,7 @@ try {
     .click();
   const future = await post("/bookings", {
     name: "Future QR QA",
+    discoverySource: "google",
     eventDate: "2026-11-20",
     adults: 1,
     kids: 0,

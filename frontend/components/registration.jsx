@@ -21,11 +21,13 @@ import { z } from "zod";
 import { GroupTicket } from "./ticket";
 import { TicketPolicies } from "./ticket-policies";
 import { api, post, money, eventDate } from "@/lib/api";
+import { discoverySources } from "@/lib/discovery-source";
 import { VenueLocation, Notice, Loading, Status } from "./common";
 import { MobileVerification } from "./mobile-verification";
 const initial = {
   name: "",
   mobile: "",
+  discoverySource: "",
   eventDate: "2026-11-19",
   adults: 1,
   kids: 0,
@@ -41,6 +43,8 @@ const draftSchema = z.object({
     .string()
     .regex(/^[6-9]\d{9}$/, "Please enter a valid Indian mobile number."),
 });
+const discoverySourceSchema = z.enum(Object.keys(discoverySources));
+const discoverySourceMessage = "Please select how you heard about Santa Social.";
 function readDraft() {
   try {
     const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
@@ -111,6 +115,8 @@ export function Register() {
   const [draft, setDraft] = useState(initial);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
+  const [discoveryError, setDiscoveryError] = useState(false);
+  const firstDiscoveryRadio = useRef(null);
   const [verifiedMobile, setVerifiedMobile] = useState("");
   const [verificationRevision, setVerificationRevision] = useState(0);
   const [openingCheckout, setOpeningCheckout] = useState(false);
@@ -147,6 +153,11 @@ export function Register() {
     const parsed = draftSchema.safeParse(draft);
     if (!parsed.success) {
       setError(parsed.error.issues[0].message);
+      return;
+    }
+    if (!discoverySourceSchema.safeParse(draft.discoverySource).success) {
+      setDiscoveryError(true);
+      firstDiscoveryRadio.current?.focus();
       return;
     }
     if (
@@ -257,6 +268,56 @@ export function Register() {
           <div className="form-section">
             <div className="section-label">
               <span>03</span>
+              <div>
+                <h2 id="discovery-source-heading">How do you know about us?</h2>
+              </div>
+            </div>
+            <div
+              className="discovery-options"
+              role="radiogroup"
+              aria-labelledby="discovery-source-heading"
+              aria-required="true"
+              aria-invalid={discoveryError || undefined}
+              aria-describedby={
+                discoveryError ? "discovery-source-error" : undefined
+              }
+            >
+              {Object.entries(discoverySources).map(([value, label], index) => (
+                <label key={value}>
+                  <input
+                    ref={index === 0 ? firstDiscoveryRadio : undefined}
+                    type="radio"
+                    name="discoverySource"
+                    value={value}
+                    checked={draft.discoverySource === value}
+                    onChange={() => {
+                      const updated = {
+                        ...draft,
+                        discoverySource: value,
+                        bookingId: undefined,
+                      };
+                      setDraft(updated);
+                      saveDraft(updated);
+                      setDiscoveryError(false);
+                    }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {discoveryError && (
+              <p
+                className="field-hint error-text"
+                id="discovery-source-error"
+                role="alert"
+              >
+                {discoverySourceMessage}
+              </p>
+            )}
+          </div>
+          <div className="form-section">
+            <div className="section-label">
+              <span>04</span>
               <div>
                 <h2>Tickets</h2>
               </div>
@@ -540,6 +601,7 @@ export function Checkout() {
             name: b.name,
             email: b.email,
             mobile: b.mobile,
+            discoverySource: b.discoverySource,
             eventDate: b.eventDate,
             adults: b.adults,
             kids: b.kids,
@@ -555,7 +617,12 @@ export function Checkout() {
         return;
       }
       const d = readDraft();
-      if (!d || !["2026-11-19", "2026-11-20"].includes(d.eventDate)) {
+      if (
+        !d ||
+        !["2026-11-19", "2026-11-20"].includes(d.eventDate) ||
+        (!d.bookingId &&
+          !discoverySourceSchema.safeParse(d.discoverySource).success)
+      ) {
         router.replace("/");
         return;
       }

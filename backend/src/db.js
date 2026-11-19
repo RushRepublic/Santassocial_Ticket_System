@@ -102,6 +102,28 @@ export async function migrate(db) {
         ? `${sql} ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         : sql,
     );
+  const bookingColumns = await db.all(
+    databaseDriver === "mysql"
+      ? "SHOW COLUMNS FROM bookings LIKE 'discoverySource'"
+      : "PRAGMA table_info(bookings)",
+  );
+  if (
+    !bookingColumns.some(
+      (column) => (column.Field ?? column.name) === "discoverySource",
+    )
+  ) {
+    try {
+      await db.run(
+        "ALTER TABLE bookings ADD COLUMN discoverySource VARCHAR(20) NULL",
+      );
+    } catch (error) {
+      if (
+        error.code !== "ER_DUP_FIELDNAME" &&
+        !/duplicate column name: discoverySource/i.test(error.message)
+      )
+        throw error;
+    }
+  }
   for (const [table, index, cols] of [
     ["bookings", "idx_bookings_mobile", "mobile,createdAt"],
     [

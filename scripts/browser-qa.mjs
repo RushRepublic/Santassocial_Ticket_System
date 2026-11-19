@@ -444,10 +444,9 @@ try {
   const code = await page.locator(".demo-code b").innerText();
   await auditResponsive(page, "inline-otp");
   await page.getByLabel("Enter your 6-digit code").fill("000000");
-  await page.getByRole("button", { name: "Verify OTP", exact: true }).click();
   await page
     .getByRole("alert")
-    .filter({ hasText: /Incorrect, expired, or exhausted/ })
+    .filter({ hasText: /Incorrect OTP/ })
     .waitFor();
   if (
     !(await page
@@ -456,8 +455,8 @@ try {
   )
     throw Error("An incorrect OTP enabled checkout.");
   await page.getByLabel("Enter your 6-digit code").fill(code);
-  await page.getByRole("button", { name: "Verify OTP", exact: true }).click();
   await page.locator(".mobile-verified").waitFor();
+  await page.getByText("Word of Mouth", { exact: true }).click();
   if (new URL(page.url()).pathname !== "/")
     throw Error("Mobile verification left the booking page.");
   const originalMobile = await page
@@ -668,6 +667,7 @@ try {
     headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
     data: {
       name: "Unpaid QR QA Guest",
+      discoverySource: "google",
       email: "unpaid-qr@example.com",
       eventDate: "2026-11-19",
       adults: 1,
@@ -805,6 +805,7 @@ try {
     headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
     data: {
       name: "Date QA Guest",
+      discoverySource: "google",
       email: "date-qa@example.com",
       eventDate: "2026-11-20",
       adults: 1,
@@ -929,6 +930,7 @@ try {
     headers: { Origin: origin, "Idempotency-Key": crypto.randomUUID() },
     data: {
       name: "Cash QA Guest",
+      discoverySource: "google",
       email: "cash-qa@example.com",
       eventDate: "2026-11-19",
       adults: 2,

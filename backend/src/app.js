@@ -62,6 +62,10 @@ const bookingSchema = z.object({
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),
   method: z.enum(["RAZORPAY", "CASH"]),
+  discoverySource: z.enum(
+    ["instagram", "word_of_mouth", "google", "previous_visitor"],
+    { error: "Please select how you heard about Santa Social." },
+  ),
 });
 const requestKey = (req) =>
   z.string().min(16).max(100).parse(req.get("Idempotency-Key"));

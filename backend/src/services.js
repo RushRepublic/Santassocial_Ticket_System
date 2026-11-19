@@ -153,6 +153,7 @@ export async function createBooking(db, input, mobile, key) {
       name: input.name,
       mobile,
       email: input.email || "",
+      discoverySource: input.discoverySource ?? null,
       adults: input.adults,
       kids: input.kids,
       people,
@@ -211,6 +212,9 @@ export async function replacePaymentMethod(db, id, mobile, method, key) {
       adults: original.adults,
       kids: original.kids,
       method,
+      ...(original.discoverySource == null
+        ? {}
+        : { discoverySource: original.discoverySource }),
     };
     // Reuse booking-request idempotency inside this same transaction.
     const nested = { transaction: (work) => work(tx) };

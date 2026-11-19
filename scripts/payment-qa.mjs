@@ -37,6 +37,7 @@ try {
   });
   const booking = await api("/bookings", {
     name: "Payment QA Guest",
+    discoverySource: "google",
     method: "RAZORPAY",
     eventDate: "2026-11-19",
     adults: 1,
@@ -141,6 +142,7 @@ try {
   await page.setViewportSize({ width: 375, height: 812 });
   const resumed = await api("/bookings", {
     name: "Mobile Return QA",
+    discoverySource: "google",
     method: "RAZORPAY",
     eventDate: "2026-11-19",
     adults: 1,
@@ -192,6 +194,7 @@ try {
   // Exercise the ordinary mobile SDK success handler, not just polling.
   const handled = await api("/bookings", {
     name: "Mobile SDK Handler QA",
+    discoverySource: "google",
     method: "RAZORPAY",
     eventDate: "2026-11-19",
     adults: 1,
@@ -219,6 +222,7 @@ try {
   // Returning from a cash ticket must restore interactive choices, including on phones.
   const cash = await api("/bookings", {
     name: "Switch Payment QA",
+    discoverySource: "google",
     method: "CASH",
     eventDate: "2026-11-19",
     adults: 1,

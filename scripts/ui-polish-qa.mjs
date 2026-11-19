@@ -26,6 +26,36 @@ try {
   await page.goto(origin);
   await page.getByRole("button", { name: "Checkout", exact: true }).waitFor();
   await auditResponsive(page, "registration");
+  await expect(page.locator(".form-section .section-label")).toHaveText([
+    "01Pick your day",
+    "02Registration Details",
+    "03How do you know about us?",
+    "04Tickets",
+  ]);
+  const discovery = page.getByRole("radiogroup", {
+    name: "How do you know about us?",
+  });
+  const radios = discovery.getByRole("radio");
+  await expect(radios).toHaveCount(4);
+  for (const width of [360, 390, 430, 1024, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await discovery.evaluate((group) => ({
+      columns: getComputedStyle(group).gridTemplateColumns.split(" ").length,
+      overflow: document.documentElement.scrollWidth > innerWidth,
+      options: [...group.querySelectorAll("label")].map((label) => ({
+        height: label.getBoundingClientRect().height,
+        fits: label.scrollWidth <= label.clientWidth,
+      })),
+    }));
+    expect(layout.columns).toBe(width < 600 ? 1 : 2);
+    expect(layout.overflow).toBe(false);
+    expect(layout.options.every(({ height, fits }) => height >= 44 && fits)).toBe(true);
+    if (process.env.QA_DISCOVERY_SCREENSHOTS === "1")
+      await discovery.locator("..").screenshot({
+        path: `test-results/discovery-${width}.png`,
+      });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByPlaceholder("Your full name").fill("UI QA Guest");
   await page
     .getByPlaceholder("10-digit mobile number")
@@ -35,8 +65,28 @@ try {
   const code = await page.locator(".demo-code b").innerText();
   await auditResponsive(page, "inline-otp");
   await page.getByLabel("Enter your 6-digit code").fill(code);
-  await page.getByRole("button", { name: "Verify OTP", exact: true }).click();
   await page.locator(".mobile-verified").waitFor();
+  const validation = page.getByText("Please select how you heard about Santa Social.", {
+    exact: true,
+  });
+  await page.getByRole("button", { name: "Checkout", exact: true }).click();
+  await expect(validation).toBeVisible();
+  await expect(radios.first()).toBeFocused();
+  await discovery.getByText("Instagram", { exact: true }).click();
+  await expect(radios.first()).toBeChecked();
+  await discovery.getByText("Google", { exact: true }).click();
+  await expect(discovery.locator("input:checked")).toHaveCount(1);
+  const google = discovery.getByRole("radio", { name: "Google", exact: true });
+  await expect(google).toBeChecked();
+  await google.press("ArrowLeft");
+  const wordOfMouth = discovery.getByRole("radio", { name: "Word of Mouth" });
+  await expect(wordOfMouth).toBeChecked();
+  await expect(validation).toHaveCount(0);
+  await page.getByRole("button", { name: "Checkout", exact: true }).click();
+  await page.waitForURL(origin + "/checkout");
+  await page.getByRole("link", { name: "Edit", exact: true }).click();
+  await page.waitForURL(origin + "/");
+  await expect(wordOfMouth).toBeChecked();
   await page.getByRole("button", { name: "Checkout", exact: true }).click();
   await page.waitForURL(origin + "/checkout");
   await page
@@ -51,6 +101,37 @@ try {
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: /Pay cash at the counter/ }).click();
   await page.getByRole("button", { name: /Pay online/ }).click();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Continue to payment/ }).click();
+  await page.getByRole("button", { name: "Simulate unsuccessful payment" }).click();
+  await page.getByRole("link", { name: "Edit", exact: true }).click();
+  await page.waitForURL(origin + "/");
+  await expect(wordOfMouth).toBeChecked();
+  await page.getByRole("button", { name: "Checkout", exact: true }).click();
+  await page.waitForURL(origin + "/checkout");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Continue to payment/ }).click();
+  await page.getByRole("button", { name: "Simulate successful payment" }).click();
+  await page.waitForURL("**/ticket/*");
+  const paidId = new URL(page.url()).pathname.split("/").at(-1);
+  const paid = await (await page.request.get(`${origin}/api/bookings/${paidId}`)).json();
+  expect(paid.status).toBe("PAID");
+  expect(paid.discoverySource).toBe("word_of_mouth");
+
+  await page.goto(origin);
+  await page.getByPlaceholder("Your full name").fill("Cash QA Guest");
+  await page.getByPlaceholder("10-digit mobile number").fill(paid.mobile);
+  await discovery.getByText("Already visited Santa's Social", { exact: true }).click();
+  await page.getByRole("button", { name: "Checkout", exact: true }).click();
+  await page.waitForURL(origin + "/checkout");
+  await page.getByRole("button", { name: /Pay cash at the counter/ }).click();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: /Reserve & pay at counter/ }).click();
+  await page.waitForURL("**/booking-pending?id=*");
+  const cashId = new URL(page.url()).searchParams.get("id");
+  const cash = await (await page.request.get(`${origin}/api/bookings/${cashId}`)).json();
+  expect(cash.status).toBe("PENDING_CASH");
+  expect(cash.discoverySource).toBe("previous_visitor");
   await page.goto(origin + "/login?next=%2Fadmin%2Fdashboard");
   await page
     .getByRole("heading", { name: "Admin Login", exact: true })
@@ -64,6 +145,9 @@ try {
   await page.waitForURL(origin + "/admin/dashboard");
   await expect(page.locator(".stat-card").first()).toBeVisible();
   await auditResponsive(page, "admin-overview");
+  await page.goto(`${origin}/admin/bookings/${paidId}`);
+  await expect(page.getByText("How did you hear about us?", { exact: true })).toBeVisible();
+  await expect(page.getByText("Word of Mouth", { exact: true })).toBeVisible();
   for (const section of ["bookings", "checkins"]) {
     // Use client navigation so the existing in-memory staff login grant remains intact.
     await page.setViewportSize({ width: 1440, height: 900 });

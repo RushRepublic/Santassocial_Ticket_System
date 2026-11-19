@@ -46,6 +46,7 @@ const booking = (extra = {}) => ({
   adults: 2,
   kids: 1,
   method: "CASH",
+  discoverySource: "word_of_mouth",
   ...extra,
 });
 
@@ -65,12 +66,23 @@ test("customer bookings require verified mobile but no email, and legacy email r
       const result = await submit(input).expect(201);
       assert.equal(result.body.email, "");
       assert.equal((await getBooking(db, result.body.id)).email, "");
+      assert.equal(
+        (await getBooking(db, result.body.id)).discoverySource,
+        input.discoverySource,
+      );
       assert.equal(result.body.status, method === "CASH" ? "PENDING_CASH" : "PENDING_PAYMENT");
       assert.equal(Boolean(result.body.qrToken), method === "CASH");
     }
     const legacy = await submit(booking()).expect(201);
     assert.equal(legacy.body.email, "guest@example.com");
     await submit(booking({ email: "invalid-email" })).expect(400);
+    for (const discoverySource of [undefined, null, "arbitrary", ["google"]]) {
+      const rejected = await submit(booking({ discoverySource })).expect(400);
+      assert.match(
+        rejected.body.error,
+        /Please select how you heard about Santa Social/,
+      );
+    }
   }));
 
 test("cash QR is issued immediately but only admin collection can atomically approve and admit", () =>
@@ -1147,6 +1159,7 @@ test("customer payment changes replace only unpaid reservations, revoke old QR a
       "name",
       "email",
       "eventDate",
+      "discoverySource",
       "adults",
       "kids",
       "amount",
