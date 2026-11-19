@@ -1190,11 +1190,14 @@ input::placeholder {
 }
 .checkbox-label {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   gap: 10px;
   line-height: 1.55;
   margin-top: 22px;
   font-size: 16px;
+}
+.checkout-entry-agreement > span {
+  min-width: 0;
 }
 .checkout-entry-agreement label {
   display: inline;
@@ -1202,7 +1205,7 @@ input::placeholder {
   font: inherit;
 }
 .terms-link {
-  display: inline;
+  display: inline-block;
   padding: 0;
   color: #1565c0;
   text-decoration: underline;
@@ -1275,7 +1278,7 @@ input::placeholder {
   width: 17px;
   height: 17px;
   flex-shrink: 0;
-  margin-top: 3px;
+  margin: 4px 0 0;
 }
 .back-link {
   display: flex;
@@ -3230,12 +3233,6 @@ textarea:focus-visible {
 .payment-option > span {
   min-width: 0;
 }
-.terms-link {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-}
-.checkbox-label,
 .cash-collection-confirm {
   min-height: 44px;
   align-items: center;
