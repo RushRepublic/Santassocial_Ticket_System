@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   MapPin,
@@ -30,8 +30,26 @@ export function Header({ overlay = false }) {
   const [open, setOpen] = useState(false);
   const path = usePathname();
   const isBookingPage = path === "/" || path === "/register";
+  const headerRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    const onClick = (e) => {
+      if (headerRef.current && !headerRef.current.contains(e.target))
+        setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onClick);
+    };
+  }, [open]);
   return (
-    <header className={`site-header ${overlay ? "overlay" : ""}`}>
+    <header
+      ref={headerRef}
+      className={`site-header ${overlay ? "overlay" : ""}`}
+    >
       <Link href="/" aria-label="Santa Social booking form">
         <Wordmark />
       </Link>

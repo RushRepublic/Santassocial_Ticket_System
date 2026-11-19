@@ -232,10 +232,26 @@ a.button,
   height: 115px;
 }
 .site-header nav {
-  display: flex;
-  align-items: center;
-  gap: 30px;
+  display: none;
+  position: absolute;
+  top: calc(100% - 8px);
+  right: 4.5%;
+  min-width: 240px;
+  background: var(--red);
+  padding: 20px;
+  border: 1px solid #ffffff30;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px #0003;
+  align-items: stretch;
   font-size: 15px;
+}
+.site-header nav.open {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.site-header .menu-button {
+  display: inline-flex;
 }
 .site-header nav > a:not(.button):hover {
   text-decoration: underline;
@@ -2543,22 +2559,10 @@ td > a:hover {
     display: block;
   }
   .site-header nav {
-    display: none;
-    position: absolute;
     top: 85px;
     left: 15px;
     right: 15px;
-    background: var(--red);
-    padding: 20px;
-    border: 1px solid #ffffff30;
-    border-radius: 8px;
-    box-shadow: 0 10px 30px #0003;
-    align-items: stretch;
-  }
-  .site-header nav.open {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    min-width: 0;
   }
   .home-red {
     padding: 10px 10px 0;
