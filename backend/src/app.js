@@ -58,7 +58,7 @@ const bookingSchema = z.object({
     .union([z.email().max(190), z.literal("")])
     .optional()
     .default(""),
-  eventDate: z.enum(["2026-11-17", "2026-11-18"]),
+  eventDate: z.enum(["2026-11-19", "2026-11-20"]),
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),
   method: z.enum(["RAZORPAY", "CASH"]),

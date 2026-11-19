@@ -342,9 +342,9 @@ try {
     dates.some((d) => !d.includes("Nov 2026"))
   )
     throw Error(
-      "Registration must offer only November 17 and 18 with correct weekdays.",
+      "Registration must offer only November 19 and 20 with correct weekdays.",
     );
-  if (!(await page.title()).includes("November 17 & 18"))
+  if (!(await page.title()).includes("November 19 & 20"))
     throw Error("Event metadata date is outdated.");
 
   // Present the second day's server availability without changing the host clock.
@@ -361,7 +361,7 @@ try {
           ...available.event,
           days: available.event.days.map((day) => ({
             ...day,
-            bookable: day.date === "2026-11-18",
+            bookable: day.date === "2026-11-20",
           })),
         },
       }),
@@ -574,7 +574,7 @@ try {
   const booking = await page.request
     .get(`${origin}/api/bookings/${bookingId}`)
     .then((r) => r.json());
-  if (booking.eventDate !== "2026-11-17")
+  if (booking.eventDate !== "2026-11-19")
     throw Error("Ticket uses an outdated event date.");
   await page
     .locator(".ticket-event-date")
@@ -669,7 +669,7 @@ try {
     data: {
       name: "Unpaid QR QA Guest",
       email: "unpaid-qr@example.com",
-      eventDate: "2026-11-17",
+      eventDate: "2026-11-19",
       adults: 1,
       kids: 0,
       method: "RAZORPAY",
@@ -806,7 +806,7 @@ try {
     data: {
       name: "Date QA Guest",
       email: "date-qa@example.com",
-      eventDate: "2026-11-18",
+      eventDate: "2026-11-20",
       adults: 1,
       kids: 0,
       method: "CASH",
@@ -848,7 +848,7 @@ try {
   for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await scanCameraToken(futureBooking.qrToken);
-    await assertInvalidDate("Wednesday, 18 November 2026");
+    await assertInvalidDate("Friday, 20 November 2026");
     // Presentation check for the other server error; actual past-date API rules
     // are covered by the backend date-combination tests.
     await page.route("**/api/scanner/verify", (route) =>
@@ -857,18 +857,18 @@ try {
         contentType: "application/json",
         body: JSON.stringify({
           error:
-            "This ticket is registered for November 17, 2026, and cannot be used on November 18, 2026.",
+            "This ticket is registered for November 19, 2026, and cannot be used on November 20, 2026.",
           details: {
             code: "PAST_EVENT_DATE",
             title: "Invalid Ticket - Past Event Date",
-            eventDate: "2026-11-17",
-            scanningDate: "2026-11-18",
+            eventDate: "2026-11-19",
+            scanningDate: "2026-11-20",
           },
         }),
       }),
     );
     await scanCameraToken(booking.qrToken);
-    await assertInvalidDate("Tuesday, 17 November 2026");
+    await assertInvalidDate("Thursday, 19 November 2026");
     await page.unroute("**/api/scanner/verify");
   }
   const futureUnchanged = await page.request
@@ -930,7 +930,7 @@ try {
     data: {
       name: "Cash QA Guest",
       email: "cash-qa@example.com",
-      eventDate: "2026-11-17",
+      eventDate: "2026-11-19",
       adults: 2,
       kids: 1,
       method: "CASH",

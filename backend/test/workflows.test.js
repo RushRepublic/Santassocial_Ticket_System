@@ -42,7 +42,7 @@ async function fixture(work) {
 const booking = (extra = {}) => ({
   name: "Test Guest",
   email: "guest@example.com",
-  eventDate: "2026-11-17",
+  eventDate: "2026-11-19",
   adults: 2,
   kids: 1,
   method: "CASH",
@@ -181,7 +181,7 @@ test("expired, cancelled and wrong-day cash QR cannot collect money or admit; le
     for (const kind of ["expired", "cancelled", "wrong-day"]) {
       const b = await createBooking(
         db,
-        booking(kind === "wrong-day" ? { eventDate: "2026-11-18" } : {}),
+        booking(kind === "wrong-day" ? { eventDate: "2026-11-20" } : {}),
         "9876543210",
         randomUUID(),
       );
@@ -227,7 +227,7 @@ test("staff filters work without parameter-to-literal collation comparisons", ()
     );
     const second = await createBooking(
       db,
-      booking({ eventDate: "2026-11-18", name: "Sunday Guest" }),
+      booking({ eventDate: "2026-11-20", name: "Sunday Guest" }),
       "9876543211",
       randomUUID(),
     );
@@ -257,8 +257,8 @@ test("staff filters work without parameter-to-literal collation comparisons", ()
     const adminCookie = await cookie(adminId, "ADMIN");
     for (const [date, count] of [
       ["all", 2],
-      ["2026-11-17", 1],
-      ["2026-11-18", 1],
+      ["2026-11-19", 1],
+      ["2026-11-20", 1],
     ]) {
       const result = await request(app)
         .get(`/api/admin/dashboard?date=${date}`)
@@ -268,8 +268,8 @@ test("staff filters work without parameter-to-literal collation comparisons", ()
     }
     for (const [query, ids] of [
       ["", [record.id, second.id]],
-      ["?date=2026-11-17&status=PAID", [record.id]],
-      ["?date=2026-11-18&q=Sunday", [second.id]],
+      ["?date=2026-11-19&status=PAID", [record.id]],
+      ["?date=2026-11-20&q=Sunday", [second.id]],
       ["?status=PENDING_CASH", [second.id]],
     ]) {
       const result = await request(app)
@@ -279,7 +279,7 @@ test("staff filters work without parameter-to-literal collation comparisons", ()
       assert.deepEqual(result.body.rows.map((r) => r.id).sort(), ids.sort());
     }
     await request(app)
-      .get("/api/admin/bookings?format=csv&date=2026-11-17")
+      .get("/api/admin/bookings?format=csv&date=2026-11-19")
       .set("Cookie", adminCookie)
       .expect(200);
     const own = await request(app)
@@ -474,7 +474,7 @@ test("registration exceeds the old attendance estimate and ignores legacy daily 
           booking({
             adults: 19,
             kids: 1,
-            eventDate: i % 2 ? "2026-11-17" : "2026-11-18",
+            eventDate: i % 2 ? "2026-11-19" : "2026-11-20",
           }),
           `98${String(i).padStart(8, "0")}`,
           randomUUID(),
@@ -582,7 +582,7 @@ test("late captured payment stays valid and wrong event date is rejected", () =>
   fixture(async (db) => {
     const b = await createBooking(
       db,
-      booking({ method: "RAZORPAY", eventDate: "2026-11-18" }),
+      booking({ method: "RAZORPAY", eventDate: "2026-11-20" }),
       "9876543210",
       randomUUID(),
     );
@@ -830,10 +830,10 @@ test("OTP maximum attempts is enforced even if the final submitted code is corre
   }));
 
 test("IST calendar date uses the server instant across midnight, independent of device timezone", () => {
-  assert.equal(istCalendarDate(new Date("2026-11-16T18:29:59Z")), "2026-11-16");
-  assert.equal(istCalendarDate(new Date("2026-11-16T18:30:00Z")), "2026-11-17");
-  assert.equal(istCalendarDate(new Date("2026-11-17T18:29:59Z")), "2026-11-17");
-  assert.equal(istCalendarDate(new Date("2026-11-17T18:30:00Z")), "2026-11-18");
+  assert.equal(istCalendarDate(new Date("2026-11-18T18:29:59Z")), "2026-11-18");
+  assert.equal(istCalendarDate(new Date("2026-11-18T18:30:00Z")), "2026-11-19");
+  assert.equal(istCalendarDate(new Date("2026-11-19T18:29:59Z")), "2026-11-19");
+  assert.equal(istCalendarDate(new Date("2026-11-19T18:30:00Z")), "2026-11-20");
 });
 
 test("scanner and direct approval APIs enforce both event days without consuming invalid QR tickets", () =>
@@ -850,12 +850,12 @@ test("scanner and direct approval APIs enforce both event days without consuming
           .set("Cookie", cookie)
           .set("Idempotency-Key", key)
           .send(body);
-      for (const ticketDay of ["2026-11-17", "2026-11-18"]) {
+      for (const ticketDay of ["2026-11-19", "2026-11-20"]) {
         for (const scanDay of [
-          "2026-11-17",
-          "2026-11-18",
-          "2026-11-16",
           "2026-11-19",
+          "2026-11-20",
+          "2026-11-18",
+          "2026-11-21",
         ]) {
           for (const method of ["CASH", "RAZORPAY"]) {
             config.demoDate = ticketDay;
@@ -894,7 +894,7 @@ test("scanner and direct approval APIs enforce both event days without consuming
               assert.equal(scan.body.details.scanningDate, scanDay);
               assert.equal(
                 scan.body.details.code,
-                !["2026-11-17", "2026-11-18"].includes(scanDay)
+                !["2026-11-19", "2026-11-20"].includes(scanDay)
                   ? "NOT_EVENT_DAY"
                   : ticketDay < scanDay
                     ? "PAST_EVENT_DATE"
@@ -964,7 +964,7 @@ test("date rollover preserves historical bookings, payment evidence and original
     const customerCookie = `santa_session=${await signSession({ mobile: b.mobile })}`;
     for (const eventDate of [
       historicalDate,
-      "2026-11-16",
+      "2026-11-18",
       "2026-11-05",
       "2026-11-06",
     ]) {
@@ -992,7 +992,7 @@ test("date rollover preserves historical bookings, payment evidence and original
     const dates = await request(app).get("/api/events").expect(200);
     assert.deepEqual(
       dates.body.event.days.map((d) => d.date),
-      ["2026-11-17", "2026-11-18"],
+      ["2026-11-19", "2026-11-20"],
     );
   }));
 
@@ -1001,8 +1001,8 @@ test("historical bookings retain their payment state and QR and cannot be admitt
     const admin = await staff(db);
     const previousDate = config.demoDate;
     try {
-      for (const oldDate of ["2026-11-11", "2026-11-16", "2026-12-05", "2026-12-06"]) {
-        config.demoDate = "2026-11-17";
+      for (const oldDate of ["2026-11-11", "2026-11-18", "2026-12-05", "2026-12-06"]) {
+        config.demoDate = "2026-11-19";
         const b = await createBooking(
           db,
           booking(),
@@ -1020,7 +1020,7 @@ test("historical bookings retain their payment state and QR and cannot be admitt
         );
         await migrate(db);
         assert.deepEqual(await getBooking(db, b.id), before);
-        for (const newDate of ["2026-11-17", "2026-11-18"]) {
+        for (const newDate of ["2026-11-19", "2026-11-20"]) {
           config.demoDate = newDate;
           await assert.rejects(
             checkin(
@@ -1052,7 +1052,7 @@ test("past-date registration and new payment orders are blocked without changing
   fixture(async (db) => {
     const previousDate = config.demoDate;
     try {
-      config.demoDate = "2026-11-17";
+      config.demoDate = "2026-11-19";
       const app = createApp(db);
       const b = await createBooking(
         db,
@@ -1062,13 +1062,13 @@ test("past-date registration and new payment orders are blocked without changing
       );
       const before = await getBooking(db, b.id);
       const cookie = `santa_session=${await signSession({ mobile: b.mobile })}`;
-      config.demoDate = "2026-11-18";
+      config.demoDate = "2026-11-20";
       const choices = await request(app).get("/api/events").expect(200);
       assert.deepEqual(
         choices.body.event.days.map(({ date, bookable }) => [date, bookable]),
         [
-          ["2026-11-17", false],
-          ["2026-11-18", true],
+          ["2026-11-19", false],
+          ["2026-11-20", true],
         ],
       );
       await request(app)
@@ -1095,15 +1095,15 @@ test("past-date registration and new payment orders are blocked without changing
       );
       await createBooking(
         db,
-        booking({ eventDate: "2026-11-18" }),
+        booking({ eventDate: "2026-11-20" }),
         b.mobile,
         randomUUID(),
       );
-      config.demoDate = "2026-11-19";
+      config.demoDate = "2026-11-21";
       await assert.rejects(
         createBooking(
           db,
-          booking({ eventDate: "2026-11-18" }),
+          booking({ eventDate: "2026-11-20" }),
           b.mobile,
           randomUUID(),
         ),
@@ -1206,7 +1206,7 @@ test("failed payment-method replacement rolls back cancellation and rejects in-f
     ]);
     const previous = config.demoDate;
     try {
-      config.demoDate = "2026-11-19";
+      config.demoDate = "2026-11-21";
       await change().expect(400);
       assert.equal((await getBooking(db, b.id)).status, "PENDING_PAYMENT");
     } finally {
