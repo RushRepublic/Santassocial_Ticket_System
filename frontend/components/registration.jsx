@@ -953,7 +953,7 @@ export function Checkout() {
                 Your booking is valid only for {eventDate(draft.eventDate)}.
               </li>
               <li>
-                Each guest receives an individual QR ticket and can enter separately.
+                Group tickets admit everyone in the booking together.
               </li>
               <li>
                 Children under 5 must be accompanied by an adult, unless
@@ -1062,7 +1062,7 @@ export function Confirmation() {
                 {active
                   ? "A little joy, a lot of memories. We can’t wait to see you."
                   : booking.status === "PENDING_CASH"
-                    ? "Your individual QR tickets are ready. Show a ticket at the counter to pay and get approval."
+                    ? "Show your booking QR at the counter to pay and get approval."
                     : "Your entry QR will become available once payment is verified."}
               </p>
               <Status value={booking.status} />

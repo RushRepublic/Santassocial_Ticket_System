@@ -300,7 +300,7 @@ function Dashboard() {
                 Ticket,
                 "Total bookings",
                 data.bookings,
-                "Across all payment states",
+                `${data.groupTickets} group QR tickets issued`,
               ],
               [
                 Users,
@@ -318,7 +318,7 @@ function Dashboard() {
                 CheckCircle,
                 "People welcomed",
                 data.entered,
-                `${data.checkedGroups} groups checked in`,
+                `${data.approvedGroupEntries} group entries approved`,
               ],
             ].map(([Icon, label, value, sub], i) => {
               const I = Icon;

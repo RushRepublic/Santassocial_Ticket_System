@@ -1,6 +1,6 @@
 # Individual QR tickets
 
-New bookings use one ticket per adult/child, with the existing booking and payment records unchanged. `ticket_batches` marks bookings created by this version. `individual_tickets` stores UUID, category, event date, random nonce, unique token hash, ordinal and approval timestamp/admin/idempotency key. The existing startup migration adds these two tables using `CREATE TABLE IF NOT EXISTS`; it does not convert customer records.
+This document describes existing individual tickets. New bookings use one group QR and have no ticket batch. `ticket_batches` identifies existing bookings issued in individual mode. `individual_tickets` stores UUID, category, event date, random nonce, unique token hash, ordinal and approval timestamp/admin/idempotency key. The existing startup migration preserves both tables and does not convert customer records.
 
 Online tickets are created inside captured-payment activation. Free bookings issue tickets on confirmation. Cash reservations issue tickets immediately under the existing reservation workflow; these cannot admit anyone until an admin collects the exact entire booking amount. First cash collection settles payment once, but only the scanned ticket is admitted. Remaining guests can arrive separately.
 

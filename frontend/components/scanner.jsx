@@ -31,6 +31,7 @@ export function Scanner({ history = false }) {
   const [entered, setEntered] = useState(false);
   const [rows, setRows] = useState([]);
   const [cashConfirmed, setCashConfirmed] = useState(false);
+  const groupCashDue = result?.paymentStatus === "DUE" && !result.ticket;
   const video = useRef(null);
   const scannerRef = useRef(null);
   const lock = useRef(false);
@@ -124,17 +125,25 @@ export function Scanner({ history = false }) {
   }, [camera, ready, history]);
   async function confirm() {
     if (!result || busy) return;
+    const due = result.paymentStatus === "DUE";
     setBusy(true);
     setError("");
     setDateError(null);
     try {
+      if (groupCashDue) {
+        await post("/scanner/collect-cash", {
+          token,
+          amountReceived: result.amount,
+        });
+        setResult({ ...result, paymentStatus: "PAID" });
+        setCashConfirmed(false);
+        return;
+      }
       await post(
         "/scanner/checkin",
         {
           token,
-          ...(result.paymentStatus === "DUE"
-            ? { amountReceived: result.amount }
-            : {}),
+          ...(due ? { amountReceived: result.amount } : {}),
         },
         { "Idempotency-Key": requestId.current },
       );
@@ -146,11 +155,12 @@ export function Scanner({ history = false }) {
       setResult(null);
       setToken("");
     } catch (e) {
+      reviewing.current = false;
       setError(e.message);
       setDateError(e.details || null);
       setResult(null);
     } finally {
-      reviewing.current = false;
+      if (!groupCashDue) reviewing.current = false;
       setBusy(false);
     }
   }
@@ -269,11 +279,17 @@ export function Scanner({ history = false }) {
                 </div>
                 <h3 className="scan-payment-heading">
                   {result.paymentStatus === "DUE"
-                    ? `Collect ${money(result.amount)} and approve the ticket.`
-                    : `Payment of ${money(result.amount)} received. Approve the ticket.`}
+                    ? result.ticket
+                      ? `Collect ${money(result.amount)} and approve the ticket.`
+                      : `Collect ${money(result.amount)} before approving group entry.`
+                    : result.ticket
+                      ? `Payment of ${money(result.amount)} received. Approve the ticket.`
+                      : `Payment of ${money(result.amount)} received.`}
                 </h3>
                 <h2>{result.name}</h2>
-                <p>{result.reference}</p>
+                <p>
+                  {result.ticket ? result.reference : `Booking ID: ${result.reference}`}
+                </p>
                 <p>{eventDate(result.eventDate)}</p>
                 <p>
                   {result.mobile}
@@ -315,7 +331,16 @@ export function Scanner({ history = false }) {
                     </details>
                   </>
                 ) : (
-                  <ScannerCounts counts={result} />
+                  <>
+                    <h3>{groupCashDue ? "Group Ticket" : "Valid Group Ticket"}</h3>
+                    <p>Entry Status: Not Approved</p>
+                    <ScannerCounts counts={result} />
+                    {result.paymentStatus !== "DUE" && (
+                      <p>
+                        Confirm all {result.people} guests are present before approving.
+                      </p>
+                    )}
+                  </>
                 )}
                 {result.paymentStatus === "DUE" &&
                   (["ADMIN", "staff"].includes(identity?.role) ? (
@@ -329,7 +354,7 @@ export function Scanner({ history = false }) {
                         I have collected {money(result.amount)} in cash and{" "}
                         {result.ticket
                           ? "will admit only this ticket holder. This settles the payment for the entire booking."
-                          : "counted everyone in the group."}
+                          : "will confirm payment before approving group entry."}
                       </span>
                     </label>
                   ) : (
@@ -348,7 +373,9 @@ export function Scanner({ history = false }) {
                   }
                   onClick={confirm}
                 >
-                  {busy ? "Approving…" : "Approve ticket"}
+                  {groupCashDue
+                    ? busy ? "Confirming…" : "Confirm Cash Payment"
+                    : busy ? "Approving…" : result.ticket ? "Approve ticket" : "Approve Group Entry"}
                   <Check size={20} />
                 </button>
                 <button
@@ -375,7 +402,15 @@ export function Scanner({ history = false }) {
               </>
             ) : (
               <>
-                {dateError?.code === "ALREADY_APPROVED" ? (
+                {dateError?.code === "ALREADY_CHECKED_IN" ? (
+                  <>
+                    <h2>Already Approved</h2>
+                    <p>Booking ID: {dateError.reference}</p>
+                    <p>Entry Status: Approved</p>
+                    <p>Approved At: {dateTime(dateError.approvedAt)}</p>
+                    <ScannerCounts counts={dateError} entered />
+                  </>
+                ) : dateError?.code === "ALREADY_APPROVED" ? (
                   <>
                     <h2>Already Approved</h2>
                     <p>Ticket Number: {dateError.ticketNumber}</p>
@@ -384,9 +419,6 @@ export function Scanner({ history = false }) {
                   </>
                 ) : (
                   <p>{error}</p>
-                )}
-                {dateError?.code === "ALREADY_CHECKED_IN" && (
-                  <ScannerCounts counts={dateError} entered />
                 )}
               </>
             )}

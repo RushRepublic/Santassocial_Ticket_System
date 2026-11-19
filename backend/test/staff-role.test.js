@@ -10,9 +10,10 @@ import { createAdmin, provisionStaff } from "../src/admin-accounts.js";
 import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
 import { readSession, passwordMatches, signSession } from "../src/security.js";
-import { createBooking, getBooking } from "../src/services.js";
+import { getBooking } from "../src/services.js";
 import { receiptTickets } from "../src/individual-tickets.js";
 import { staffDestination } from "../../frontend/lib/staff.js";
+import { createLegacyIndividualBooking } from "./individual-booking-fixture.js";
 
 test("staff provisioning, database-authoritative RBAC, individual cash entry and fixed sessions", async () => {
   process.env.DEMO_DB_PATH = resolve(`data/staff-${randomUUID()}.sqlite`);
@@ -143,7 +144,7 @@ test("staff provisioning, database-authoritative RBAC, individual cash entry and
       staffDestination("ADMIN", "/admin/dashboard"),
       "/admin/dashboard",
     );
-    const booking = await createBooking(
+    const booking = await createLegacyIndividualBooking(
       db,
       {
         name: "Local staff QA",

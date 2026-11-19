@@ -1,6 +1,7 @@
 import { chromium, expect } from "@playwright/test";
 import { existsSync, mkdirSync } from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
+import { resolve, dirname, basename } from "node:path";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import jsQR from "jsqr";
@@ -11,6 +12,11 @@ import {
 const origin = process.env.QA_ORIGIN || "http://127.0.0.1:3109";
 if (!["127.0.0.1", "localhost"].includes(new URL(origin).hostname))
   throw Error("Use an isolated local demo server.");
+const qaDatabase = resolve(process.env.DEMO_DB_PATH || "");
+if (process.env.DB_DRIVER !== "sqlite" ||
+    dirname(qaDatabase) !== resolve("test-results") ||
+    !/^group-qr-qa-[\da-f-]+\.sqlite$/i.test(basename(qaDatabase)))
+  throw Error("Use the same isolated test-results/group-qr-qa-<uuid>.sqlite database as the local demo server.");
 const executable =
   "C:/Users/aaa/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe";
 const browser = await chromium.launch({
@@ -68,14 +74,29 @@ try {
     challengeId: otp.challengeId,
     otp: otp.demoCode,
   });
-  const b = await post("/bookings", {
-    name: "Individual Browser QA",
-    discoverySource: "google",
-    eventDate: "2026-11-19",
-    adults: 3,
-    kids: 2,
-    method: "CASH",
-  });
+  const { openDatabase } = await import("../backend/src/db.js");
+  const { createLegacyIndividualBooking } = await import(
+    "../backend/test/individual-booking-fixture.js"
+  );
+  const db = await openDatabase();
+  let b, future;
+  try {
+    const input = {
+      name: "Individual Browser QA",
+      discoverySource: "google",
+      eventDate: "2026-11-19",
+      adults: 3,
+      kids: 2,
+      method: "CASH",
+    };
+    b = await createLegacyIndividualBooking(db, input, mobile, randomUUID());
+    future = await createLegacyIndividualBooking(db, {
+      ...input, name: "Future QR QA", eventDate: "2026-11-20", adults: 1, kids: 0,
+    }, mobile, randomUUID());
+  } finally {
+    await db.close();
+  }
+  b.qrToken = (await import("../backend/src/security.js")).qrToken(b);
   let receipt = await (
     await page.request.get(origin + `/api/tickets/${b.id}`)
   ).json();
@@ -245,14 +266,6 @@ try {
   await page
     .getByRole("button", { name: "Approve ticket", exact: true })
     .click();
-  const future = await post("/bookings", {
-    name: "Future QR QA",
-    discoverySource: "google",
-    eventDate: "2026-11-20",
-    adults: 1,
-    kids: 0,
-    method: "CASH",
-  });
   const ft = await (
     await page.request.get(origin + `/api/tickets/${future.id}`)
   ).json();

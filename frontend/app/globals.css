@@ -3398,14 +3398,17 @@ td:first-child > a {
   min-width: 44px;
   min-height: 44px;
 }
+.ticket-carousel,
+.single-group-ticket {
+  width: 100%;
+  max-width: 430px;
+  margin: auto;
+}
 .ticket-carousel {
   display: flex;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
-  width: 100%;
-  max-width: 430px;
-  margin: auto;
   scrollbar-width: none;
 }
 .ticket-carousel::-webkit-scrollbar {

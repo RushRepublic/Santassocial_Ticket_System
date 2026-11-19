@@ -180,15 +180,10 @@ export async function createBooking(db, input, mobile, key) {
       "INSERT INTO booking_requests (id,mobile,bookingId,fingerprint) VALUES (?,?,?,?)",
       [key, mobile, id, fingerprint],
     );
-    await tx.run(
-      "INSERT INTO ticket_batches (bookingId,createdAt) VALUES (?,?)",
-      [id, now()],
-    );
+    // Only existing individual bookings have a ticket batch.
     if (amount === 0) await activate(tx, b, "FREE");
-    else if (input.method === "CASH") {
-      await issueIndividualTickets(tx, b);
+    else if (input.method === "CASH")
       await notification(tx, b, "CASH_PENDING");
-    }
     return getBooking(tx, id);
   });
 }
@@ -413,6 +408,8 @@ export async function inspectTicket(db, token) {
       403,
       "TEST PAYMENT: This simulated online ticket is not valid for admission.",
     );
+  if (!hasBookingQr(b)) fail(403, "PAYMENT PENDING: Entry is not permitted.");
+  validateTicketDate(b);
   if (b.checkedInAt) {
     const entry = (
       await db.all(
@@ -425,14 +422,14 @@ export async function inspectTicket(db, token) {
       `ALREADY CHECKED IN: ${new Date(b.checkedInAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`,
       {
         code: "ALREADY_CHECKED_IN",
+        reference: b.reference,
+        approvedAt: b.checkedInAt,
         adults: entry?.adults ?? b.adults,
         kids: entry?.kids ?? b.kids,
         people: entry?.people ?? b.people,
       },
     );
   }
-  if (!hasBookingQr(b)) fail(403, "PAYMENT PENDING: Entry is not permitted.");
-  validateTicketDate(b);
   return b;
 }
 export async function verifyTicket(db, token) {
@@ -440,6 +437,25 @@ export async function verifyTicket(db, token) {
   if (!["PAID", "FREE"].includes(b.status))
     fail(403, "PAYMENT PENDING: Collect cash and approve before entry.");
   return b;
+}
+export async function collectGroupCash(db, token, userId, amount) {
+  return db.transaction(async (tx) => {
+    await lockEvent(tx);
+    const collector = (
+      await tx.all("SELECT role FROM users WHERE id = ? AND active = 1", [
+        userId,
+      ])
+    )[0];
+    if (!["ADMIN", "staff"].includes(collector?.role))
+      fail(403, "Only an admin can collect cash at the gate.");
+    const booking = await inspectTicket(tx, token);
+    if (booking.ticket || booking.method !== "CASH")
+      fail(400, "Only cash group tickets can be collected here.");
+    if (amount !== booking.amount)
+      fail(400, "Amount received must match the booking total in paise.");
+    await expire(tx);
+    await approveCashInTransaction(tx, booking.id, amount, userId);
+  });
 }
 export async function checkin(db, token, userId, key, amountReceived) {
   if (
@@ -462,22 +478,9 @@ export async function checkin(db, token, userId, key, amountReceived) {
       validateTicketDate(b);
       return previous;
     }
-    if (amountReceived !== undefined) {
-      // Authorize collection here too, so direct service calls cannot bypass it.
-      const collector = (
-        await tx.all("SELECT role FROM users WHERE id = ? AND active = 1", [
-          userId,
-        ])
-      )[0];
-      if (!["ADMIN", "staff"].includes(collector?.role))
-        fail(403, "Only an admin can collect cash at the gate.");
-      const pending = await inspectTicket(tx, token);
-      if (pending.method !== "CASH")
-        fail(400, "Only cash bookings can be collected here.");
-      await expire(tx);
-      await approveCashInTransaction(tx, pending.id, amountReceived, userId);
-    }
     const b = await verifyTicket(tx, token);
+    if (amountReceived !== undefined)
+      fail(400, "Confirm cash payment separately before approving group entry.");
     const at = now();
     const result = await tx.run(
       "UPDATE bookings SET checkedInAt = ?, updatedAt = ? WHERE id = ? AND checkedInAt IS NULL",

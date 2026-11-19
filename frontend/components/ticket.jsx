@@ -18,7 +18,8 @@ export function GroupTicket({ id }) {
   const [selected, setSelected] = useState(0);
   const carousel = useRef(null);
   const order = useRef(null);
-  const tickets = booking?.tickets?.length
+  const individual = Boolean(booking?.tickets?.length);
+  const tickets = individual
     ? booking.tickets
     : booking
       ? [{ id: booking.id, qrToken: booking.qrToken }]
@@ -47,6 +48,8 @@ export function GroupTicket({ id }) {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!active) return;
+        if (b.entryMode === "INDIVIDUAL" && !b.tickets?.length)
+          throw new Error("Your individual tickets are unavailable. Please try again.");
         if (b.tickets?.length) {
           if (!order.current)
             order.current = [...b.tickets]
@@ -178,17 +181,21 @@ export function GroupTicket({ id }) {
   if (!booking) return <Loading />;
   return (
     <main className="ticket-page">
-      <h1 className="sr-only">Your Santa Social ticket</h1>
-      <span className="sr-only" aria-live="polite">
-        Ticket {selected + 1} of {tickets.length}
-      </span>
+      <h1 className="sr-only">
+        {individual ? "Your Santa Social ticket" : "Santa Social – Group Ticket"}
+      </h1>
+      {individual && (
+        <span className="sr-only" aria-live="polite">
+          Ticket {selected + 1} of {tickets.length}
+        </span>
+      )}
       <div
-        className="ticket-carousel"
-        ref={carousel}
-        tabIndex={0}
-        role="region"
-        aria-label="Your tickets. Swipe or use arrow keys."
-        onKeyDown={(e) => {
+        className={individual ? "ticket-carousel" : "single-group-ticket"}
+        ref={individual ? carousel : undefined}
+        tabIndex={individual ? 0 : undefined}
+        role={individual ? "region" : undefined}
+        aria-label={individual ? "Your tickets. Swipe or use arrow keys." : undefined}
+        onKeyDown={individual ? (e) => {
           if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
             e.preventDefault();
             navigate(
@@ -201,14 +208,14 @@ export function GroupTicket({ id }) {
               ),
             );
           }
-        }}
-        onScroll={(e) =>
+        } : undefined}
+        onScroll={individual ? (e) =>
           setSelected(
             Math.round(
               e.currentTarget.scrollLeft / e.currentTarget.clientWidth,
             ),
           )
-        }
+        : undefined}
       >
         {tickets.map((ticket) => (
           <div className="ticket-slide" key={ticket.id}>
@@ -223,7 +230,7 @@ export function GroupTicket({ id }) {
               )}
               <div className="ticket-body">
                 <p className="eyebrow">{ticket.number || booking.reference}</p>
-                {ticket.category && (
+                {ticket.category ? (
                   <>
                     <h3>
                       {ticket.category === "ADULT" ? "Adult" : "Kids"} Ticket
@@ -235,7 +242,7 @@ export function GroupTicket({ id }) {
                         : "Not Scanned"}
                     </p>
                   </>
-                )}
+                ) : <h3>Group Ticket</h3>}
                 <h2>{booking.name}</h2>
                 <p className="ticket-event-date">
                   <CalendarDays size={18} />

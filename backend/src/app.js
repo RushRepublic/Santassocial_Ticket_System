@@ -37,6 +37,7 @@ import {
   expire,
   availability,
   createBooking,
+  collectGroupCash,
   assertBookableDate,
   replacePaymentMethod,
   getBooking,
@@ -874,7 +875,10 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       .parse(req.query.date || "all");
     const visibility = adminBookingVisibility("b");
     const rows = await db.all(
-      "SELECT b.*,p.status AS paymentStatus,COALESCE((SELECT c.people FROM checkins c WHERE c.bookingId = b.id),0) AS enteredPeople FROM bookings b JOIN payments p ON p.bookingId = b.id" +
+      "SELECT b.*,p.status AS paymentStatus," +
+        "COALESCE((SELECT c.people FROM checkins c WHERE c.bookingId = b.id),0) AS enteredPeople," +
+        "NOT EXISTS (SELECT 1 FROM ticket_batches t WHERE t.bookingId = b.id) AS isGroupTicket " +
+        "FROM bookings b JOIN payments p ON p.bookingId = b.id" +
         ` WHERE ${visibility.sql}` +
         (date === "all" ? "" : " AND b.eventDate = ?"),
       [...visibility.values, ...(date === "all" ? [] : [date])],
@@ -900,6 +904,9 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
       pendingCash: rows.filter((r) => r.status === "PENDING_CASH").length,
       confirmed: confirmed.length,
       checkedGroups: entered.length,
+      groupTickets: rows.filter((r) => r.isGroupTicket && r.qrHash && hasBookingQr(r))
+        .length,
+      approvedGroupEntries: entered.filter((r) => r.isGroupTicket).length,
       entered: sum(entered, "enteredPeople"),
       availability: await availability(db),
       demo: paymentDemo,
@@ -1047,6 +1054,20 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
         paymentStatus: b.status === "PENDING_CASH" ? "DUE" : "PAID",
         demo: paymentDemo,
       });
+    },
+  );
+  app.post(
+    "/api/scanner/collect-cash",
+    auth(["ADMIN", "staff"]),
+    async (req, res) => {
+      const { token, amountReceived } = z
+        .object({
+          token: z.string().regex(/^ss_[a-f0-9]{64}$/),
+          amountReceived: z.number().int().nonnegative(),
+        })
+        .parse(req.body);
+      await collectGroupCash(db, token, req.identity.userId, amountReceived);
+      res.json({ paymentStatus: "PAID" });
     },
   );
   app.post(

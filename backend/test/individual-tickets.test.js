@@ -11,6 +11,7 @@ import { createApp } from "../src/app.js";
 import { config } from "../src/config.js";
 import {
   createBooking,
+  approveCash,
   getBooking,
   publicBooking,
   checkin,
@@ -20,6 +21,7 @@ import {
 import { receiptTickets } from "../src/individual-tickets.js";
 import { signSession, qrToken } from "../src/security.js";
 import { renderTicketPng } from "../src/ticket-artwork.js";
+import { createLegacyIndividualBooking } from "./individual-booking-fixture.js";
 async function fixture(work) {
   process.env.DEMO_DB_PATH = resolve(`data/individual-${randomUUID()}.sqlite`);
   const db = await openDatabase();
@@ -45,7 +47,7 @@ const input = (extra = {}) => ({
   ...extra,
 });
 const book = (db, extra) =>
-  createBooking(db, input(extra), "9876543210", randomUUID());
+  createLegacyIndividualBooking(db, input(extra), "9876543210", randomUUID());
 test("five unique tickets, atomic partial entry, remaining tickets, duplicate and audit history", () =>
   fixture(async (db, admin) => {
     const b = await book(db);
@@ -249,15 +251,12 @@ test("single-ticket issuance and legacy used group remain unchanged through addi
   fixture(async (db, admin) => {
     const single = await book(db, { adults: 1, kids: 0 });
     assert.equal((await receiptTickets(db, single)).length, 1);
-    // Simulate a record issued by the previous release, before the new tables existed.
-    await db.run("DELETE FROM individual_tickets WHERE bookingId=?", [
-      single.id,
-    ]);
-    await db.run("DELETE FROM ticket_batches WHERE bookingId=?", [single.id]);
-    await checkin(db, qrToken(single), admin, randomUUID(), single.amount);
-    const before = await getBooking(db, single.id);
+    const group = await createBooking(db, input(), "9876543210", randomUUID());
+    await approveCash(db, group.id, group.amount, admin);
+    await checkin(db, qrToken(group), admin, randomUUID());
+    const before = await getBooking(db, group.id);
     await migrate(db);
-    const after = await getBooking(db, single.id);
+    const after = await getBooking(db, group.id);
     assert.equal(after.checkedInAt, before.checkedInAt);
     assert.equal(after.entryMode, "GROUP");
     assert.equal((await receiptTickets(db, after)).length, 0);

@@ -564,7 +564,7 @@ try {
     .click();
   await page.waitForURL(/\/ticket\/[^/]+$/);
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   await verifyTicketOnlyPage();
   await page.screenshot({ path: "docs/ticket-desktop.png", fullPage: true });
@@ -823,7 +823,7 @@ try {
     await panel
       .getByText(`Registered Event Date: ${label}`, { exact: true })
       .waitFor();
-    if (await page.getByRole("button", { name: /^Approve ticket/ }).count())
+    if (await page.getByRole("button", { name: "Approve Group Entry" }).count())
       throw Error("Invalid-date tickets must not display any approval button.");
     if (
       /Past Event Date|Future Event Date|cannot be used/.test(
@@ -881,7 +881,7 @@ try {
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
   await auditResponsive(page, "scanner-paid");
   await page
-    .getByRole("heading", { name: "Payment of ₹1 received. Approve the ticket." })
+    .getByRole("heading", { name: "Payment of ₹1 received." })
     .waitFor();
   if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
     throw Error("Paid ticket must use the green result state.");
@@ -891,18 +891,18 @@ try {
     throw Error("A QR held in frame was repeatedly submitted after cancelling review.");
   await scanCameraToken(booking.qrToken);
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Approve ticket" }).click();
+  await page.getByRole("button", { name: "Approve Group Entry" }).click();
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
     .waitFor();
   await scanCameraToken(booking.qrToken);
-  await page.getByText(/ALREADY CHECKED IN:/).waitFor();
+  await page.getByRole("heading", { name: "Already Approved" }).waitFor();
   const enteredCounts = page.getByLabel("Previously entered guests", { exact: true });
   await enteredCounts.waitFor();
   const displayedCounts = await enteredCounts.locator("b").allTextContents();
   if (JSON.stringify(displayedCounts) !== JSON.stringify([booking.adults, booking.kids, booking.people].map(String)))
     throw Error("Duplicate scan must display the previously admitted adults, kids and total guests.");
-  if (await page.getByRole("button", { name: "Approve ticket", exact: true }).count())
+  if (await page.getByRole("button", { name: "Approve Group Entry", exact: true }).count())
     throw Error("Already entered guests must never have an approval button.");
   await auditResponsive(page, "scanner-already-entered");
   if ((await page.evaluate(() => window.__qaCameraStarts)) !== cameraStarts)
@@ -950,7 +950,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${origin}/booking-pending?id=${cashBooking.id}`);
   await page
-    .getByAltText("One secure QR code for this entire group booking")
+    .getByAltText("Secure group booking QR")
     .waitFor();
   if (
     await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
@@ -980,17 +980,18 @@ try {
   await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(cashBooking.qrToken);
   await page
-    .getByRole("heading", { name: "Collect ₹2 and approve the ticket." })
+    .getByRole("heading", { name: "Collect ₹2 before approving group entry." })
     .waitFor();
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
   await auditResponsive(page, "scanner-cash");
   const approveCash = page.getByRole("button", {
-    name: "Approve ticket",
+    name: "Confirm Cash Payment",
   });
   if (!(await approveCash.isDisabled()))
     throw Error("Cash collection must require explicit confirmation.");
   await page.getByRole("checkbox").check();
   await approveCash.click();
+  await page.getByRole("button", { name: "Approve Group Entry" }).click();
   await page
     .getByRole("heading", { name: "Welcome to Santa Social!" })
     .waitFor();
@@ -1003,7 +1004,7 @@ try {
     collected.qrToken !== cashBooking.qrToken
   )
     throw Error(
-      "Cash approval and entry must preserve the same QR and save together.",
+      "Cash payment and group entry must preserve the same QR.",
     );
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("link", { name: "Back to dashboard" }).click();
