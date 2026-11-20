@@ -577,7 +577,7 @@ a.button,
   margin: 0 auto 20px;
   text-align: center;
   color: var(--red);
-  font-size: clamp(0.625rem, 0.09375rem + 2.6vw, 1.75rem);
+  font-size: clamp(0.625rem, max(0.09375rem + 2.6vw, min(4.2vw, 1rem)), 1.75rem);
   font-weight: 700;
   line-height: 1.2;
 }
