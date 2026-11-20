@@ -574,10 +574,10 @@ a.button,
   color: var(--muted);
 }
 .welcome-heading {
-  margin: 0 auto 24px;
+  margin: 0 auto 20px;
   text-align: center;
   color: var(--red);
-  font-size: clamp(26px, 4vw, 34px);
+  font-size: clamp(0.625rem, 0.09375rem + 2.6vw, 1.75rem);
   font-weight: 700;
   line-height: 1.2;
 }
