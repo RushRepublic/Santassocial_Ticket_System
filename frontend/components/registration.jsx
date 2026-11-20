@@ -1,4 +1,5 @@
 "use client";
+import { EVENT_DATES } from "../../config/event-dates.js";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,14 +34,14 @@ const initial = {
   name: "",
   mobile: "",
   discoverySource: "",
-  eventDate: "2026-11-19",
+  eventDate: EVENT_DATES[0],
   adults: 1,
   kids: 0,
   method: "RAZORPAY",
   key: "",
 };
 const draftSchema = z.object({
-  eventDate: z.enum(["2026-11-19", "2026-11-20"], {
+  eventDate: z.enum(EVENT_DATES, {
     error: "Please select an event date.",
   }),
   name: z.string().trim().min(2, "Please enter your full name.").max(120),
@@ -53,7 +54,7 @@ const discoverySourceMessage = "Please select how you heard about Santa Social."
 function readDraft() {
   try {
     const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
-    if (draft && !["2026-11-19", "2026-11-20"].includes(draft.eventDate))
+    if (draft && !EVENT_DATES.includes(draft.eventDate))
       return {
         ...draft,
         eventDate: "",
@@ -211,7 +212,7 @@ export function Register() {
               <VenueLocation />
             </div>
             <div className="date-options">
-              {["2026-11-19", "2026-11-20"].map((date) => (
+              {EVENT_DATES.map((date) => (
                 <button
                   type="button"
                   aria-pressed={draft.eventDate === date}
@@ -619,7 +620,7 @@ export function Checkout() {
       const d = readDraft();
       if (
         !d ||
-        !["2026-11-19", "2026-11-20"].includes(d.eventDate) ||
+        !EVENT_DATES.includes(d.eventDate) ||
         (!d.bookingId &&
           !discoverySourceSchema.safeParse(d.discoverySource).success)
       ) {

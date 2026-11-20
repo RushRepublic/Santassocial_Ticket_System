@@ -17,7 +17,7 @@ test("only Mathu issues idempotent, auditable free group tickets that staff can 
   );
   const db = await openDatabase();
   const previousDate = config.demoDate;
-  config.demoDate = "2026-11-19";
+  config.demoDate = "2026-11-21";
   try {
     await migrate(db);
     const email = "mathu.y@thinkcodesoft.com";
@@ -59,7 +59,7 @@ test("only Mathu issues idempotent, auditable free group tickets that staff can 
     const input = {
       name: "Sample Guest",
       mobile: "9876543210",
-      eventDate: "2026-11-19",
+      eventDate: "2026-11-21",
       adults: 3,
       kids: 2,
     };
@@ -104,8 +104,8 @@ test("only Mathu issues idempotent, auditable free group tickets that staff can 
     assert.deepEqual(
       settings.days.map(({ date, bookable }) => [date, bookable]),
       [
-        ["2026-11-19", true],
-        ["2026-11-20", true],
+        ["2026-11-21", true],
+        ["2026-11-22", true],
       ],
     );
     for (const change of [
@@ -115,7 +115,9 @@ test("only Mathu issues idempotent, auditable free group tickets that staff can 
       { adults: 0, kids: 0 },
       { adults: 0, kids: 2 },
       { adults: settings.maxGroup, kids: 1 },
-      { eventDate: "2026-11-21" },
+      { eventDate: "2026-11-19" },
+      { eventDate: "2026-11-20" },
+      { eventDate: "2026-11-23" },
     ]) {
       await post(route, { ...input, ...change }, mathuCookie).expect(400);
     }
@@ -204,7 +206,7 @@ test("only Mathu issues idempotent, auditable free group tickets that staff can 
       post("/api/scanner/verify", { token: qrToken }, staffCookie);
     const checkin = (cookie) =>
       post("/api/scanner/checkin", { token: qrToken }, cookie);
-    config.demoDate = "2026-11-20";
+    config.demoDate = "2026-11-22";
     assert.equal(
       (await verify().expect(400)).body.details.eventDate,
       input.eventDate,
@@ -213,7 +215,7 @@ test("only Mathu issues idempotent, auditable free group tickets that staff can 
     await post(route, input, mathuCookie).expect(400);
     const overdueRetry = await post(route, input, mathuCookie, key).expect(201);
     assert.deepEqual(overdueRetry.body, first.body);
-    config.demoDate = "2026-11-19";
+    config.demoDate = "2026-11-21";
     const { body: scan } = await verify().expect(200);
     assert.equal(scan.status, "FREE");
     assert.equal(scan.people, 5);
@@ -244,6 +246,28 @@ test("only Mathu issues idempotent, auditable free group tickets that staff can 
       ],
       [1, 5, 5, 0, 0, 1],
     );
+
+    const { body: sunday } = await post(
+      route,
+      { ...input, eventDate: "2026-11-22" },
+      mathuCookie,
+    ).expect(201);
+    const { body: sundayTicket } = await request(app)
+      .get(`/api/tickets/${sunday.id}`)
+      .set("Authorization", `Bearer ${sunday.qrToken}`)
+      .expect(200);
+    assert.equal(sundayTicket.eventDate, "2026-11-22");
+    assert.equal(sundayTicket.amount, 0);
+    const sundayScan = (path) =>
+      post(path, { token: sunday.qrToken }, staffCookie);
+    await sundayScan("/api/scanner/verify").expect(400);
+    config.demoDate = "2026-11-22";
+    assert.equal(
+      (await sundayScan("/api/scanner/verify").expect(200)).body.eventDate,
+      sundayTicket.eventDate,
+    );
+    await sundayScan("/api/scanner/checkin").expect(200);
+    await sundayScan("/api/scanner/verify").expect(409);
   } finally {
     config.demoDate = previousDate;
     await db.close();

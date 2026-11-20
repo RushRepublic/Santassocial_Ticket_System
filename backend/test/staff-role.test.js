@@ -19,7 +19,7 @@ test("staff provisioning, database-authoritative RBAC, individual cash entry and
   process.env.DEMO_DB_PATH = resolve(`data/staff-${randomUUID()}.sqlite`);
   const db = await openDatabase();
   const previousDate = config.demoDate;
-  config.demoDate = "2026-11-19";
+  config.demoDate = "2026-11-21";
   try {
     await migrate(db);
     const password = "Local staff test password 2026!";
@@ -148,7 +148,7 @@ test("staff provisioning, database-authoritative RBAC, individual cash entry and
       db,
       {
         name: "Local staff QA",
-        eventDate: "2026-11-19",
+        eventDate: "2026-11-21",
         adults: 3,
         kids: 2,
         method: "CASH",
@@ -165,7 +165,7 @@ test("staff provisioning, database-authoritative RBAC, individual cash entry and
         .set("Origin", config.origin)
         .set("Idempotency-Key", randomUUID())
         .send(data);
-    config.demoDate = "2026-11-20";
+    config.demoDate = "2026-11-22";
     await post("/api/scanner/verify", { token: tickets[0].qrToken }).expect(
       400,
     );
@@ -174,7 +174,7 @@ test("staff provisioning, database-authoritative RBAC, individual cash entry and
       amountReceived: booking.amount,
     }).expect(400);
     assert.equal((await getBooking(db, booking.id)).approvedTickets, 0);
-    config.demoDate = "2026-11-19";
+    config.demoDate = "2026-11-21";
     await post("/api/scanner/verify", { token: tickets[0].qrToken }).expect(
       200,
     );

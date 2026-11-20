@@ -1,4 +1,5 @@
 "use client";
+import { EVENT_DATE_DAYS } from "../../config/event-dates.js";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MapPin, CalendarDays, Clock } from "lucide-react";
@@ -57,7 +58,7 @@ export function EventDetails({ showVenue = true }) {
     <div className="event-details">
       <p>
         <CalendarDays />
-        <span>19 & 20 November 2026</span>
+        <span>{EVENT_DATE_DAYS} November 2026</span>
       </p>
       <p>
         <Clock />

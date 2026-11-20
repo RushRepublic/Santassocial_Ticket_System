@@ -1,4 +1,5 @@
 import { receiptTickets } from "./individual-tickets.js";
+import { EVENT_DATES } from "../../config/event-dates.js";
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -60,7 +61,7 @@ const bookingSchema = z.object({
     .union([z.email().max(190), z.literal("")])
     .optional()
     .default(""),
-  eventDate: z.enum(["2026-11-19", "2026-11-20"]),
+  eventDate: z.enum(EVENT_DATES),
   adults: z.number().int().min(0).max(100),
   kids: z.number().int().min(0).max(100),
   method: z.enum(["RAZORPAY", "CASH"]),

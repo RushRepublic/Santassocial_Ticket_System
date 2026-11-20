@@ -335,16 +335,16 @@ try {
   const dates = await page.locator(".date-option").allTextContents();
   if (
     dates.length !== 2 ||
-    !dates[0].includes("FRIDAY") ||
-    !dates[0].includes("13") ||
-    !dates[1].includes("SATURDAY") ||
-    !dates[1].includes("14") ||
+    !dates[0].includes("SATURDAY") ||
+    !dates[0].includes("21") ||
+    !dates[1].includes("SUNDAY") ||
+    !dates[1].includes("22") ||
     dates.some((d) => !d.includes("Nov 2026"))
   )
     throw Error(
-      "Registration must offer only November 19 and 20 with correct weekdays.",
+      "Registration must offer only November 21 and 22 with correct weekdays.",
     );
-  if (!(await page.title()).includes("November 19 & 20"))
+  if (!(await page.title()).includes("November 21 & 22"))
     throw Error("Event metadata date is outdated.");
 
   // Present the second day's server availability without changing the host clock.
@@ -361,7 +361,7 @@ try {
           ...available.event,
           days: available.event.days.map((day) => ({
             ...day,
-            bookable: day.date === "2026-11-20",
+            bookable: day.date === "2026-11-22",
           })),
         },
       }),
@@ -375,7 +375,7 @@ try {
       !(await pastDatePage.locator(".date-option").last().isEnabled()) ||
       !(
         await pastDatePage.locator(".date-option.selected").innerText()
-      ).includes("SATURDAY")
+      ).includes("SUNDAY")
     )
       throw Error(
         "Past dates must be unavailable and today selected on desktop and mobile.",
@@ -573,7 +573,7 @@ try {
   const booking = await page.request
     .get(`${origin}/api/bookings/${bookingId}`)
     .then((r) => r.json());
-  if (booking.eventDate !== "2026-11-19")
+  if (booking.eventDate !== "2026-11-21")
     throw Error("Ticket uses an outdated event date.");
   await page
     .locator(".ticket-event-date")
@@ -669,7 +669,7 @@ try {
       name: "Unpaid QR QA Guest",
       discoverySource: "google",
       email: "unpaid-qr@example.com",
-      eventDate: "2026-11-19",
+      eventDate: "2026-11-21",
       adults: 1,
       kids: 0,
       method: "RAZORPAY",
@@ -807,7 +807,7 @@ try {
       name: "Date QA Guest",
       discoverySource: "google",
       email: "date-qa@example.com",
-      eventDate: "2026-11-20",
+      eventDate: "2026-11-22",
       adults: 1,
       kids: 0,
       method: "CASH",
@@ -843,13 +843,13 @@ try {
       throw Error("Invalid-ticket styling must stay centered and red.");
     await auditResponsive(
       page,
-      label.includes("Thursday") ? "scanner-future" : "scanner-past",
+      label.startsWith("Sunday") ? "scanner-future" : "scanner-past",
     );
   }
   for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await scanCameraToken(futureBooking.qrToken);
-    await assertInvalidDate("Friday, 20 November 2026");
+    await assertInvalidDate("Sunday, 22 November 2026");
     // Presentation check for the other server error; actual past-date API rules
     // are covered by the backend date-combination tests.
     await page.route("**/api/scanner/verify", (route) =>
@@ -858,18 +858,18 @@ try {
         contentType: "application/json",
         body: JSON.stringify({
           error:
-            "This ticket is registered for November 19, 2026, and cannot be used on November 20, 2026.",
+            "This ticket is registered for November 21, 2026, and cannot be used on November 22, 2026.",
           details: {
             code: "PAST_EVENT_DATE",
             title: "Invalid Ticket - Past Event Date",
-            eventDate: "2026-11-19",
-            scanningDate: "2026-11-20",
+            eventDate: "2026-11-21",
+            scanningDate: "2026-11-22",
           },
         }),
       }),
     );
     await scanCameraToken(booking.qrToken);
-    await assertInvalidDate("Thursday, 19 November 2026");
+    await assertInvalidDate("Saturday, 21 November 2026");
     await page.unroute("**/api/scanner/verify");
   }
   const futureUnchanged = await page.request
@@ -932,7 +932,7 @@ try {
       name: "Cash QA Guest",
       discoverySource: "google",
       email: "cash-qa@example.com",
-      eventDate: "2026-11-19",
+      eventDate: "2026-11-21",
       adults: 2,
       kids: 1,
       method: "CASH",

@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import path from "node:path";
 import { mysqlOptions } from "./mysql-options.js";
+import { EVENT_DATES } from "../../config/event-dates.js";
 dotenv.config({ path: path.resolve(process.cwd(), ".env"), quiet: true });
 export const demo = process.env.APP_MODE !== "live";
 export const paymentMode = process.env.PAYMENT_MODE || (demo ? "demo" : "live");
@@ -86,7 +87,7 @@ export const config = {
     "local-demo-ticket-secret-change-before-live",
   ),
   otpSecret: secret("OTP_SECRET", "local-demo-otp-secret-change-before-live"),
-  demoDate: process.env.DEMO_EVENT_DATE || "2026-11-19",
+  demoDate: process.env.DEMO_EVENT_DATE || EVENT_DATES[0],
 };
 if (
   (!demo || !paymentDemo || !whatsappDemo || production) &&

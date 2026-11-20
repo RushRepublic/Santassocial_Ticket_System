@@ -39,7 +39,7 @@ try {
     name: "Payment QA Guest",
     discoverySource: "google",
     method: "RAZORPAY",
-    eventDate: "2026-11-19",
+    eventDate: "2026-11-21",
     adults: 1,
     kids: 0,
   });
@@ -144,7 +144,7 @@ try {
     name: "Mobile Return QA",
     discoverySource: "google",
     method: "RAZORPAY",
-    eventDate: "2026-11-19",
+    eventDate: "2026-11-21",
     adults: 1,
     kids: 0,
   });
@@ -199,7 +199,7 @@ try {
     name: "Mobile SDK Handler QA",
     discoverySource: "google",
     method: "RAZORPAY",
-    eventDate: "2026-11-19",
+    eventDate: "2026-11-21",
     adults: 1,
     kids: 0,
   });
@@ -227,7 +227,7 @@ try {
     name: "Switch Payment QA",
     discoverySource: "google",
     method: "CASH",
-    eventDate: "2026-11-19",
+    eventDate: "2026-11-21",
     adults: 1,
     kids: 0,
   });

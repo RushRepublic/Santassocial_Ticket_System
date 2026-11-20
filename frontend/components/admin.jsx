@@ -1,4 +1,5 @@
 "use client";
+import { EVENT_DATES, EVENT_DATE_DAYS } from "../../config/event-dates.js";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
@@ -256,8 +257,7 @@ function DateFilter({ value, onChange }) {
     <div className="date-filter">
       {[
         ["all", "Both days"],
-        ["2026-11-19", "Nov 19"],
-        ["2026-11-20", "Nov 20"],
+        ...EVENT_DATES.map((date) => [date, `Nov ${date.slice(-2)}`]),
       ].map(([v, label]) => (
         <button
           key={v}
@@ -304,7 +304,7 @@ function Dashboard() {
         <div>
           <p className="eyebrow">A LITTLE OVERVIEW OF THE BIG CELEBRATION</p>
           <h1>Let’s make it a merry one.</h1>
-          <p>19 & 20 November 2026 · Park Grounds, CODISSIA</p>
+          <p>{EVENT_DATE_DAYS} November 2026 · Park Grounds, CODISSIA</p>
         </div>
         <DateFilter value={date} onChange={setDate} />
       </div>
