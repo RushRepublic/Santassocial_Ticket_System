@@ -29,11 +29,11 @@ try {
   await expect(page.locator(".form-section .section-label")).toHaveText([
     "01Pick your day",
     "02Registration Details",
-    "03How do you know about us?",
+    "03How did you hear about us?",
     "04Tickets",
   ]);
   const discovery = page.getByRole("radiogroup", {
-    name: "How do you know about us?",
+    name: "How did you hear about us?",
   });
   const radios = discovery.getByRole("radio");
   await expect(radios).toHaveCount(4);
@@ -82,14 +82,14 @@ try {
   const google = discovery.getByRole("radio", { name: "Google", exact: true });
   await expect(google).toBeChecked();
   await google.press("ArrowLeft");
-  const wordOfMouth = discovery.getByRole("radio", { name: "Word of Mouth" });
-  await expect(wordOfMouth).toBeChecked();
+  const friendsAndReferrals = discovery.getByRole("radio", { name: "Friends & Referrals", exact: true });
+  await expect(friendsAndReferrals).toBeChecked();
   await expect(validation).toHaveCount(0);
   await page.getByRole("button", { name: "Checkout", exact: true }).click();
   await page.waitForURL(origin + "/checkout");
   await page.getByRole("link", { name: "Edit", exact: true }).click();
   await page.waitForURL(origin + "/");
-  await expect(wordOfMouth).toBeChecked();
+  await expect(friendsAndReferrals).toBeChecked();
   await page.getByRole("button", { name: "Checkout", exact: true }).click();
   await page.waitForURL(origin + "/checkout");
   await page
@@ -127,7 +127,7 @@ try {
   await page.getByRole("button", { name: "Simulate unsuccessful payment" }).click();
   await page.getByRole("link", { name: "Edit", exact: true }).click();
   await page.waitForURL(origin + "/");
-  await expect(wordOfMouth).toBeChecked();
+  await expect(friendsAndReferrals).toBeChecked();
   await page.getByRole("button", { name: "Checkout", exact: true }).click();
   await page.waitForURL(origin + "/checkout");
   await page.getByRole("checkbox").check();
@@ -173,7 +173,7 @@ try {
   await page.goto(`${origin}/admin/bookings/${paidId}`);
   await expect(page.getByText("Ticket Subtotal", { exact: true })).toBeVisible();
   await expect(page.getByText("How did you hear about us?", { exact: true })).toBeVisible();
-  await expect(page.getByText("Word of Mouth", { exact: true })).toBeVisible();
+  await expect(page.getByText("Friends & Referrals", { exact: true })).toBeVisible();
   for (const section of ["bookings", "checkins"]) {
     // Use client navigation so the existing in-memory staff login grant remains intact.
     await page.setViewportSize({ width: 1440, height: 900 });

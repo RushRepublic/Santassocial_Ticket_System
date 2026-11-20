@@ -456,7 +456,7 @@ try {
     throw Error("An incorrect OTP enabled checkout.");
   await page.getByLabel("Enter your 6-digit code").fill(code);
   await page.locator(".mobile-verified").waitFor();
-  await page.getByText("Word of Mouth", { exact: true }).click();
+  await page.getByText("Friends & Referrals", { exact: true }).click();
   if (new URL(page.url()).pathname !== "/")
     throw Error("Mobile verification left the booking page.");
   const originalMobile = await page
