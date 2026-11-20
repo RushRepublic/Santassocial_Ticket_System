@@ -55,8 +55,8 @@ WhatsApp when their independent modes are live.
 ## Notification maintenance
 
 Live WhatsApp now has its own in-app outbox worker. It starts automatically,
-runs every 15 seconds, and wakes after successful API mutations (including
-booking creation, captured payment verification/webhooks and cash approval).
+runs every 15 seconds, and wakes after successful API mutations such as
+booking creation and captured payment verification/webhooks.
 It does not depend on MAINTENANCE_MODE or an external cron job. Existing cron
 maintenance may remain configured for reconciliation and retries. Keep its
 environment consistent with the web app. Each job is atomically claimed with
@@ -67,14 +67,18 @@ Notification failure never rolls back a payment or delays the ticket response.
 
 The recipient is the verified customer mobile persisted on the booking. Online
 notifications are enqueued only after server-confirmed captured PAID/FREE
-activation. Cash receives an initial due/approval-required ticket link and a
-paid-status message after valid admin cash approval. Both messages retain the
-same QR and secure ticket route: `https://tickets.santassocial.com/ticket/<id>#<bearer>`.
+activation. Cash reservations queue one confirmation when created. It shows
+the amount due while payment is pending. If cash has already been collected
+before the first successful send, the same job uses the paid wording.
+Cash collection and ticket approval do not enqueue a confirmation.
+The QR and secure ticket route stay the same:
+`https://tickets.santassocial.com/ticket/<id>#<bearer>`.
 This opens the customer's receipt directly on another browser; the bare domain
 would open registration instead. Never remove the bearer or use ID-only access.
 
-A successful API acceptance is recorded as SENT; this is not a delivery/read
-receipt. Check AskEVA Reports for delivery failures and sufficient wallet balance.
+A successful API acceptance is recorded as SENT. When the provider returns a
+message ID, the server log associates it with the outbox job for tracing.
+Check AskEVA Reports for delivery/read status and sufficient wallet balance.
 Do not configure arbitrary inbound webhook URLs: delivery-report ingestion is
 not part of this change. Existing retry limits and queued jobs remain intact.
 DEMO_SENT historical notifications are not automatically resent.

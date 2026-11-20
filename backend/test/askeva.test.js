@@ -191,7 +191,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     assert.doesNotMatch(JSON.stringify(failed.body),/wamid|synthetic-secret/);
     assert.equal((await db.all('SELECT * FROM otp_verifications WHERE mobile=?',['9876543213'])).length,0);
     assert.equal((await getBooking(db,booking.id)).status,'PENDING_CASH');
-    // The live worker delivers online capture and cash approval without a cron run.
+    // The live worker delivers online capture without resending the cash receipt.
     fail=false;
     const online=await createBooking(db,{name:'Online Guest',email:'sample@example.com',eventDate:'2026-11-19',adults:1,kids:0,method:'RAZORPAY'},'9876543210',randomUUID());
     await db.run('UPDATE payments SET orderId=? WHERE bookingId=?',['order_live_notification',online.id]);
@@ -203,10 +203,11 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     await worker.wake();
     const sentTickets=calls.filter(c=>c.template.name==='santa_social_ticket').map(c=>c.template.components[0].parameters.map(p=>p.text));
     for(const b of [online,booking]){
-      const message=sentTickets.find(v=>v[1]===b.reference && v[5].startsWith('Paid:'));
-      assert.ok(message,'paid receipt must be sent automatically');
+      const matching=sentTickets.filter(v=>v[1]===b.reference);
+      assert.equal(matching.length,1,'each booking must send exactly one receipt');
+      const [message]=matching;
       assert.equal(message[0],b.name);
-      assert.equal(message[5], b.id===online.id ? 'Paid: ₹1.03' : 'Paid: ₹2.05');
+      assert.equal(message[5], b.id===online.id ? 'Paid: ₹1.03' : 'Cash due: ₹2.05. Approval required before entry.');
       assert.equal(message[6].split('#')[0],process.env.FRONTEND_ORIGIN+'/ticket/'+b.id);
       const link=new URL(message[6]);
       await request(app).get('/api/tickets/'+b.id).set('Authorization','Bearer '+link.hash.slice(1)).expect(200);

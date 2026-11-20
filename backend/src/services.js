@@ -355,7 +355,8 @@ export async function approveCashInTransaction(tx, id, amount, userId) {
       p.id,
     ],
   );
-  await activate(tx, b);
+  // The cash reservation already queued its ticket link when it was created.
+  await activate(tx, b, "PAID", { notify: false });
   await audit(tx, userId, "CASH_APPROVED", id);
   return publicBooking(await getBooking(tx, id));
 }

@@ -798,12 +798,13 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     },
   );
   app.post("/api/admin/bookings/:id/notify", staff, async (req, res) => {
-    await db.run(
-      "UPDATE notification_logs SET status = 'QUEUED', attempts = 0, nextAttemptAt = ? WHERE bookingId = ?",
+    const retry = await db.run(
+      "UPDATE notification_logs SET status = 'QUEUED', attempts = 0, nextAttemptAt = ? WHERE bookingId = ? AND status = 'FAILED' AND sentAt IS NULL",
       [now(), param(req)],
     );
-    await audit(db, req.identity.userId, "RESEND_NOTIFICATION", param(req));
-    res.json({ queued: true });
+    if (retry.changes)
+      await audit(db, req.identity.userId, "RESEND_NOTIFICATION", param(req));
+    res.json({ queued: Boolean(retry.changes) });
   });
   app.get("/api/admin/bookings/:id", staff, async (req, res) => {
     const b = await getBooking(db, param(req));

@@ -45,7 +45,7 @@ Live WhatsApp starts an independent automatic notification worker regardless of 
 
 Notifications are recorded as `QUEUED`, then `SENT`, `RETRY` or `FAILED` (or `DEMO_SENT` in demo). Retries use exponential delays with five attempts. Unique booking/type constraints avoid duplicate enqueueing. Remote delivery is at-least-once under a process failure; use a provider idempotency facility if available. Message failures never undo a paid booking. Historical DEMO_SENT notifications are not automatically resent. Identifiable simulated Razorpay jobs are superseded in live payment mode.
 
-An outdated cash-pending message is marked `SUPERSEDED` when its booking is already approved, expired or cancelled, so it cannot incorrectly ask a paid guest to pay again.
+Cash approval does not enqueue a second receipt. A cash reservation job that first sends after payment uses the current paid status. Cancelled or expired cash confirmations and redundant cash-approval jobs from older releases are marked `SUPERSEDED`.
 
 ## SMTP fallback
 

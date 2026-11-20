@@ -82,9 +82,28 @@ async function emailFallback(b, type) {
     text,
   });
 }
+async function isObsoleteCashNotification(db, booking, job) {
+  if (booking.method !== "CASH" || !["TICKET", "CASH_PENDING"].includes(job.type))
+    return false;
+  if (!["PENDING_CASH", "PAID"].includes(booking.status)) return true;
+  const original = job.type === "CASH_PENDING";
+  if (!original && booking.status !== "PAID") return true;
+  // Old releases queued a second job at cash approval. Prefer the reservation
+  // job unless it was superseded, and honour any delivery already recorded.
+  const [other] = await db.all(
+    "SELECT status, sentAt FROM notification_logs WHERE bookingId = ? AND type = ?",
+    [booking.id, original ? "TICKET" : "CASH_PENDING"],
+  );
+  return (
+    Boolean(other?.sentAt) ||
+    ["SENT", "DEMO_SENT", "EMAIL_SENT"].includes(other?.status) ||
+    (!original && Boolean(other) && other.status !== "SUPERSEDED")
+  );
+}
+
 export async function dispatchNotifications(db, provider) {
   const jobs = await db.all(
-    "SELECT * FROM notification_logs WHERE status IN ('QUEUED','RETRY') AND nextAttemptAt <= ? AND attempts < 5 LIMIT 20",
+    "SELECT * FROM notification_logs WHERE status IN ('QUEUED','RETRY') AND sentAt IS NULL AND nextAttemptAt <= ? AND attempts < 5 LIMIT 20",
     [now()],
   );
   for (const job of jobs) {
@@ -93,14 +112,14 @@ export async function dispatchNotifications(db, provider) {
     // A crashed worker's claim becomes retryable after two minutes.
     const lease = new Date(Date.now() + 120000).toISOString();
     const claim = await db.run(
-      "UPDATE notification_logs SET nextAttemptAt = ? WHERE id = ? AND status IN ('QUEUED','RETRY') AND nextAttemptAt <= ? AND attempts = ?",
+      "UPDATE notification_logs SET nextAttemptAt = ? WHERE id = ? AND status IN ('QUEUED','RETRY') AND sentAt IS NULL AND nextAttemptAt <= ? AND attempts = ?",
       [lease, job.id, now(), job.attempts],
     );
     if (!claim.changes) continue;
     try {
       const b = await getBooking(db, job.bookingId);
       if (
-        (job.type === "CASH_PENDING" && b.status !== "PENDING_CASH") ||
+        (await isObsoleteCashNotification(db, b, job)) ||
         (!paymentDemo && b.method === "RAZORPAY" && publicBooking(b).demo)
       ) {
         await db.run(
@@ -109,7 +128,7 @@ export async function dispatchNotifications(db, provider) {
         );
         continue;
       }
-      await (provider || (await getMessaging())).sendNotification({
+      const receipt = await (provider || (await getMessaging())).sendNotification({
         mobile: b.mobile,
         name: b.name,
         status: b.status,
@@ -127,6 +146,15 @@ export async function dispatchNotifications(db, provider) {
         "UPDATE notification_logs SET status = ?, attempts = attempts + 1, sentAt = ? WHERE id = ?",
         [whatsappDemo ? "DEMO_SENT" : "SENT", now(), job.id],
       );
+      if (
+        !whatsappDemo &&
+        typeof receipt?.messageId === "string" &&
+        /^[a-zA-Z0-9._+/=-]{1,512}$/.test(receipt.messageId)
+      )
+        console.info("WhatsApp notification accepted", {
+          notificationId: job.id,
+          providerMessageId: receipt.messageId,
+        });
     } catch {
       if (!demo && job.attempts >= 1) {
         try {

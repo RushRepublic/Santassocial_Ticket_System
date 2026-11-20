@@ -880,16 +880,9 @@ test("failed WhatsApp delivery is retryable and cannot invalidate a paid ticket"
       },
     });
     const logs = await db.all("SELECT * FROM notification_logs");
-    assert.ok(
-      logs.some(
-        (log) =>
-          log.type === "TICKET" && log.status === "RETRY" && log.attempts === 1,
-      ),
-    );
-    assert.ok(
-      logs.some(
-        (log) => log.type === "CASH_PENDING" && log.status === "SUPERSEDED",
-      ),
+    assert.deepEqual(
+      logs.map(({ type, status, attempts }) => [type, status, attempts]),
+      [["CASH_PENDING", "RETRY", 1]],
     );
     assert.equal((await getBooking(db, b.id)).status, "PAID");
     assert.equal(publicBooking(await getBooking(db, b.id)).qrToken, original);

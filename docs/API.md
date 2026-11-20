@@ -31,7 +31,7 @@ New booking totals include a 2.5% platform fee, rounded once on the ticket subto
 | POST    | `/admin/bookings/:id/approve` | Admin/cashier; `{amountReceived}`; cash only                                                             |
 | POST    | `/admin/bookings/:id/restore` | Admin/cashier; legacy expired cash only; no attendance cap                                                 |
 | POST    | `/admin/bookings/:id/cancel`  | Admin; unpaid, not checked-in bookings only                                                              |
-| POST    | `/admin/bookings/:id/notify`  | Admin/cashier; queues notification retry                                                                 |
+| POST    | `/admin/bookings/:id/notify`  | Admin/cashier; retries failed notifications with no recorded send                                        |
 | GET     | `/admin/payments`             | Admin/cashier; most recent 500 records                                                                   |
 | GET     | `/admin/checkins`             | Admin/cashier: latest 100; scanner: own latest 100                                                       |
 | GET/PUT | `/admin/settings`             | Admin only; inventory row locked on changes                                                              |
