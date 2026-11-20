@@ -3096,7 +3096,7 @@ td > a:hover {
   .quantity-row > div {
     min-width: 0;
   }
-  .quantity-row h3 b {
+  .free-tickets .quantity-row h3 b {
     display: block;
     margin-left: 0;
   }
