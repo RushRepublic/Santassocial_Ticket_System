@@ -1,16 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import {
-  ArrowUpRight,
-  MapPin,
-  CalendarDays,
-  Clock,
-  Ticket,
-  Menu,
-  X,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { MapPin, CalendarDays, Clock } from "lucide-react";
 import { api } from "@/lib/api";
 export const directions =
   "https://www.google.com/maps/search/?api=1&query=Park+Grounds+CODISSIA+Coimbatore";
@@ -27,65 +18,11 @@ export function Wordmark({ large = false }) {
   );
 }
 export function Header({ overlay = false }) {
-  const [open, setOpen] = useState(false);
-  const path = usePathname();
-  const isBookingPage = path === "/" || path === "/register";
-  const headerRef = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && setOpen(false);
-    const onClick = (e) => {
-      if (headerRef.current && !headerRef.current.contains(e.target))
-        setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onClick);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onClick);
-    };
-  }, [open]);
   return (
-    <header
-      ref={headerRef}
-      className={`site-header ${overlay ? "overlay" : ""}`}
-    >
+    <header className={`site-header ${overlay ? "overlay" : ""}`}>
       <Link href="/" aria-label="Santa Social booking form">
         <Wordmark />
       </Link>
-      {path !== "/checkout" && (
-        <>
-          <button
-            className="menu-button"
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-            aria-controls="customer-navigation"
-            onClick={() => setOpen(!open)}
-          >
-            {open ? <X /> : <Menu />}
-          </button>
-          <nav
-            id="customer-navigation"
-            aria-label="Customer navigation"
-            className={open ? "open" : ""}
-          >
-            {path !== "/retrieve-ticket" && (
-              <Link onClick={() => setOpen(false)} href="/retrieve-ticket">
-                Find my ticket
-              </Link>
-            )}
-            {!isBookingPage && (
-              <Link
-                className="button light"
-                onClick={() => setOpen(false)}
-                href="/"
-              >
-                <Ticket size={17} /> Book tickets <ArrowUpRight size={17} />
-              </Link>
-            )}
-          </nav>
-        </>
-      )}
     </header>
   );
 }

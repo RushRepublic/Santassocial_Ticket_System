@@ -217,11 +217,14 @@ a.button,
   background: var(--red);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 16px 4.5%;
   color: white;
   position: relative;
   z-index: 5;
+}
+.site-header > a {
+  display: flex;
 }
 .site-header.overlay {
   position: absolute;
@@ -230,31 +233,6 @@ a.button,
   width: 100%;
   background: linear-gradient(#0008, transparent);
   height: 115px;
-}
-.site-header nav {
-  display: none;
-  position: absolute;
-  top: calc(100% - 8px);
-  right: 4.5%;
-  min-width: 240px;
-  background: var(--red);
-  padding: 20px;
-  border: 1px solid #ffffff30;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px #0003;
-  align-items: stretch;
-  font-size: 15px;
-}
-.site-header nav.open {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.site-header .menu-button {
-  display: inline-flex;
-}
-.site-header nav > a:not(.button):hover {
-  text-decoration: underline;
 }
 .menu-button {
   display: none;
@@ -2385,9 +2363,6 @@ td > a:hover {
   }
 }
 @media (max-width: 1200px) {
-  .site-header nav {
-    gap: 20px;
-  }
   .intro-details {
     gap: 30px;
     font-size: 19px;
@@ -2568,12 +2543,6 @@ td > a:hover {
   }
   .menu-button {
     display: block;
-  }
-  .site-header nav {
-    top: 85px;
-    left: 15px;
-    right: 15px;
-    min-width: 0;
   }
   .home-red {
     padding: 10px 10px 0;
@@ -3219,7 +3188,6 @@ td > a:hover {
 .scanner-app > header > div > a {
   display: inline-flex;
 }
-.site-header nav a,
 .admin-topbar > a {
   min-height: 44px;
   align-content: center;

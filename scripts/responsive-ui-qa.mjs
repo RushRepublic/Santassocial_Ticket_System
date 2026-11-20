@@ -124,24 +124,21 @@ export async function auditResponsive(page, screen) {
       )
         throw Error("Reduced-motion preference must disable smooth scrolling.");
       await page.emulateMedia({ reducedMotion: "no-preference" });
-      const menu = page.getByRole("button", { name: "Open menu", exact: true });
-      await menu.focus();
-      await page.keyboard.press("Enter");
+      const header = page.locator(".site-header");
+      const home = header.getByRole("link", {
+        name: "Santa Social booking form",
+      });
+      await home.focus();
       if (
-        (await page
-          .getByRole("button", { name: "Close menu", exact: true })
-          .getAttribute("aria-expanded")) !== "true"
+        (await home.getAttribute("href")) !== "/" ||
+        !(await home.evaluate((link) => link === document.activeElement))
       )
         throw Error(
-          "Customer menu must expose its expanded state to keyboard users.",
+          "The public logo must remain a keyboard-accessible link to registration.",
         );
-      await page
-        .getByRole("link", { name: "Find my ticket", exact: true })
-        .waitFor();
-      await page
-        .getByRole("button", { name: "Close menu", exact: true })
-        .click();
-      results.push({ screen, reducedMotion: "passed", keyboardMenu: "passed" });
+      if (await header.locator("nav, button").count())
+        throw Error("The public header must not render a navigation menu.");
+      results.push({ screen, reducedMotion: "passed", keyboardLogo: "passed" });
     }
     writeFileSync(`${output}/results.json`, JSON.stringify(results, null, 2));
     console.log(
