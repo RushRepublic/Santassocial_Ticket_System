@@ -1,12 +1,12 @@
 import "./globals.css";
-import { EVENT_DATE_LABEL } from "../../config/event-dates.js";
+import { EVENT_DATE_LABEL, EVENT_HOURS_LABEL } from "../../config/event-dates.js";
 export const metadata = {
   title: {
     default: `Santa Social 9th Edition | Coimbatore, ${EVENT_DATE_LABEL}`,
     template: "%s | Santa Social",
   },
   description:
-    `Two days of Christmas cheer at Park Grounds, CODISSIA, Coimbatore. ${EVENT_DATE_LABEL}, 11 AM–9 PM. Book your Santa Social group tickets.`,
+    `Two days of Christmas cheer at Park Grounds, CODISSIA, Coimbatore. ${EVENT_DATE_LABEL}, ${EVENT_HOURS_LABEL} IST. Book your Santa Social group tickets.`,
   robots: { index: true, follow: true },
 };
 export default function Layout({ children }) {

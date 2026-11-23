@@ -1,4 +1,5 @@
 "use client";
+import { EVENT_HOURS_LABEL } from "../../config/event-dates.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Ticket, Users } from "lucide-react";
@@ -122,7 +123,7 @@ export function FreeTickets() {
                     <b>
                       {eventMonthYear(date)}
                     </b>
-                    <em>11:00 AM – 9:00 PM</em>
+                    <em>{EVENT_HOURS_LABEL}</em>
                   </span>
                   <span className="radio-dot" />
                 </button>

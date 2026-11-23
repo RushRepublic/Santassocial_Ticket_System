@@ -4,6 +4,7 @@ import { openSync } from "fontkit";
 import sharp from "sharp";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
+import { EVENT_HOURS_LABEL } from "../../config/event-dates.js";
 import { qrToken } from "./security.js";
 import { money } from "./pricing.js";
 
@@ -98,7 +99,7 @@ export async function renderTicketPng(booking) {
       ${text(ticket?.number || booking.reference, 430, 395, 24, { color: colors.red })}
       ${text(booking.name, 430, 477, 64, { bold: true })}
       ${text(date, 430, 541, 30)}
-      ${text("11:00 AM – 9:00 PM", 430, 589, 27)}
+      ${text(EVENT_HOURS_LABEL, 430, 589, 27)}
       ${text("Park Grounds – CODISSIA, Coimbatore", 430, 637, 27)}
       ${
         ticket

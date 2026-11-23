@@ -26,6 +26,14 @@ try {
   await page.goto(origin);
   await page.getByRole("button", { name: "Checkout", exact: true }).waitFor();
   await auditResponsive(page, "registration");
+  const dateCards = page.locator(".date-option");
+  await expect(dateCards.locator("em")).toHaveText(["11:00 AM – 10:00 PM", "11:00 AM – 10:00 PM"]);
+  for (const card of await dateCards.all()) {
+    await expect(card).toBeEnabled();
+    await card.click();
+    await expect(card).toHaveAttribute("aria-pressed", "true");
+  }
+  await dateCards.first().click();
   await expect(page.locator(".form-section .section-label")).toHaveText([
     "01Pick your day",
     "02Registration Details",

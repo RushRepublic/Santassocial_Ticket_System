@@ -1,5 +1,5 @@
 "use client";
-import { EVENT_DATE_LABEL } from "../../config/event-dates.js";
+import { EVENT_DATE_LABEL, EVENT_HOURS_LABEL } from "../../config/event-dates.js";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { MapPin, CalendarDays, Clock } from "lucide-react";
@@ -62,7 +62,7 @@ export function EventDetails({ showVenue = true }) {
       </p>
       <p>
         <Clock />
-        <span>11:00 AM – 9:00 PM</span>
+        <span>{EVENT_HOURS_LABEL}</span>
       </p>
       {showVenue && <VenueLocation />}
     </div>

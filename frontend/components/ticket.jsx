@@ -1,4 +1,5 @@
 "use client";
+import { EVENT_HOURS_LABEL } from "../../config/event-dates.js";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
@@ -248,7 +249,7 @@ export function GroupTicket({ id }) {
                   <CalendarDays size={18} />
                   {eventDate(booking.eventDate)}
                 </p>
-                <p>11:00 AM – 9:00 PM</p>
+                <p>{EVENT_HOURS_LABEL}</p>
                 <p>
                   <MapPin size={18} />
                   Park Grounds – CODISSIA, Coimbatore

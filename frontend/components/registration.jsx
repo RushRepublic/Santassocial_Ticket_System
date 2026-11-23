@@ -1,5 +1,5 @@
 "use client";
-import { EVENT_DATES } from "../../config/event-dates.js";
+import { EVENT_DATES, EVENT_HOURS_LABEL } from "../../config/event-dates.js";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -229,7 +229,7 @@ export function Register() {
                   <span>
                     <small>{eventDate(date).split(",")[0].toUpperCase()}</small>
                     <b>{eventMonthYear(date)}</b>
-                    <em>11:00 AM – 9:00 PM</em>
+                    <em>{EVENT_HOURS_LABEL}</em>
                   </span>
                   <span className="radio-dot" />
                 </button>

@@ -79,6 +79,7 @@ try {
     await receipt.goto(`${origin}/ticket/${booking.id}#${booking.qrToken}`);
     await expect(receipt.getByRole("heading", { name: "Group Ticket", exact: true })).toBeVisible();
     await expect(receipt.locator(".ticket-status")).toContainText("₹615");
+    await expect(receipt.getByText("11:00 AM – 10:00 PM", { exact: true })).toBeVisible();
     await expect(receipt.locator(".ticket-carousel")).toHaveCount(0);
     await expect(receipt.getByText(/Ticket 1 of/)).toHaveCount(0);
     const qr = receipt.getByAltText("Secure group booking QR", { exact: true });

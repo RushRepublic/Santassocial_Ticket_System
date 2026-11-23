@@ -1,4 +1,5 @@
 export const EVENT_DATES = Object.freeze(["2026-12-05", "2026-12-06"]);
+export const EVENT_HOURS_LABEL = "11:00 AM – 10:00 PM";
 const eventMonthYear = new Intl.DateTimeFormat("en-IN", {
   month: "long",
   year: "numeric",

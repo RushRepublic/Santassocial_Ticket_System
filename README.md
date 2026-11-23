@@ -2,7 +2,7 @@
 
 # Santa Social · 9th Edition
 
-Next.js customer site, modular Express API, MySQL production storage, and mobile individual-ticket verification for December 5–6, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–9 PM IST** as specified in the supplied brief.
+Next.js customer site, modular Express API, MySQL production storage, and mobile individual-ticket verification for December 5–6, 2026, at Park Grounds–CODISSIA, Coimbatore. Event hours are **11 AM–10 PM IST** on both days.
 
 For Hostinger, deploy one Node.js app using the root `server.js`: `npm run build`, then `npm start`. It serves registration, staff modules and `/api/*` on one subdomain. Staff sign in once at `/login`; admins can use every module including the gate scanner, while limited roles retain their permissions. The old admin/scanner login URLs redirect to `/login`. Follow [the single-subdomain Hostinger guide](docs/HOSTINGER-SINGLE-SITE.md) for MySQL, simulated providers, environment variables and cron setup. Only admin credentials are required for access to all modules.
 
