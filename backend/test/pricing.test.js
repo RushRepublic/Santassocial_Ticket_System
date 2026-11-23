@@ -7,7 +7,9 @@ test("2.5 percent fee rounds half a paise up once on the subtotal", () => {
     [0, 0], [19, 0], [20, 1], [100, 3], [200, 5], [300, 8],
     [10000, 250], [20000, 500], [30000, 750], [50000, 1250], [100000, 2500],
   ]) assert.equal(platformFeePaise(subtotal), fee);
-  assert.deepEqual(quoteBooking(3), { ticketSubtotal: 300, platformFee: 8, amount: 308 });
+  assert.deepEqual(quoteBooking(1), { ticketSubtotal: 20_000, platformFee: 500, amount: 20_500 });
+  assert.deepEqual(quoteBooking(3), { ticketSubtotal: 60_000, platformFee: 1_500, amount: 61_500 });
+  assert.deepEqual(quoteBooking(5), { ticketSubtotal: 100_000, platformFee: 2_500, amount: 102_500 });
   assert.deepEqual(quoteBooking(0), { ticketSubtotal: 0, platformFee: 0, amount: 0 });
   assert.equal(money(30750), "₹307.50");
 });
@@ -16,5 +18,8 @@ test("the saved price breakdown never changes historical or fee-inclusive totals
   for (const amount of [300, 60000])
     assert.deepEqual(savedBookingPricing({ adults: 3, amount }),
       { ticketSubtotal: amount, platformFee: 0, amount });
-  assert.deepEqual(savedBookingPricing({ adults: 3, amount: 308 }), quoteBooking(3));
+  assert.deepEqual(savedBookingPricing({ adults: 3, amount: 308 }),
+    { ticketSubtotal: 300, platformFee: 8, amount: 308 });
+  assert.deepEqual(savedBookingPricing({ adults: 3, amount: 61_500 }), quoteBooking(3));
+  assert.deepEqual(savedBookingPricing({ adults: 3, amount: 0 }), quoteBooking(0));
 });

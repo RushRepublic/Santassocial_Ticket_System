@@ -65,10 +65,10 @@ try {
   const online = await post("/bookings", { ...input, method: "RAZORPAY" });
   expect(online.qrToken).toBeNull();
   const order = await post("/payments/razorpay/order", { bookingId: online.id });
-  expect(order.amount).toBe(308);
+  expect(order.amount).toBe(61_500);
   const paid = await post("/demo/payments/complete", { bookingId: online.id });
   const cash = await post("/bookings", { ...input, method: "CASH" });
-  expect(cash).toMatchObject({ ticketSubtotal: 300, platformFee: 8, amount: 308 });
+  expect(cash).toMatchObject({ ticketSubtotal: 60_000, platformFee: 1_500, amount: 61_500 });
   const counterCash = await post("/bookings", { ...input, method: "CASH" });
   const fallbackCash = await post("/bookings", { ...input, method: "CASH" });
   const future = await post("/bookings", { ...input, eventDate: "2026-12-06", method: "CASH" });
@@ -78,7 +78,7 @@ try {
   for (const [booking, label] of [[paid, "online"], [cash, "cash"]]) {
     await receipt.goto(`${origin}/ticket/${booking.id}#${booking.qrToken}`);
     await expect(receipt.getByRole("heading", { name: "Group Ticket", exact: true })).toBeVisible();
-    await expect(receipt.locator(".ticket-status")).toContainText("₹3.08");
+    await expect(receipt.locator(".ticket-status")).toContainText("₹615");
     await expect(receipt.locator(".ticket-carousel")).toHaveCount(0);
     await expect(receipt.getByText(/Ticket 1 of/)).toHaveCount(0);
     const qr = receipt.getByAltText("Secure group booking QR", { exact: true });
@@ -116,10 +116,10 @@ try {
   await expect(approve).toHaveCount(0);
   await scan(cash);
   const approveCash = page.getByRole("button", { name: "Approve Group Ticket", exact: true });
-  const acknowledge = page.getByRole("checkbox", { name: "I have collected ₹3.08 in cash.", exact: true });
+  const acknowledge = page.getByRole("checkbox", { name: "I have collected ₹615 in cash.", exact: true });
   const pending = page.locator(".scan-result.cash-due");
   await expect(pending.getByText("CASH PAYMENT PENDING", { exact: true })).toBeVisible();
-  await expect(pending.getByRole("heading", { name: "Collect ₹3.08 before approving group entry." })).toBeVisible();
+  await expect(pending.getByRole("heading", { name: "Collect ₹615 before approving group entry." })).toBeVisible();
   await expect(acknowledge).not.toBeChecked();
   await expect(approveCash).toBeDisabled();
   await expect(approve).toHaveCount(0);

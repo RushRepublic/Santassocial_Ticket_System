@@ -39,6 +39,8 @@ try {
   await expect(radios).toHaveCount(4);
   for (const width of [360, 390, 430, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator(".quantity-row").filter({ hasText: "Adults" })).toContainText("₹200");
+    await expect(page.locator(".quantity-row").filter({ hasText: "Little ones" })).toContainText("Free");
     const layout = await discovery.evaluate((group) => ({
       columns: getComputedStyle(group).gridTemplateColumns.split(" ").length,
       overflow: document.documentElement.scrollWidth > innerWidth,
@@ -100,11 +102,11 @@ try {
   for (const width of [360, 390, 430, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(summary.getByText("Ticket Subtotal", { exact: true })).toHaveCount(0);
-    await expect(summary.locator("p").filter({ hasText: "11 × Adult ticket" }).locator("b")).toHaveText("₹11");
+    await expect(summary.locator("p").filter({ hasText: "11 × Adult ticket" }).locator("b")).toHaveText("₹2,200");
     await expect(summary.locator("p").filter({ hasText: "5 × Kids ticket" }).locator("b")).toHaveText("Free");
-    await expect(summary.locator("p").filter({ hasText: "Platform Fee (2.5%)" }).locator("b")).toHaveText("₹0.28");
-    await expect(summary.locator(".summary-total strong")).toHaveText("₹11.28");
-    await expect(page.getByRole("button", { name: "Continue to payment · ₹11.28", exact: true })).toBeVisible();
+    await expect(summary.locator("p").filter({ hasText: "Platform Fee (2.5%)" }).locator("b")).toHaveText("₹55");
+    await expect(summary.locator(".summary-total strong")).toHaveText("₹2,255");
+    await expect(page.getByRole("button", { name: "Continue to payment · ₹2,255", exact: true })).toBeVisible();
     expect(await summary.evaluate((el) => el.scrollWidth <= el.clientWidth && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.QA_PRICING_SCREENSHOTS === "1")
       await summary.screenshot({ path: `test-results/checkout-platform-fee-${width}.png` });
@@ -123,7 +125,7 @@ try {
     (response) => response.url().endsWith("/api/payments/razorpay/order"),
   );
   await page.getByRole("button", { name: /Continue to payment/ }).click();
-  expect((await (await orderResponse).json()).amount).toBe(1128);
+  expect((await (await orderResponse).json()).amount).toBe(225_500);
   await page.getByRole("button", { name: "Simulate unsuccessful payment" }).click();
   await page.getByRole("link", { name: "Edit", exact: true }).click();
   await page.waitForURL(origin + "/");
@@ -137,8 +139,8 @@ try {
   const paidId = new URL(page.url()).pathname.split("/").at(-1);
   const paid = await (await page.request.get(`${origin}/api/bookings/${paidId}`)).json();
   expect(paid.status).toBe("PAID");
-  expect(paid).toMatchObject({ ticketSubtotal: 1100, platformFee: 28, amount: 1128, people: 16 });
-  await expect(page.locator(".ticket-status")).toContainText("₹11.28");
+  expect(paid).toMatchObject({ ticketSubtotal: 220_000, platformFee: 5_500, amount: 225_500, people: 16 });
+  await expect(page.locator(".ticket-status")).toContainText("₹2,255");
   expect(paid.discoverySource).toBe("word_of_mouth");
 
   await page.goto(origin);
@@ -154,8 +156,8 @@ try {
   const cashId = new URL(page.url()).searchParams.get("id");
   const cash = await (await page.request.get(`${origin}/api/bookings/${cashId}`)).json();
   expect(cash.status).toBe("PENDING_CASH");
-  expect(cash).toMatchObject({ ticketSubtotal: 1100, platformFee: 28, amount: 1128, people: 16 });
-  await expect(page.locator(".ticket-status")).toContainText("₹11.28");
+  expect(cash).toMatchObject({ ticketSubtotal: 220_000, platformFee: 5_500, amount: 225_500, people: 16 });
+  await expect(page.locator(".ticket-status")).toContainText("₹2,255");
   expect(cash.discoverySource).toBe("previous_visitor");
   await page.goto(origin + "/login?next=%2Fadmin%2Fdashboard");
   await page

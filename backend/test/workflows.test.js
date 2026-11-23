@@ -129,17 +129,19 @@ test("historical cash and online bookings keep their saved price through approva
   fixture(async (db) => {
     const app = createApp(db);
     const mobile = "9876543210";
-    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 300);
+    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 308);
     const pending = await createBooking(
       db, booking({ method: "RAZORPAY" }), mobile, randomUUID(), 200,
     );
     const customer = `santa_session=${await signSession({ mobile })}`;
     const read = (id) => request(app).get(`/api/bookings/${id}`).set("Cookie", customer).expect(200);
-    for (const [record, amount] of [[cash, 300], [pending, 200]]) {
+    for (const [record, amount] of [[cash, 308], [pending, 200]]) {
       const { body } = await read(record.id);
       assert.deepEqual(
         { amount: body.amount, ticketSubtotal: body.ticketSubtotal, platformFee: body.platformFee },
-        { amount, ticketSubtotal: amount, platformFee: 0 },
+        amount === 308
+          ? { amount, ticketSubtotal: 300, platformFee: 8 }
+          : { amount, ticketSubtotal: amount, platformFee: 0 },
       );
     }
     const order = await request(app).post("/api/payments/razorpay/order")
@@ -147,9 +149,9 @@ test("historical cash and online bookings keep their saved price through approva
       .send({ bookingId: pending.id }).expect(200);
     assert.equal(order.body.amount, 200);
     const admin = await staff(db);
-    await assert.rejects(checkin(db, qrToken(cash), admin, randomUUID(), 308, true), /match/);
-    await checkin(db, qrToken(cash), admin, randomUUID(), 300, true);
-    assert.equal((await read(cash.id)).body.amount, 300);
+    await assert.rejects(checkin(db, qrToken(cash), admin, randomUUID(), 61_500, true), /match/);
+    await checkin(db, qrToken(cash), admin, randomUUID(), 308, true);
+    assert.equal((await read(cash.id)).body.amount, 308);
     const switched = await request(app).post(`/api/bookings/${pending.id}/payment-method`)
       .set("Cookie", customer).set("Origin", config.origin)
       .set("Idempotency-Key", randomUUID()).send({ method: "CASH" }).expect(200);
@@ -210,7 +212,7 @@ test("cash group approval requires acknowledgement, rolls back failures, and adm
       200,
     );
     assert.equal(inspected.body.paymentStatus, "DUE");
-    assert.equal(inspected.body.amount, 308);
+    assert.equal(inspected.body.amount, 61_500);
     assert.equal(inspected.body.mobile, b.mobile);
     await scan(customerCookie, "/api/scanner/verify", {}).expect(403);
     await scan(scannerCookie, "/api/scanner/checkin", {}).expect(403);
@@ -559,7 +561,7 @@ test("one QR per group; cash requires approval; simultaneous entry has exactly o
     assert.equal(publicBooking(b).qrToken, qrToken(b));
     await assert.rejects(verifyTicket(db, qrToken(b)), /PAYMENT PENDING/);
     await assert.rejects(approveCash(db, b.id, 1, await staff(db)), /match/);
-    await approveCash(db, b.id, 205, await staff(db));
+    await approveCash(db, b.id, 41_000, await staff(db));
     const paid = await getBooking(db, b.id);
     assert.equal(paid.people, 3);
     assert.match(publicBooking(paid).qrToken, /^ss_[a-f\d]{64}$/);
@@ -652,13 +654,13 @@ test("idempotent registration, duplicate payment callbacks and duplicate webhook
     ]);
     await Promise.all(
       Array.from({ length: 8 }, () =>
-        settleCaptured(db, "order_test", "pay_test", 205, "INR", {
+        settleCaptured(db, "order_test", "pay_test", 41_000, "INR", {
           id: "evt_one",
           type: "payment.captured",
         }),
       ),
     );
-    await settleCaptured(db, "order_test", "pay_test", 205, "INR");
+    await settleCaptured(db, "order_test", "pay_test", 41_000, "INR");
     assert.equal((await getBooking(db, b.id)).status, "PAID");
     assert.equal((await db.all("SELECT * FROM notification_logs")).length, 1);
     assert.equal((await db.all("SELECT * FROM webhook_events")).length, 1);
@@ -691,7 +693,7 @@ test("old payment deadlines do not expire bookings or reject captured payments",
       randomUUID(),
     );
     assert.equal((await getBooking(db, first.id)).status, "PENDING_PAYMENT");
-    await settleCaptured(db, "order_expired", "pay_expired", 205, "INR");
+    await settleCaptured(db, "order_expired", "pay_expired", 41_000, "INR");
     assert.equal((await getBooking(db, first.id)).status, "PAID");
     assert.ok(publicBooking(await getBooking(db, first.id)).qrToken);
     assert.equal((await availability(db)).remaining, null);
@@ -713,7 +715,7 @@ test("late captured payment stays valid and wrong event date is rejected", () =>
       "2020-01-01T00:00:00.000Z",
       b.id,
     ]);
-    await settleCaptured(db, "order_late", "pay_late", 205, "INR");
+    await settleCaptured(db, "order_late", "pay_late", 41_000, "INR");
     assert.equal((await getBooking(db, b.id)).status, "PAID");
     await assert.rejects(verifyTicket(db, qrToken(b)), /cannot be used/);
     await expire(db);
@@ -777,12 +779,15 @@ test("API journey: OTP, booking, demo payment, ticket retrieval, PDF and role re
     const b = response.body;
     assert.deepEqual(
       { amount: b.amount, platformFee: b.platformFee, ticketSubtotal: b.ticketSubtotal },
-      { amount: 205, platformFee: 5, ticketSubtotal: 200 },
+      { amount: 41_000, platformFee: 1_000, ticketSubtotal: 40_000 },
     );
     assert.equal(b.qrToken, null);
     await customer.get(`/api/tickets/${b.id}`).expect(403);
     await mutate("/api/payments/razorpay/order", { bookingId: b.id }).then(
-      (r) => assert.equal(r.status, 200),
+      (r) => {
+        assert.equal(r.status, 200);
+        assert.equal(r.body.amount, 41_000);
+      },
     );
     const paid = await mutate("/api/demo/payments/complete", {
       bookingId: b.id,
@@ -812,7 +817,7 @@ test("API journey: OTP, booking, demo payment, ticket retrieval, PDF and role re
       .set("Authorization", `Bearer ${paid.body.qrToken}`)
       .expect(200);
     await mutate("/api/admin/bookings/" + b.id + "/approve", {
-      amountReceived: 205,
+      amountReceived: 41_000,
     }).then((r) => assert.equal(r.status, 403));
     const gate = request.agent(app);
     await gate
@@ -848,7 +853,7 @@ test("15 scanning requests remain correct for independent groups", () =>
     const bookings = [];
     for (let i = 0; i < 15; i++) {
       const b = await createBooking(db, booking(), "9876543210", randomUUID());
-      await approveCash(db, b.id, 205, admin);
+      await approveCash(db, b.id, 41_000, admin);
       bookings.push(b);
     }
     const entered = await Promise.all(
@@ -871,7 +876,7 @@ test("signature comparison rejects malformed values and authenticates the origin
 test("failed WhatsApp delivery is retryable and cannot invalidate a paid ticket", () =>
   fixture(async (db) => {
     const b = await createBooking(db, booking(), "9876543210", randomUUID());
-    await approveCash(db, b.id, 205, await staff(db));
+    await approveCash(db, b.id, 41_000, await staff(db));
     const original = publicBooking(await getBooking(db, b.id)).qrToken;
     await dispatchNotifications(db, {
       async sendOtp() {},

@@ -164,7 +164,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     await dispatchNotifications(db);
     assert.equal((await db.all('SELECT status FROM notification_logs WHERE bookingId=?',[booking.id]))[0].status,'SENT');
     const notification=calls.at(-1).template.components[0].parameters.map(p=>p.text);
-    assert.equal(notification[0],'Sample Guest');assert.equal(notification[5],'Cash due: ₹2.05. Approval required before entry.');
+    assert.equal(notification[0],'Sample Guest');assert.equal(notification[5],'Cash due: ₹410.00. Approval required before entry.');
     const link=new URL(notification[6]);assert.equal(link.pathname,'/ticket/'+booking.id);assert.match(link.hash,/^#ss_/);
     await request(app).get('/api/tickets/'+booking.id).expect(403);
     await request(app).get('/api/tickets/'+booking.id).set('Authorization','Bearer '+link.hash.slice(1)).expect(200);
@@ -195,7 +195,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     fail=false;
     const online=await createBooking(db,{name:'Online Guest',email:'sample@example.com',eventDate:'2026-12-05',adults:1,kids:0,method:'RAZORPAY'},'9876543210',randomUUID());
     await db.run('UPDATE payments SET orderId=? WHERE bookingId=?',['order_live_notification',online.id]);
-    await settleCaptured(db,'order_live_notification','pay_live_notification',103,'INR');
+    await settleCaptured(db,'order_live_notification','pay_live_notification',20_500,'INR');
     const adminId=randomUUID();
     await db.run('INSERT INTO users(id,name,email,passwordHash,role,createdAt) VALUES(?,?,?,?,?,?)',[adminId,'Admin','admin@example.com','synthetic','ADMIN',now()]);
     await approveCash(db,booking.id,booking.amount,adminId);
@@ -207,13 +207,13 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
       assert.equal(matching.length,1,'each booking must send exactly one receipt');
       const [message]=matching;
       assert.equal(message[0],b.name);
-      assert.equal(message[5], b.id===online.id ? 'Paid: ₹1.03' : 'Cash due: ₹2.05. Approval required before entry.');
+      assert.equal(message[5], b.id===online.id ? 'Paid: ₹205.00' : 'Cash due: ₹410.00. Approval required before entry.');
       assert.equal(message[6].split('#')[0],process.env.FRONTEND_ORIGIN+'/ticket/'+b.id);
       const link=new URL(message[6]);
       await request(app).get('/api/tickets/'+b.id).set('Authorization','Bearer '+link.hash.slice(1)).expect(200);
     }
     const count=calls.length;
-    await settleCaptured(db,'order_live_notification','pay_live_notification',103,'INR');
+    await settleCaptured(db,'order_live_notification','pay_live_notification',20_500,'INR');
     await worker.wake();
     assert.equal(calls.length,count,'repeated settlement must not resend a sent receipt');
     await worker.close();

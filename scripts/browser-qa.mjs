@@ -579,7 +579,7 @@ try {
     .locator(".ticket-event-date")
     .filter({ hasText: "December" })
     .waitFor();
-  if (booking.amount !== 103 || booking.people !== 2)
+  if (booking.amount !== 20_500 || booking.people !== 2)
     throw Error("Incorrect group price/count");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download PDF" }).click();
@@ -881,7 +881,7 @@ try {
   await page.getByText("PAYMENT VERIFIED", { exact: true }).waitFor();
   await auditResponsive(page, "scanner-paid");
   await page
-    .getByRole("heading", { name: "Payment of ₹1.03 received." })
+    .getByRole("heading", { name: "Payment of ₹205 received." })
     .waitFor();
   if (await page.locator(".scan-result.payment-paid .cash-due-banner").count())
     throw Error("Paid ticket must use the green result state.");
@@ -980,7 +980,7 @@ try {
   await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(cashBooking.qrToken);
   await page
-    .getByRole("heading", { name: "Collect ₹2.05 before approving group entry." })
+    .getByRole("heading", { name: "Collect ₹410 before approving group entry." })
     .waitFor();
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
   await auditResponsive(page, "scanner-cash");
