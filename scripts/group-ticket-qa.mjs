@@ -58,7 +58,7 @@ try {
   const input = {
     name: "Group QR QA",
     discoverySource: "google",
-    eventDate: "2026-11-21",
+    eventDate: "2026-12-05",
     adults: 3,
     kids: 2,
   };
@@ -71,7 +71,7 @@ try {
   expect(cash).toMatchObject({ ticketSubtotal: 300, platformFee: 8, amount: 308 });
   const counterCash = await post("/bookings", { ...input, method: "CASH" });
   const fallbackCash = await post("/bookings", { ...input, method: "CASH" });
-  const future = await post("/bookings", { ...input, eventDate: "2026-11-22", method: "CASH" });
+  const future = await post("/bookings", { ...input, eventDate: "2026-12-06", method: "CASH" });
 
   // Open the secure receipt with no customer session, as from WhatsApp.
   const receipt = await browser.newPage();
@@ -112,7 +112,7 @@ try {
   const approve = page.getByRole("button", { name: "Approve Group Entry", exact: true });
   await scan(future);
   await expect(page.getByRole("heading", { name: "Invalid Ticket", exact: true })).toBeVisible();
-  await expect(page.getByText("Registered Event Date: Sunday, 22 November 2026")).toBeVisible();
+  await expect(page.getByText("Registered Event Date: Sunday, 6 December 2026")).toBeVisible();
   await expect(approve).toHaveCount(0);
   await scan(cash);
   const approveCash = page.getByRole("button", { name: "Approve Group Ticket", exact: true });

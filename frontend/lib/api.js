@@ -43,6 +43,12 @@ export const eventDate = (value) =>
     year: "numeric",
     timeZone: "Asia/Kolkata",
   });
+const monthYear = new Intl.DateTimeFormat("en-IN", {
+  month: "short",
+  year: "numeric",
+  timeZone: "Asia/Kolkata",
+});
+export const eventMonthYear = (value) => monthYear.format(new Date(value));
 export const dateTime = (value) =>
   value
     ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })

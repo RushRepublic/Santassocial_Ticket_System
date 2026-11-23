@@ -84,14 +84,14 @@ try {
     const input = {
       name: "Individual Browser QA",
       discoverySource: "google",
-      eventDate: "2026-11-21",
+      eventDate: "2026-12-05",
       adults: 3,
       kids: 2,
       method: "CASH",
     };
     b = await createLegacyIndividualBooking(db, input, mobile, randomUUID());
     future = await createLegacyIndividualBooking(db, {
-      ...input, name: "Future QR QA", eventDate: "2026-11-22", adults: 1, kids: 0,
+      ...input, name: "Future QR QA", eventDate: "2026-12-06", adults: 1, kids: 0,
     }, mobile, randomUUID());
   } finally {
     await db.close();
@@ -274,7 +274,7 @@ try {
     page.getByRole("heading", { name: "Invalid Ticket", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Registered Event Date: Sunday, 22 November 2026", {
+    page.getByText("Registered Event Date: Sunday, 6 December 2026", {
       exact: true,
     }),
   ).toBeVisible();

@@ -21,7 +21,7 @@ import {
 import { z } from "zod";
 import { GroupTicket } from "./ticket";
 import { TicketPolicies } from "./ticket-policies";
-import { api, post, money, eventDate } from "@/lib/api";
+import { api, post, money, eventDate, eventMonthYear } from "@/lib/api";
 import { discoverySources } from "@/lib/discovery-source";
 import { VenueLocation, Notice, Loading, Status } from "./common";
 import { MobileVerification } from "./mobile-verification";
@@ -225,10 +225,10 @@ export function Register() {
                   }
                   onClick={() => update({ eventDate: date })}
                 >
-                  <span className="date-number">{date.slice(-2)}</span>
+                  <span className="date-number">{Number(date.slice(-2))}</span>
                   <span>
                     <small>{eventDate(date).split(",")[0].toUpperCase()}</small>
-                    <b>Nov 2026</b>
+                    <b>{eventMonthYear(date)}</b>
                     <em>11:00 AM – 9:00 PM</em>
                   </span>
                   <span className="radio-dot" />

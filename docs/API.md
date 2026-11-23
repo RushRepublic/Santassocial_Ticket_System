@@ -25,7 +25,7 @@ New booking totals include a 2.5% platform fee, rounded once on the ticket subto
 | POST    | `/tickets/retrieve`           | Verified mobile; all bookings for that session’s mobile                                                  |
 | GET     | `/tickets/:id`                | Owner/admin/cashier or `Authorization: Bearer ss_…` ticket credential                                    |
 | GET     | `/tickets/:id/download`       | Owner/admin/cashier or valid ticket bearer; branded PDF; `?format=png` returns the complete branded ticket image |
-| GET     | `/admin/dashboard?date=all`   | Admin/cashier; dates also `2026-11-21` or `2026-11-22`                                                   |
+| GET     | `/admin/dashboard?date=all`   | Admin/cashier; dates also `2026-12-05` or `2026-12-06`                                                   |
 | GET     | `/admin/bookings`             | Admin/cashier; `q`, `date`, `status`, `page`; 25 per page; `format=csv` exports matches                  |
 | GET     | `/admin/bookings/:id`         | Admin/cashier; booking, payment, delivery, check-in records                                              |
 | POST    | `/admin/bookings/:id/approve` | Admin/cashier; `{amountReceived}`; cash only                                                             |
@@ -43,7 +43,7 @@ New booking totals include a 2.5% platform fee, rounded once on the ticket subto
 ```json
 {
   "name": "Guest Name",
-  "eventDate": "2026-11-21",
+  "eventDate": "2026-12-05",
   "adults": 2,
   "kids": 1,
   "method": "RAZORPAY"

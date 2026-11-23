@@ -2,15 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Ticket, Users } from "lucide-react";
-import { api, eventDate, money, post } from "@/lib/api";
+import { api, eventDate, eventMonthYear, money, post } from "@/lib/api";
 import { Loading, Notice, VenueLocation } from "./common";
 
 const endpoint = "/admin/free-tickets";
-const monthYear = new Intl.DateTimeFormat("en-IN", {
-  month: "short",
-  year: "numeric",
-  timeZone: "Asia/Kolkata",
-});
 const categories = [
   ["adults", "Adults", "Ages 5 years and above", Ticket],
   ["kids", "Little ones", "Children below 5 years", Users],
@@ -121,11 +116,11 @@ export function FreeTickets() {
                   disabled={!bookable || busy}
                   onClick={() => update({ eventDate: date })}
                 >
-                  <span className="date-number">{date.slice(-2)}</span>
+                  <span className="date-number">{Number(date.slice(-2))}</span>
                   <span>
                     <small>{eventDate(date).split(",")[0].toUpperCase()}</small>
                     <b>
-                      {monthYear.format(new Date(`${date}T12:00:00+05:30`))}
+                      {eventMonthYear(date)}
                     </b>
                     <em>11:00 AM – 9:00 PM</em>
                   </span>
