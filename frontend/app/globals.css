@@ -639,6 +639,18 @@ a.button,
   margin-bottom: 24px;
   padding-bottom: 24px;
 }
+.registration-layout .mobile-verification {
+  margin-block-start: var(--space-4);
+}
+.registration-layout .registration-tickets {
+  padding-bottom: var(--space-3);
+}
+.registration-tickets .section-label + .quantity-row {
+  padding-top: 0;
+}
+.registration-layout .required-label-end {
+  white-space: nowrap;
+}
 .free-tickets {
   max-width: 860px;
   margin-inline: auto;
@@ -832,9 +844,6 @@ input::placeholder {
   border: 0;
   margin: 0;
   min-width: 0;
-}
-.mobile-verification {
-  margin-bottom: 22px;
 }
 .mobile-verification > label {
   margin-bottom: 0;
@@ -3541,6 +3550,15 @@ td:first-child > a {
   }
 }
 @media (max-width: 360px) {
+  .registration-layout .phone-verification-input > span:first-child {
+    padding-inline: 6px;
+  }
+  .registration-layout .phone-verification-input input:not([type="checkbox"]) {
+    padding-inline: var(--space-1);
+  }
+  .registration-layout .phone-verification-input .mobile-verify-button {
+    margin-inline: var(--space-1);
+  }
   .quantity-row {
     flex-wrap: wrap;
     gap: var(--space-2);

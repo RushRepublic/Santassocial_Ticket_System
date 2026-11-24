@@ -332,7 +332,10 @@ export function Register() {
               <span>03</span>
               <div>
                 <h2 id="discovery-source-heading">
-                  How did you hear about us?<span className="required-mark" aria-hidden="true">*</span>
+                  How did you hear about{" "}
+                  <span className="required-label-end">
+                    us?<span className="required-mark" aria-hidden="true">*</span>
+                  </span>
                 </h2>
               </div>
             </div>
