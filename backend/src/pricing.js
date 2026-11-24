@@ -1,6 +1,6 @@
-export const ADULT_TICKET_PAISE = 20_000;
+export const ADULT_TICKET_PAISE = 22_000;
 export const PLATFORM_FEE_PERCENT = 2.5;
-const PREVIOUS_FEE_INCLUSIVE_ADULT_PAISE = 100;
+const PREVIOUS_FEE_INCLUSIVE_ADULT_PRICES = [20_000, 100];
 
 export function platformFeePaise(subtotal) {
   // 2.5% is 1/40. Round half up using integer paise.
@@ -22,8 +22,10 @@ export function savedBookingPricing({ adults, amount }) {
   // saved total. Earlier fee-free bookings and complimentary tickets keep theirs.
   const current = quoteBooking(adults);
   if (current.amount === amount) return current;
-  const previous = quoteAtRate(adults, PREVIOUS_FEE_INCLUSIVE_ADULT_PAISE);
-  if (previous.amount === amount) return previous;
+  for (const rate of PREVIOUS_FEE_INCLUSIVE_ADULT_PRICES) {
+    const previous = quoteAtRate(adults, rate);
+    if (previous.amount === amount) return previous;
+  }
   return { ticketSubtotal: amount, platformFee: 0, amount };
 }
 

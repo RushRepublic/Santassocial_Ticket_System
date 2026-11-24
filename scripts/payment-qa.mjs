@@ -165,7 +165,7 @@ try {
     callback: window.__qaCheckoutOptions.callback_url,
     hasHandler: typeof window.__qaCheckoutOptions.handler === "function",
   }));
-  if (mobileOptions.amount !== 20_500)
+  if (mobileOptions.amount !== 22_550)
     throw Error("Razorpay Checkout must receive the fee-inclusive total in paise.");
   if (
     mobileOptions.redirect ||

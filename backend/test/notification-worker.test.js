@@ -243,6 +243,7 @@ test("successful booking responses wake the worker after commit; failed requests
     });
     let wakes = 0;
     const app = createApp(db, {
+      allowPublicCash: true,
       notify: () => {
         wakes++;
         return worker.wake();

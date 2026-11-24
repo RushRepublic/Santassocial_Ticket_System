@@ -44,9 +44,37 @@ const booking = (extra = {}) => ({
   ...extra,
 });
 
+test("public cash can be disabled without affecting existing cash QR approval", () =>
+  fixture(async (db) => {
+    const mobile = "9876543210";
+    const cookie = `santa_session=${await signSession({ mobile })}`;
+    const app = createApp(db, { allowPublicCash: false });
+    const post = (path, input) => request(app).post(path)
+      .set("Origin", config.origin).set("Cookie", cookie)
+      .set("Idempotency-Key", randomUUID()).send(input);
+    const event = await request(app).get("/api/events").expect(200);
+    assert.equal(event.body.publicCashPaymentEnabled, false);
+    const rejected = await post("/api/bookings", booking()).expect(400);
+    assert.match(rejected.body.error, /currently unavailable/);
+    assert.equal((await db.all("SELECT id FROM bookings")).length, 0);
+
+    const { body: online } = await post("/api/bookings", booking({ method: "RAZORPAY" })).expect(201);
+    await post(`/api/bookings/${online.id}/payment-method`, { method: "CASH" }).expect(400);
+    assert.equal((await getBooking(db, online.id)).status, "PENDING_PAYMENT");
+    assert.equal((await db.all("SELECT id FROM bookings")).length, 1);
+
+    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 61_500);
+    const { body: existing } = await request(app).get(`/api/bookings/${cash.id}`)
+      .set("Cookie", cookie).expect(200);
+    assert.equal(existing.amount, 61_500);
+    assert.equal(existing.platformFee, 1_500);
+    await checkin(db, existing.qrToken, await staff(db), randomUUID(), 61_500, true);
+    assert.equal((await getBooking(db, cash.id)).status, "PAID");
+  }));
+
 test("customer bookings require verified mobile but no email, and legacy email remains supported", () =>
   fixture(async (db) => {
-    const app = createApp(db);
+    const app = createApp(db, { allowPublicCash: true });
     const cookie = `santa_session=${await signSession({ mobile: "9876543210" })}`;
     const submit = (input, verified = true) => {
       const req = request(app).post("/api/bookings")
@@ -127,7 +155,7 @@ test("new bookings issue one group QR regardless of quantity and only after cash
 
 test("historical cash and online bookings keep their saved price through approval and a method change", () =>
   fixture(async (db) => {
-    const app = createApp(db);
+    const app = createApp(db, { allowPublicCash: true });
     const mobile = "9876543210";
     const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 308);
     const pending = await createBooking(
@@ -149,7 +177,7 @@ test("historical cash and online bookings keep their saved price through approva
       .send({ bookingId: pending.id }).expect(200);
     assert.equal(order.body.amount, 200);
     const admin = await staff(db);
-    await assert.rejects(checkin(db, qrToken(cash), admin, randomUUID(), 61_500, true), /match/);
+    await assert.rejects(checkin(db, qrToken(cash), admin, randomUUID(), 67_650, true), /match/);
     await checkin(db, qrToken(cash), admin, randomUUID(), 308, true);
     assert.equal((await read(cash.id)).body.amount, 308);
     const switched = await request(app).post(`/api/bookings/${pending.id}/payment-method`)
@@ -212,7 +240,7 @@ test("cash group approval requires acknowledgement, rolls back failures, and adm
       200,
     );
     assert.equal(inspected.body.paymentStatus, "DUE");
-    assert.equal(inspected.body.amount, 61_500);
+    assert.equal(inspected.body.amount, 67_650);
     assert.equal(inspected.body.mobile, b.mobile);
     await scan(customerCookie, "/api/scanner/verify", {}).expect(403);
     await scan(scannerCookie, "/api/scanner/checkin", {}).expect(403);
@@ -561,7 +589,7 @@ test("one QR per group; cash requires approval; simultaneous entry has exactly o
     assert.equal(publicBooking(b).qrToken, qrToken(b));
     await assert.rejects(verifyTicket(db, qrToken(b)), /PAYMENT PENDING/);
     await assert.rejects(approveCash(db, b.id, 1, await staff(db)), /match/);
-    await approveCash(db, b.id, 41_000, await staff(db));
+    await approveCash(db, b.id, 45_100, await staff(db));
     const paid = await getBooking(db, b.id);
     assert.equal(paid.people, 3);
     assert.match(publicBooking(paid).qrToken, /^ss_[a-f\d]{64}$/);
@@ -654,13 +682,13 @@ test("idempotent registration, duplicate payment callbacks and duplicate webhook
     ]);
     await Promise.all(
       Array.from({ length: 8 }, () =>
-        settleCaptured(db, "order_test", "pay_test", 41_000, "INR", {
+        settleCaptured(db, "order_test", "pay_test", 45_100, "INR", {
           id: "evt_one",
           type: "payment.captured",
         }),
       ),
     );
-    await settleCaptured(db, "order_test", "pay_test", 41_000, "INR");
+    await settleCaptured(db, "order_test", "pay_test", 45_100, "INR");
     assert.equal((await getBooking(db, b.id)).status, "PAID");
     assert.equal((await db.all("SELECT * FROM notification_logs")).length, 1);
     assert.equal((await db.all("SELECT * FROM webhook_events")).length, 1);
@@ -693,7 +721,7 @@ test("old payment deadlines do not expire bookings or reject captured payments",
       randomUUID(),
     );
     assert.equal((await getBooking(db, first.id)).status, "PENDING_PAYMENT");
-    await settleCaptured(db, "order_expired", "pay_expired", 41_000, "INR");
+    await settleCaptured(db, "order_expired", "pay_expired", 45_100, "INR");
     assert.equal((await getBooking(db, first.id)).status, "PAID");
     assert.ok(publicBooking(await getBooking(db, first.id)).qrToken);
     assert.equal((await availability(db)).remaining, null);
@@ -715,7 +743,7 @@ test("late captured payment stays valid and wrong event date is rejected", () =>
       "2020-01-01T00:00:00.000Z",
       b.id,
     ]);
-    await settleCaptured(db, "order_late", "pay_late", 41_000, "INR");
+    await settleCaptured(db, "order_late", "pay_late", 45_100, "INR");
     assert.equal((await getBooking(db, b.id)).status, "PAID");
     await assert.rejects(verifyTicket(db, qrToken(b)), /cannot be used/);
     await expire(db);
@@ -779,14 +807,14 @@ test("API journey: OTP, booking, demo payment, ticket retrieval, PDF and role re
     const b = response.body;
     assert.deepEqual(
       { amount: b.amount, platformFee: b.platformFee, ticketSubtotal: b.ticketSubtotal },
-      { amount: 41_000, platformFee: 1_000, ticketSubtotal: 40_000 },
+      { amount: 45_100, platformFee: 1_100, ticketSubtotal: 44_000 },
     );
     assert.equal(b.qrToken, null);
     await customer.get(`/api/tickets/${b.id}`).expect(403);
     await mutate("/api/payments/razorpay/order", { bookingId: b.id }).then(
       (r) => {
         assert.equal(r.status, 200);
-        assert.equal(r.body.amount, 41_000);
+        assert.equal(r.body.amount, 45_100);
       },
     );
     const paid = await mutate("/api/demo/payments/complete", {
@@ -817,7 +845,7 @@ test("API journey: OTP, booking, demo payment, ticket retrieval, PDF and role re
       .set("Authorization", `Bearer ${paid.body.qrToken}`)
       .expect(200);
     await mutate("/api/admin/bookings/" + b.id + "/approve", {
-      amountReceived: 41_000,
+      amountReceived: 45_100,
     }).then((r) => assert.equal(r.status, 403));
     const gate = request.agent(app);
     await gate
@@ -853,7 +881,7 @@ test("15 scanning requests remain correct for independent groups", () =>
     const bookings = [];
     for (let i = 0; i < 15; i++) {
       const b = await createBooking(db, booking(), "9876543210", randomUUID());
-      await approveCash(db, b.id, 41_000, admin);
+      await approveCash(db, b.id, 45_100, admin);
       bookings.push(b);
     }
     const entered = await Promise.all(
@@ -876,7 +904,7 @@ test("signature comparison rejects malformed values and authenticates the origin
 test("failed WhatsApp delivery is retryable and cannot invalidate a paid ticket", () =>
   fixture(async (db) => {
     const b = await createBooking(db, booking(), "9876543210", randomUUID());
-    await approveCash(db, b.id, 41_000, await staff(db));
+    await approveCash(db, b.id, 45_100, await staff(db));
     const original = publicBooking(await getBooking(db, b.id)).qrToken;
     await dispatchNotifications(db, {
       async sendOtp() {},
@@ -1095,7 +1123,7 @@ test("date rollover preserves historical bookings, payment evidence and original
         .set("Origin", config.origin)
         .set("Cookie", customerCookie)
         .set("Idempotency-Key", randomUUID())
-        .send(booking({ eventDate }))
+        .send(booking({ eventDate, method: "RAZORPAY" }))
         .expect(400);
     }
     const history = await request(app)
@@ -1198,7 +1226,7 @@ test("past-date registration and new payment orders are blocked without changing
         .set("Origin", config.origin)
         .set("Cookie", cookie)
         .set("Idempotency-Key", randomUUID())
-        .send(booking())
+        .send(booking({ method: "RAZORPAY" }))
         .expect(400);
       await request(app)
         .post("/api/payments/razorpay/order")
@@ -1238,7 +1266,7 @@ test("past-date registration and new payment orders are blocked without changing
 
 test("customer payment changes replace only unpaid reservations, revoke old QR and preserve late payment evidence", () =>
   fixture(async (db) => {
-    const app = createApp(db);
+    const app = createApp(db, { allowPublicCash: true });
     const b = await createBooking(db, booking(), "9876543210", randomUUID());
     const cookie = `santa_session=${await signSession({ mobile: b.mobile })}`;
     const change = (id, method, key = randomUUID(), identity = cookie) =>
@@ -1304,7 +1332,7 @@ test("customer payment changes replace only unpaid reservations, revoke old QR a
 
 test("failed payment-method replacement rolls back cancellation and rejects in-flight order creation", () =>
   fixture(async (db) => {
-    const app = createApp(db);
+    const app = createApp(db, { allowPublicCash: true });
     const b = await createBooking(
       db,
       booking({ method: "RAZORPAY" }),

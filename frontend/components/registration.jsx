@@ -577,6 +577,7 @@ function EntryAgreement({ agreed, onChange }) {
 export function Checkout() {
   const router = useRouter();
   const [draft, setDraft] = useState(null);
+  const [cashEnabled, setCashEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [demoBooking, setDemoBooking] = useState(null);
@@ -587,6 +588,24 @@ export function Checkout() {
   const navigating = useRef(false);
   useEffect(() => {
     async function restore() {
+      let allowCash;
+      try {
+        const event = await api("/events", { cache: "no-store" });
+        allowCash = event.publicCashPaymentEnabled === true;
+        setCashEnabled(allowCash);
+      } catch {
+        router.replace("/");
+        return;
+      }
+      function redirectExistingCash(booking) {
+        if (allowCash || booking.method !== "CASH") return false;
+        if (booking.status === "PENDING_CASH")
+          router.replace(`/booking-pending?id=${booking.id}`);
+        else if (booking.status === "PAID")
+          router.replace(`/ticket/${booking.id}`);
+        else router.replace("/retrieve-ticket");
+        return true;
+      }
       const params = new URLSearchParams(location.search);
       const bookingId = params.get("id");
       if (params.get("payment") === "failed")
@@ -597,6 +616,7 @@ export function Checkout() {
       if (bookingId) {
         try {
           const b = await api(`/bookings/${bookingId}`);
+          if (redirectExistingCash(b)) return;
           const d = {
             name: b.name,
             email: b.email,
@@ -633,12 +653,13 @@ export function Checkout() {
             router.replace("/");
             return;
           }
-          const restored = d.bookingId
-            ? {
-                ...d,
-                pricing: bookingPricing(await api(`/bookings/${d.bookingId}`)),
-              }
-            : d;
+          const b = d.bookingId ? await api(`/bookings/${d.bookingId}`) : null;
+          if (b && redirectExistingCash(b)) return;
+          let restored = b ? { ...d, pricing: bookingPricing(b) } : d;
+          if (!allowCash && d.method !== "RAZORPAY") {
+            restored = { ...restored, method: "RAZORPAY", key: crypto.randomUUID() };
+            saveDraft(restored);
+          }
           setDraft(restored);
         })
         .catch(() => router.replace("/"));
@@ -890,7 +911,7 @@ export function Checkout() {
           <BookingSidebar draft={draft} pricing={pricing} showVenue={false} />
           <div className="form-section">
             <h2>How would you like to pay?</h2>
-            {["RAZORPAY", "CASH"].map((method) => (
+            {(cashEnabled ? ["RAZORPAY", "CASH"] : ["RAZORPAY"]).map((method) => (
               <button
                 type="button"
                 disabled={busy || checkingPayment || !!demoBooking}

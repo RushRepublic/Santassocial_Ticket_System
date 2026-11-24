@@ -15,6 +15,7 @@ import {
   config,
   demo,
   paymentDemo,
+  publicCashPaymentEnabled,
   paymentMode,
   whatsappMode,
   whatsappDemo,
@@ -83,7 +84,14 @@ const cookieOptions = {
   sameSite: "lax",
   path: "/api",
 };
-export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
+export function createApp(
+  db,
+  { paymentGateway = razorpay, notify, allowPublicCash = publicCashPaymentEnabled } = {},
+) {
+  function validatePublicPaymentMethod(method) {
+    if (method === "CASH" && !allowPublicCash)
+      fail(400, "Cash at the counter is currently unavailable for new bookings. Please pay online.");
+  }
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", "loopback");
@@ -329,6 +337,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   app.get("/api/events", async (_req, res) =>
     res.json({
       event: await availability(db),
+      publicCashPaymentEnabled: allowPublicCash,
       demo: paymentDemo,
       demoEventDate: paymentDemo ? config.demoDate : undefined,
     }),
@@ -532,9 +541,11 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
   );
   app.post("/api/bookings", auth(), async (req, res) => {
     if (!req.identity?.mobile) fail(403, "Verify your mobile number first.");
+    const input = bookingSchema.parse(req.body);
+    validatePublicPaymentMethod(input.method);
     const b = await createBooking(
       db,
-      bookingSchema.parse(req.body),
+      input,
       req.identity.mobile,
       requestKey(req),
     );
@@ -552,6 +563,7 @@ export function createApp(db, { paymentGateway = razorpay, notify } = {}) {
     const { method } = z
       .object({ method: z.enum(["RAZORPAY", "CASH"]) })
       .parse(req.body);
+    validatePublicPaymentMethod(method);
     res.json(
       publicBooking(
         await replacePaymentMethod(

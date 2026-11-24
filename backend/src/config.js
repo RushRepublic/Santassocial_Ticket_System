@@ -8,6 +8,7 @@ export const paymentMode = process.env.PAYMENT_MODE || (demo ? "demo" : "live");
 if (!["demo", "live"].includes(paymentMode))
   throw Error("PAYMENT_MODE must be demo or live.");
 export const paymentDemo = paymentMode === "demo";
+export const publicCashPaymentEnabled = process.env.PUBLIC_CASH_PAYMENT_ENABLED === "true";
 // WhatsApp delivery can go live independently of payments and SMTP.
 export const whatsappMode =
   process.env.WHATSAPP_MODE || (demo ? "demo" : "live");
