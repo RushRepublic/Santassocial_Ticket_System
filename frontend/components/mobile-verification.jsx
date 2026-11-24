@@ -217,8 +217,8 @@ export function MobileVerification({
         )}
       </div>
       <p className="field-hint">
-        <MessageCircle size={14} /> Verify this number to receive your ticket on
-        WhatsApp.
+        <MessageCircle size={14} />
+        <strong>Verify this number to receive your ticket on WhatsApp.</strong>
       </p>
       {challenge && !verified && (
         <div className="inline-otp">
