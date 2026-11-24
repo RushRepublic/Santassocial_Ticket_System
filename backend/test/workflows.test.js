@@ -63,12 +63,14 @@ test("public cash can be disabled without affecting existing cash QR approval", 
     assert.equal((await getBooking(db, online.id)).status, "PENDING_PAYMENT");
     assert.equal((await db.all("SELECT id FROM bookings")).length, 1);
 
-    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 61_500);
+    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 67_650);
     const { body: existing } = await request(app).get(`/api/bookings/${cash.id}`)
       .set("Cookie", cookie).expect(200);
-    assert.equal(existing.amount, 61_500);
-    assert.equal(existing.platformFee, 1_500);
-    await checkin(db, existing.qrToken, await staff(db), randomUUID(), 61_500, true);
+    assert.equal(existing.amount, 67_650);
+    assert.equal(existing.platformFee, 1_650);
+    const admin = await staff(db);
+    await assert.rejects(checkin(db, existing.qrToken, admin, randomUUID(), 66_000, true), /match/);
+    await checkin(db, existing.qrToken, admin, randomUUID(), 67_650, true);
     assert.equal((await getBooking(db, cash.id)).status, "PAID");
   }));
 
@@ -240,7 +242,7 @@ test("cash group approval requires acknowledgement, rolls back failures, and adm
       200,
     );
     assert.equal(inspected.body.paymentStatus, "DUE");
-    assert.equal(inspected.body.amount, 67_650);
+    assert.equal(inspected.body.amount, 66_000);
     assert.equal(inspected.body.mobile, b.mobile);
     await scan(customerCookie, "/api/scanner/verify", {}).expect(403);
     await scan(scannerCookie, "/api/scanner/checkin", {}).expect(403);
@@ -589,7 +591,7 @@ test("one QR per group; cash requires approval; simultaneous entry has exactly o
     assert.equal(publicBooking(b).qrToken, qrToken(b));
     await assert.rejects(verifyTicket(db, qrToken(b)), /PAYMENT PENDING/);
     await assert.rejects(approveCash(db, b.id, 1, await staff(db)), /match/);
-    await approveCash(db, b.id, 45_100, await staff(db));
+    await approveCash(db, b.id, 44_000, await staff(db));
     const paid = await getBooking(db, b.id);
     assert.equal(paid.people, 3);
     assert.match(publicBooking(paid).qrToken, /^ss_[a-f\d]{64}$/);
@@ -881,7 +883,7 @@ test("15 scanning requests remain correct for independent groups", () =>
     const bookings = [];
     for (let i = 0; i < 15; i++) {
       const b = await createBooking(db, booking(), "9876543210", randomUUID());
-      await approveCash(db, b.id, 45_100, admin);
+      await approveCash(db, b.id, 44_000, admin);
       bookings.push(b);
     }
     const entered = await Promise.all(
@@ -904,7 +906,7 @@ test("signature comparison rejects malformed values and authenticates the origin
 test("failed WhatsApp delivery is retryable and cannot invalidate a paid ticket", () =>
   fixture(async (db) => {
     const b = await createBooking(db, booking(), "9876543210", randomUUID());
-    await approveCash(db, b.id, 45_100, await staff(db));
+    await approveCash(db, b.id, 44_000, await staff(db));
     const original = publicBooking(await getBooking(db, b.id)).qrToken;
     await dispatchNotifications(db, {
       async sendOtp() {},
@@ -1300,9 +1302,11 @@ test("customer payment changes replace only unpaid reservations, revoke old QR a
       "discoverySource",
       "adults",
       "kids",
-      "amount",
     ])
       assert.equal(online[field], b[field]);
+    assert.equal(b.amount, 44_000);
+    assert.equal(online.amount, 45_100);
+    assert.equal(online.platformFee, 1_100);
     assert.equal((await getBooking(db, b.id)).status, "CANCELLED");
     await assert.rejects(verifyTicket(db, publicBooking(b).qrToken));
     assert.equal(
@@ -1317,6 +1321,8 @@ test("customer payment changes replace only unpaid reservations, revoke old QR a
     ]);
     const cash = (await change(online.id, "CASH").expect(200)).body;
     assert.equal(cash.status, "PENDING_CASH");
+    assert.equal(cash.amount, 44_000);
+    assert.equal(cash.platformFee, 0);
     assert.ok(cash.qrToken);
     assert.equal((await getBooking(db, online.id)).status, "CANCELLED");
     await settleCaptured(db, order, "pay_late_switch", online.amount, "INR");

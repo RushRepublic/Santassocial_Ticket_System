@@ -29,6 +29,7 @@ import {
   ADULT_TICKET_PAISE,
   PLATFORM_FEE_PERCENT,
   quoteBooking,
+  quoteSubtotal,
 } from "../../backend/src/pricing.js";
 const initial = {
   name: "",
@@ -122,8 +123,8 @@ function readDraft() {
 function saveDraft(draft) {
   sessionStorage.setItem("santa-draft", JSON.stringify(draft));
 }
-function bookingPricing({ ticketSubtotal, platformFee, amount }) {
-  return { ticketSubtotal, platformFee, amount };
+function bookingPricing({ ticketSubtotal, platformFee, amount, method, status }) {
+  return { ticketSubtotal, platformFee, amount, method, status };
 }
 export function BookingSidebar({ draft, pricing, children, showVenue = true }) {
   return (
@@ -149,10 +150,12 @@ export function BookingSidebar({ draft, pricing, children, showVenue = true }) {
             <span>{draft.kids} × Kids ticket</span>
             <b>Free</b>
           </p>
-          <p>
-            <span>Platform Fee ({PLATFORM_FEE_PERCENT}%)</span>
-            <b>{money(pricing.platformFee)}</b>
-          </p>
+          {pricing.platformFee > 0 && (
+            <p>
+              <span>Platform Fee ({PLATFORM_FEE_PERCENT}%)</span>
+              <b>{money(pricing.platformFee)}</b>
+            </p>
+          )}
           <p className="summary-total">
             <span>Total</span>
             <strong>{money(pricing.amount)}</strong>
@@ -935,9 +938,15 @@ export function Checkout() {
     }
   }
   if (!draft) return <Loading />;
-  const pricing = draft.bookingId && draft.pricing
-    ? draft.pricing
-    : quoteBooking(draft.adults);
+  const savedPricing = draft.bookingId ? draft.pricing : null;
+  let pricing = savedPricing || quoteBooking(draft.adults, draft.method);
+  if (
+    savedPricing &&
+    ["PENDING_CASH", "PENDING_PAYMENT"].includes(savedPricing.status) &&
+    savedPricing.method !== draft.method
+  ) {
+    pricing = quoteSubtotal(savedPricing.ticketSubtotal, draft.method);
+  }
   return (
     <main className="booking-page">
       <h1 className="sr-only">Checkout</h1>

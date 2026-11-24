@@ -146,7 +146,7 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
       .set('Idempotency-Key',randomUUID()).send({name,email:'cash@example.com',eventDate:'2026-12-05',adults:1,kids:0,method:'CASH',discoverySource:'previous_visitor'}).expect(201)).body;
     const unpaidCash=await cash('Unpaid Cash');
     const paidCash=await cash('Paid Cash');
-    await approveCash(db,paidCash.id,22_550,adminId);
+    await approveCash(db,paidCash.id,22_000,adminId);
     const noOrder=await make();
     // Check-in history includes one real and one historical simulated entry.
     for(const record of [b,old]) {
@@ -166,8 +166,8 @@ test("real-provider payment flow retains simulated OTP, disables fake settlement
     const expected=[b.id,second.id,unpaidCash.id,paidCash.id,noOrder.id].sort();
     const summary=(await get('/dashboard').expect(200)).body;
     assert.equal(summary.demo,false); assert.equal(summary.bookings,5);
-    assert.equal(summary.attendees,3); assert.equal(summary.revenue,67_650);
-    assert.equal(summary.onlineRevenue,45_100); assert.equal(summary.cashRevenue,22_550);
+    assert.equal(summary.attendees,3); assert.equal(summary.revenue,67_100);
+    assert.equal(summary.onlineRevenue,45_100); assert.equal(summary.cashRevenue,22_000);
     assert.equal(summary.pendingCash,1); assert.equal(summary.entered,1);
     assert.equal(summary.notificationFailures,1);
     assert.equal((await get('/dashboard?date=2026-12-06').expect(200)).body.bookings,0);

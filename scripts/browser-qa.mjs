@@ -980,7 +980,7 @@ try {
   await page.waitForURL(`${origin}/scanner`);
   await scanCameraToken(cashBooking.qrToken);
   await page
-    .getByRole("heading", { name: "Collect ₹451 before approving group entry." })
+    .getByRole("heading", { name: "Collect ₹440 before approving group entry." })
     .waitFor();
   await page.locator(".scan-result.cash-due .cash-due-banner").waitFor();
   await auditResponsive(page, "scanner-cash");

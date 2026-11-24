@@ -4,7 +4,7 @@ All routes are under `/api`, served directly by Express in the combined deployme
 
 Errors return `{ "error": "Useful message" }`. 400 = validation, 401 = authentication, 403 = permission, 404 = missing resource, 409 = state conflict, 429 = rate limit, 503 = unconfigured provider. Booking amounts and approval amounts are integer **paise**.
 
-New booking totals include a 2.5% platform fee, rounded once on the ticket subtotal. Public booking responses include `ticketSubtotal`, `platformFee` and the authoritative `amount` in paise. Existing bookings and payment method changes keep the saved amount.
+New online bookings include a 2.5% platform fee, rounded once on the ticket subtotal. New cash bookings have no platform fee. Public booking responses include `ticketSubtotal`, `platformFee` and the authoritative `amount` in paise. Existing booking totals are preserved.
 
 | Method  | Endpoint                      | Access / behavior                                                                                        |
 | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -100,6 +100,6 @@ flow, not an import of unrelated transactions from the merchant's Razorpay accou
 
 ## Customer payment-method changes
 
-`POST /api/bookings/:id/payment-method` accepts `{ "method": "CASH" }` or `{ "method": "RAZORPAY" }`, requires a matching verified customer and an Idempotency-Key. Switching an unpaid reservation atomically cancels the original and creates one replacement using server-stored guest/date/count/price details. Original payment records remain for reconciliation; a delayed capture on the cancelled online booking goes to PAYMENT_REVIEW and never grants admission. Paid/free/entered bookings cannot be replaced, in-flight order creation is rejected, and expired event dates remain blocked. The old cash QR is unusable after replacement. Retrying the same request key returns the same replacement.
+`POST /api/bookings/:id/payment-method` accepts `{ "method": "CASH" }` or `{ "method": "RAZORPAY" }`, requires a matching verified customer and an Idempotency-Key. Switching an unpaid reservation atomically cancels the original and creates one replacement using server-stored guest, date, and quantities, and the ticket subtotal derived from the saved total. The replacement applies the fee rules for the selected method. Original payment records remain for reconciliation; a delayed capture on the cancelled online booking goes to PAYMENT_REVIEW and never grants admission. Paid/free/entered bookings cannot be replaced, in-flight order creation is rejected, and expired event dates remain blocked. The old cash QR is unusable after replacement. Retrying the same request key returns the same replacement.
 
 Checkout payment choices remain selectable after returning from a ticket, failure or cancellation. Selecting a method only updates the local choice; replacement happens on confirmation. Choices stay temporarily disabled while a request or payment verification is running. Resuming the same method reuses the original booking/payment order.

@@ -2,7 +2,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { EVENT_DATES } from "../../config/event-dates.js";
 import { paymentDemo, production, config } from "./config.js";
 import { hash, qrToken } from "./security.js";
-import { quoteBooking, savedBookingPricing } from "./pricing.js";
+import { quoteBooking, quoteSubtotal, savedBookingPricing } from "./pricing.js";
 import {
   issueIndividualTickets,
   inspectIndividual,
@@ -150,7 +150,7 @@ export async function createBooking(db, input, mobile, key, savedAmount, issuerI
     if (input.adults === 0 && !e.allowKidsOnly)
       fail(400, "A supervising adult is required for children under five.");
     const id = randomUUID(),
-      amount = savedAmount ?? quoteBooking(input.adults).amount,
+      amount = savedAmount ?? quoteBooking(input.adults, input.method).amount,
       status =
         amount === 0
           ? "FREE"
@@ -226,13 +226,15 @@ export async function replacePaymentMethod(db, id, mobile, method, key) {
         : { discoverySource: original.discoverySource }),
     };
     // Reuse booking-request idempotency inside this same transaction.
+    const { ticketSubtotal } = savedBookingPricing(original);
+    const { amount } = quoteSubtotal(ticketSubtotal, method);
     const nested = { transaction: (work) => work(tx) };
     const previous = await tx.all(
       "SELECT id FROM booking_requests WHERE id = ?",
       [key],
     );
     if (previous.length)
-      return createBooking(nested, input, mobile, key, original.amount);
+      return createBooking(nested, input, mobile, key, amount);
     if (original.method === method) return original;
     if (
       !["PENDING_CASH", "PENDING_PAYMENT"].includes(original.status) ||
@@ -262,7 +264,7 @@ export async function replacePaymentMethod(db, id, mobile, method, key) {
       [now(), id],
     );
     const replacement = await createBooking(
-      nested, input, mobile, key, original.amount,
+      nested, input, mobile, key, amount,
     );
     await audit(tx, null, `PAYMENT_METHOD_REPLACED:${replacement.id}`, id);
     return replacement;

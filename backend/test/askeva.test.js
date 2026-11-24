@@ -164,7 +164,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
     await dispatchNotifications(db);
     assert.equal((await db.all('SELECT status FROM notification_logs WHERE bookingId=?',[booking.id]))[0].status,'SENT');
     const notification=calls.at(-1).template.components[0].parameters.map(p=>p.text);
-    assert.equal(notification[0],'Sample Guest');assert.equal(notification[5],'Cash due: ₹451.00. Approval required before entry.');
+    assert.equal(notification[0],'Sample Guest');assert.equal(notification[5],'Cash due: ₹440.00. Approval required before entry.');
     const link=new URL(notification[6]);assert.equal(link.pathname,'/ticket/'+booking.id);assert.match(link.hash,/^#ss_/);
     await request(app).get('/api/tickets/'+booking.id).expect(403);
     await request(app).get('/api/tickets/'+booking.id).set('Authorization','Bearer '+link.hash.slice(1)).expect(200);
@@ -207,7 +207,7 @@ test("live WhatsApp with demo APP_MODE and live Razorpay never exposes OTP and p
       assert.equal(matching.length,1,'each booking must send exactly one receipt');
       const [message]=matching;
       assert.equal(message[0],b.name);
-      assert.equal(message[5], b.id===online.id ? 'Paid: ₹225.50' : 'Cash due: ₹451.00. Approval required before entry.');
+      assert.equal(message[5], b.id===online.id ? 'Paid: ₹225.50' : 'Cash due: ₹440.00. Approval required before entry.');
       assert.equal(message[6].split('#')[0],process.env.FRONTEND_ORIGIN+'/ticket/'+b.id);
       const link=new URL(message[6]);
       await request(app).get('/api/tickets/'+b.id).set('Authorization','Bearer '+link.hash.slice(1)).expect(200);

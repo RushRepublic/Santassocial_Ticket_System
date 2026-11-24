@@ -163,7 +163,10 @@ try {
   await page.getByRole("button", { name: "Close", exact: true }).click();
   if (cashEnabled) {
     await cashOption.click();
+    await expect(summary.getByText("Platform Fee (2.5%)", { exact: true })).toHaveCount(0);
+    await expect(summary.locator(".summary-total strong")).toHaveText("₹2,420");
     await online.click();
+    await expect(summary.locator(".summary-total strong")).toHaveText("₹2,480.50");
   }
   await page.getByRole("checkbox").check();
   const orderResponse = page.waitForResponse(
@@ -202,9 +205,15 @@ try {
     const cashId = new URL(page.url()).searchParams.get("id");
     const cash = await (await page.request.get(`${origin}/api/bookings/${cashId}`)).json();
     expect(cash.status).toBe("PENDING_CASH");
-    expect(cash).toMatchObject({ ticketSubtotal: 242_000, platformFee: 6_050, amount: 248_050, people: 16 });
-    await expect(page.locator(".ticket-status")).toContainText("₹2,480.50");
+    expect(cash).toMatchObject({ ticketSubtotal: 242_000, platformFee: 0, amount: 242_000, people: 16 });
+    await expect(page.locator(".ticket-status")).toContainText("₹2,420");
     expect(cash.discoverySource).toBe("previous_visitor");
+    await page.goto(`${origin}/checkout?id=${cashId}`);
+    await expect(cashOption).toHaveAttribute("aria-pressed", "true");
+    await online.click();
+    await expect(summary.locator(".summary-total strong")).toHaveText("₹2,480.50");
+    await cashOption.click();
+    await expect(summary.locator(".summary-total strong")).toHaveText("₹2,420");
   }
   await page.goto(origin + "/login?next=%2Fadmin%2Fdashboard");
   await page
