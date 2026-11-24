@@ -293,9 +293,6 @@ export function Register() {
               ))}
             </div>
             {fieldError("eventDate")}
-            <p className="field-hint">
-              Coming on both days? Make a separate booking for each day.
-            </p>
           </div>
           <div className="form-section">
             <div className="section-label">
