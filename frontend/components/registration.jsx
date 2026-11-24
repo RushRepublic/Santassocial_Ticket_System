@@ -51,6 +51,59 @@ const draftSchema = z.object({
 });
 const discoverySourceSchema = z.enum(Object.keys(discoverySources));
 const discoverySourceMessage = "Please select how you heard about Santa Social.";
+const verifyMobileMessage = "Please verify your WhatsApp mobile number before continuing.";
+
+function registrationIssue(draft, parsed, settings, verifiedMobile) {
+  const invalid = parsed.success ? null : parsed.error.issues[0];
+  if (invalid?.path[0] === "eventDate")
+    return { field: "eventDate", message: invalid.message };
+  if (!settings?.days.some((day) => day.date === draft.eventDate && day.bookable))
+    return { field: "eventDate", message: "Please choose an available event date." };
+  if (invalid) return { field: invalid.path[0], message: invalid.message };
+  if (verifiedMobile !== draft.mobile)
+    return { field: "verification", message: verifyMobileMessage };
+  if (!discoverySourceSchema.safeParse(draft.discoverySource).success)
+    return { field: "discoverySource", message: discoverySourceMessage };
+  if (draft.adults + draft.kids < 1)
+    return { field: "tickets", message: "Please select at least one guest." };
+  if (draft.adults + draft.kids > settings.maxGroup)
+    return { field: "tickets", message: `Choose no more than ${settings.maxGroup} guests.` };
+  if (!draft.adults && !settings.allowKidsOnly)
+    return { field: "tickets", message: "Please include a supervising adult for children under five." };
+  return null;
+}
+
+function focusRegistrationField(field) {
+  const selectors = {
+    eventDate: ["#registration-date button:not(:disabled)", "#registration-date"],
+    name: ["#registration-name"],
+    mobile: ["#booking-mobile:not(:disabled)", ".mobile-verification"],
+    verification: ["#booking-otp:not(:disabled)", ".mobile-verify-button:not(:disabled)", ".mobile-verification"],
+    discoverySource: [".discovery-options input"],
+    tickets: ['#registration-tickets button[aria-label="Add adults"]:not(:disabled)', "#registration-tickets button:not(:disabled)"],
+  };
+  const target = selectors[field].map((selector) => document.querySelector(selector)).find(Boolean);
+  if (!target) return;
+  target.focus({ preventScroll: true });
+  requestAnimationFrame(() => {
+    if (document.activeElement !== target) return;
+    const group = target.closest("[data-registration-field]") || target;
+    const viewport = window.visualViewport;
+    const height = viewport?.height ?? window.innerHeight;
+    const offset = viewport?.offsetTop ?? 0;
+    const fullyVisible = (element) => {
+      const { top, bottom } = element.getBoundingClientRect();
+      return top >= offset + 16 && bottom <= offset + height - 16;
+    };
+    const message = group.querySelector(".error-text");
+    if (fullyVisible(target) && (!message || fullyVisible(message))) return;
+    const area = group.getBoundingClientRect().height < height - 48 ? group : target;
+    area.scrollIntoView({
+      block: "center",
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+    });
+  });
+}
 function readDraft() {
   try {
     const draft = JSON.parse(sessionStorage.getItem("santa-draft") || "null");
@@ -115,11 +168,30 @@ export function Register() {
   const [draft, setDraft] = useState(initial);
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState("");
-  const [discoveryError, setDiscoveryError] = useState(false);
-  const firstDiscoveryRadio = useRef(null);
+  const [attemptedField, setAttemptedField] = useState(null);
   const [verifiedMobile, setVerifiedMobile] = useState("");
   const [verificationRevision, setVerificationRevision] = useState(0);
   const [openingCheckout, setOpeningCheckout] = useState(false);
+  const submitting = useRef(false);
+  const parsed = draftSchema.safeParse(draft);
+  const issue = registrationIssue(draft, parsed, settings, verifiedMobile);
+  const activeField = issue?.field === attemptedField ? attemptedField : null;
+  function fieldError(field) {
+    return activeField === field && (
+      <p className="field-hint error-text" id={`registration-${field}-error`} role="alert">
+        {issue.message}
+      </p>
+    );
+  }
+  function fieldStatus(field) {
+    return activeField === field ? {
+      "aria-invalid": true,
+      "aria-describedby": `registration-${field}-error`,
+    } : {};
+  }
+  useEffect(() => {
+    if (attemptedField && !activeField) setAttemptedField(null);
+  }, [attemptedField, activeField]);
   useEffect(() => {
     setDraft(readDraft() || { ...initial, key: crypto.randomUUID() });
     api("/events")
@@ -149,50 +221,31 @@ export function Register() {
   };
   async function next(e) {
     e.preventDefault();
+    if (submitting.current) return;
     setError("");
-    const parsed = draftSchema.safeParse(draft);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
+    if (issue) {
+      setAttemptedField(issue.field);
+      focusRegistrationField(issue.field);
       return;
     }
-    if (!discoverySourceSchema.safeParse(draft.discoverySource).success) {
-      setDiscoveryError(true);
-      firstDiscoveryRadio.current?.focus();
-      return;
-    }
-    if (
-      !settings?.days.some(
-        (day) => day.date === draft.eventDate && day.bookable,
-      )
-    )
-      return setError("Please choose an available event date.");
-    if (draft.adults + draft.kids < 1)
-      return setError("Please select at least one guest.");
-    if (!draft.adults && !settings?.allowKidsOnly)
-      return setError(
-        "Please include a supervising adult for children under five.",
-      );
-    if (!verifiedMobile || verifiedMobile !== draft.mobile)
-      return setError(
-        "Please verify your WhatsApp mobile number before checkout.",
-      );
+    submitting.current = true;
     setOpeningCheckout(true);
     try {
       const identity = await api("/auth/me?scope=customer");
       if (identity.mobile !== draft.mobile) {
-        setVerifiedMobile("");
-        setVerificationRevision((value) => value + 1);
-        throw new Error("Please verify your WhatsApp mobile number again.");
+        throw Object.assign(new Error(verifyMobileMessage), { status: 401 });
       }
       saveDraft({ ...draft, ...parsed.data, key: crypto.randomUUID() });
       router.push("/checkout");
     } catch (error) {
-      setError(error.message);
+      submitting.current = false;
+      setOpeningCheckout(false);
       if (error.status === 401) {
         setVerifiedMobile("");
         setVerificationRevision((value) => value + 1);
-      }
-      setOpeningCheckout(false);
+        setAttemptedField("verification");
+        requestAnimationFrame(() => focusRegistrationField("verification"));
+      } else setError(error.message);
     }
   }
   return (
@@ -200,18 +253,19 @@ export function Register() {
       <h1 className="sr-only">Your booking</h1>
       <h2 className="welcome-heading">Come on in, get your tickets and join the fun!</h2>
       <div className="booking-layout registration-layout">
-        <form className="form-card" onSubmit={next}>
-          <div className="form-section">
+        <form className="form-card" noValidate onSubmit={next}>
+          <div className="form-section" data-registration-field>
             <div className="section-label">
               <span>01</span>
               <div>
-                <h2>Pick your day</h2>
+                <h2 id="registration-date-heading">Pick your day</h2>
               </div>
             </div>
             <div className="event-details">
               <VenueLocation />
             </div>
-            <div className="date-options">
+            <div className="date-options" id="registration-date" role="group"
+              aria-labelledby="registration-date-heading" tabIndex={-1} {...fieldStatus("eventDate")}>
               {EVENT_DATES.map((date) => (
                 <button
                   type="button"
@@ -235,6 +289,7 @@ export function Register() {
                 </button>
               ))}
             </div>
+            {fieldError("eventDate")}
             <p className="field-hint">
               Coming on both days? Make a separate booking for each day.
             </p>
@@ -246,26 +301,33 @@ export function Register() {
                 <h2>Registration Details</h2>
               </div>
             </div>
-            <label>
-              Full name <span>*</span>
-              <input
-                autoComplete="name"
-                required
-                value={draft.name}
-                onChange={(e) => update({ name: e.target.value })}
-                placeholder="Your full name"
-                maxLength={120}
-              />
-            </label>
+            <div data-registration-field>
+              <label>
+                Full name <span>*</span>
+                <input
+                  id="registration-name"
+                  {...fieldStatus("name")}
+                  autoComplete="name"
+                  required
+                  value={draft.name}
+                  onChange={(e) => update({ name: e.target.value })}
+                  placeholder="Your full name"
+                  maxLength={120}
+                />
+              </label>
+              {fieldError("name")}
+            </div>
             <MobileVerification
               key={verificationRevision}
               mobile={draft.mobile}
               onChange={(mobile) => update({ mobile })}
               onVerified={setVerifiedMobile}
               disabled={openingCheckout}
+              invalidField={["mobile", "verification"].includes(activeField) ? activeField : null}
+              validationMessage={["mobile", "verification"].includes(activeField) ? issue.message : ""}
             />
           </div>
-          <div className="form-section">
+          <div className="form-section" data-registration-field>
             <div className="section-label">
               <span>03</span>
               <div>
@@ -279,15 +341,11 @@ export function Register() {
               role="radiogroup"
               aria-labelledby="discovery-source-heading"
               aria-required="true"
-              aria-invalid={discoveryError || undefined}
-              aria-describedby={
-                discoveryError ? "discovery-source-error" : undefined
-              }
+              {...fieldStatus("discoverySource")}
             >
-              {Object.entries(discoverySources).map(([value, label], index) => (
+              {Object.entries(discoverySources).map(([value, label]) => (
                 <label key={value}>
                   <input
-                    ref={index === 0 ? firstDiscoveryRadio : undefined}
                     type="radio"
                     name="discoverySource"
                     value={value}
@@ -300,28 +358,20 @@ export function Register() {
                       };
                       setDraft(updated);
                       saveDraft(updated);
-                      setDiscoveryError(false);
                     }}
                   />
                   {label}
                 </label>
               ))}
             </div>
-            {discoveryError && (
-              <p
-                className="field-hint error-text"
-                id="discovery-source-error"
-                role="alert"
-              >
-                {discoverySourceMessage}
-              </p>
-            )}
+            {fieldError("discoverySource")}
           </div>
-          <div className="form-section">
+          <div className="form-section registration-tickets" data-registration-field
+            id="registration-tickets" role="group" aria-labelledby="registration-tickets-heading" {...fieldStatus("tickets")}>
             <div className="section-label">
               <span>04</span>
               <div>
-                <h2>Tickets</h2>
+                <h2 id="registration-tickets-heading">Tickets</h2>
               </div>
             </div>
             {["adults", "kids"].map((kind) => (
@@ -365,21 +415,21 @@ export function Register() {
                 </div>
               </div>
             ))}
+            {fieldError("tickets")}
           </div>
           {error && <Notice>{error}</Notice>}
           <button
-            className="button full"
+            className={`button full${issue ? " registration-checkout-incomplete" : ""}`}
             type="submit"
-            disabled={
-              !settings ||
-              !verifiedMobile ||
-              verifiedMobile !== draft.mobile ||
-              openingCheckout
-            }
+            disabled={openingCheckout}
+            aria-describedby={issue ? "registration-checkout-hint" : undefined}
           >
             {openingCheckout ? "Opening checkout…" : "Checkout"}{" "}
             <ArrowRight size={18} />
           </button>
+          {issue && <p id="registration-checkout-hint" className="sr-only">
+            Activate Checkout to find the first field that needs attention.
+          </p>}
           <p className="secure-note">
             <ShieldCheck size={15} /> Your details are safe with us.
           </p>

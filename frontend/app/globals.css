@@ -111,6 +111,14 @@ button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.button.registration-checkout-incomplete {
+  opacity: 0.45;
+}
+.registration-layout :is(.date-options, .discovery-options, .registration-tickets)[aria-invalid="true"],
+.registration-layout .mobile-verification[aria-invalid="true"] .phone-verification-input,
+.registration-layout #registration-name[aria-invalid="true"] {
+  box-shadow: 0 0 0 1px var(--red);
+}
 a,
 button,
 input,

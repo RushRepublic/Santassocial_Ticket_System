@@ -10,6 +10,8 @@ export function MobileVerification({
   onChange,
   onVerified,
   disabled = false,
+  invalidField,
+  validationMessage,
 }) {
   const [challenge, setChallenge] = useState(null);
   const [otp, setOtp] = useState("");
@@ -168,7 +170,9 @@ export function MobileVerification({
   }
 
   return (
-    <div className="mobile-verification">
+    <div className="mobile-verification" data-registration-field tabIndex={-1}
+      role="group" aria-label="WhatsApp verification" aria-invalid={invalidField ? true : undefined}
+      aria-describedby={invalidField ? "booking-mobile-error" : undefined}>
       <label htmlFor="booking-mobile">
         WhatsApp mobile number <span>*</span>
       </label>
@@ -176,6 +180,8 @@ export function MobileVerification({
         <span>+91</span>
         <input
           id="booking-mobile"
+          aria-invalid={invalidField === "mobile" ? true : undefined}
+          aria-describedby={invalidField === "mobile" ? "booking-mobile-error" : undefined}
           type="tel"
           autoComplete="tel-national"
           inputMode="numeric"
@@ -196,6 +202,7 @@ export function MobileVerification({
           <button
             type="button"
             className="mobile-verify-button"
+            aria-describedby={invalidField === "verification" ? "booking-mobile-error" : undefined}
             onClick={send}
             disabled={!validMobile || !!busy || disabled || resendIn > 0}
           >
@@ -227,6 +234,7 @@ export function MobileVerification({
           <div className="inline-otp-controls">
             <input
               id="booking-otp"
+              aria-describedby={invalidField === "verification" ? "booking-mobile-error" : undefined}
               ref={otpInput}
               value={otp}
               inputMode="numeric"
@@ -261,7 +269,11 @@ export function MobileVerification({
         </div>
       )}
       {verified && <Notice success>Mobile Number Verified</Notice>}
-      {error && !verified && <Notice>{error}</Notice>}
+      {invalidField ? (
+        <p className="field-hint error-text" id="booking-mobile-error" role="alert">
+          {invalidField === "verification" && error ? error : validationMessage}
+        </p>
+      ) : error && !verified && <Notice>{error}</Notice>}
     </div>
   );
 }
