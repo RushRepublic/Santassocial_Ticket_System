@@ -269,7 +269,9 @@ export function Register() {
             <div className="section-label">
               <span>03</span>
               <div>
-                <h2 id="discovery-source-heading">How did you hear about us?</h2>
+                <h2 id="discovery-source-heading">
+                  How did you hear about us?<span className="required-mark" aria-hidden="true">*</span>
+                </h2>
               </div>
             </div>
             <div

@@ -783,7 +783,8 @@ label {
   font-weight: 500;
   margin-bottom: 18px;
 }
-label > span {
+label > span,
+.required-mark {
   color: var(--red);
 }
 input:not([type="checkbox"]),

@@ -37,7 +37,7 @@ try {
   await expect(page.locator(".form-section .section-label")).toHaveText([
     "01Pick your day",
     "02Registration Details",
-    "03How did you hear about us?",
+    "03How did you hear about us?*",
     "04Tickets",
   ]);
   const discovery = page.getByRole("radiogroup", {
@@ -45,8 +45,27 @@ try {
   });
   const radios = discovery.getByRole("radio");
   await expect(radios).toHaveCount(4);
-  for (const width of [360, 390, 430, 1024, 1440, 1920]) {
+  for (const label of ["Instagram", "Friends & Referrals", "Google", "Already visited Santa's Social"])
+    await expect(discovery.getByRole("radio", { name: label, exact: true })).toBeVisible();
+  const heading = page.getByRole("heading", { name: "How did you hear about us?", exact: true });
+  const requiredMark = heading.locator(".required-mark");
+  const requiredColor = await page.locator("label").filter({ hasText: "Full name" })
+    .locator("span").evaluate((mark) => getComputedStyle(mark).color);
+  await expect(discovery).toHaveAttribute("aria-required", "true");
+  for (const width of [360, 390, 430, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
+    await expect(heading).toHaveText("How did you hear about us?*");
+    await expect(requiredMark).toHaveText("*");
+    await expect(requiredMark).toHaveCSS("color", requiredColor);
+    expect(await requiredMark.evaluate((mark) => {
+      const question = mark.previousSibling;
+      const lastCharacter = document.createRange();
+      lastCharacter.setStart(question, question.length - 1);
+      lastCharacter.setEnd(question, question.length);
+      const text = lastCharacter.getBoundingClientRect();
+      const star = mark.getBoundingClientRect();
+      return star.top === text.top && star.right <= mark.parentElement.getBoundingClientRect().right;
+    })).toBe(true);
     await expect(page.locator(".quantity-row").filter({ hasText: "Adults" })).toContainText("₹220");
     await expect(page.locator(".quantity-row").filter({ hasText: "Little ones" })).toContainText("Free");
     const layout = await discovery.evaluate((group) => ({
