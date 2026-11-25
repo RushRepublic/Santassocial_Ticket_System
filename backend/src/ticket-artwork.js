@@ -118,8 +118,8 @@ export async function renderTicketPng(booking) {
       ${text(status, 430, 869, 26, { color: pending ? colors.red : colors.green, maxWidth: 780 })}
       <path d="M0 910H860" stroke="${colors.line}" stroke-width="3" stroke-dasharray="12 9"/>
       <image href="${qr}" x="130" y="953" width="600" height="600"/>
-      ${text(ticket ? "One ticket admits one person." : "Everyone must arrive together.", 430, 1635, 25, { color: colors.muted })}
-      ${text(pending ? "Pay cash at the counter. Approval required before entry." : "Valid only for the selected date. No re-entry.", 430, 1680, 23, { color: pending ? colors.red : colors.muted })}
+      ${ticket ? text("One ticket admits one person.", 430, 1635, 25, { color: colors.muted }) : ""}
+      ${text(pending ? "Pay cash at the counter. Approval required before entry." : "Valid only for the selected date. No re-entry.", 430, ticket ? 1680 : 1657, 23, { color: pending ? colors.red : colors.muted })}
     </g>
   </svg>`;
   return sharp(Buffer.from(svg), { density: 144 })

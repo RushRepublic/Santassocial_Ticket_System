@@ -304,10 +304,12 @@ export function GroupTicket({ id }) {
                   <Loading />
                 )}
                 <small>
-                  {ticket.category
-                    ? "One ticket admits one person."
-                    : "Everyone must arrive together."}
-                  <br />
+                  {ticket.category && (
+                    <>
+                      One ticket admits one person.
+                      <br />
+                    </>
+                  )}
                   {booking.status === "PENDING_CASH"
                     ? "Pay cash at the counter. Approval required before entry."
                     : "Valid only for the selected date. No re-entry."}
