@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { existsSync } from "node:fs";
 import QRCode from "qrcode";
 import sharp from "sharp";
@@ -218,47 +218,48 @@ async function verifyTermsPopup() {
     throw Error("Terms and Conditions must appear in blue.");
   await terms.click();
   const popup = page.getByRole("dialog", {
-    name: "Santa Social Cancellation & Refund Policy",
+    name: "Santa Social | Terms & Conditions",
     exact: true,
   });
   await popup.waitFor();
-  const cancellation = popup.getByRole("region", {
-    name: "Ticket Cancellation Policy",
+  const policy = popup.getByRole("region", {
+    name: "Cancellation & Refund Policy",
     exact: true,
   });
-  const refund = popup.getByRole("region", {
-    name: "Ticket Refund Policy",
-    exact: true,
-  });
-  if (
-    (await cancellation.locator("h4").count()) !== 6 ||
-    (await refund.locator("h4").count()) !== 7 ||
-    (await refund.locator("li").count()) !== 6
-  )
-    throw Error("The popup is missing cancellation/refund policy sections.");
+  const labels = [
+    "Final Bookings:", "Non-Attendance:", "Partial Refunds:", "Event Modifications:",
+    "Exceptional Circumstances:", "Payment Discrepancies:", "Refund Processing:",
+  ];
+  const descriptions = [
+    "All confirmed ticket purchases are final, non-cancellable and non-refundable, except where required by applicable law.",
+    "Refunds will not be issued for personal emergencies, scheduling conflicts, travel disruptions, health concerns or changes in personal plans.",
+    "No partial refunds will be issued for unused tickets, missed sessions or early departures.",
+    "The organisers reserve the right to make reasonable amendments to the event schedule, programme, performances and venue arrangements.",
+    "In the event of postponement, rescheduling or cancellation, refund eligibility and alternative arrangements will be communicated through official channels, in accordance with applicable laws.",
+    "Duplicate payments or unsuccessful transactions involving payment deductions will be reviewed and resolved upon verification.",
+    "Where applicable, approved refunds will be processed in accordance with payment provider procedures.",
+  ];
+  const clauses = policy.getByRole("listitem");
+  await expect(clauses).toHaveText(labels.map((label, index) => `${label} ${descriptions[index]}`));
+  await expect(policy.locator("li > strong")).toHaveText(labels);
+  for (const clause of await clauses.all()) {
+    await expect(clause).toHaveCSS("font-weight", "400");
+    await expect(clause.locator("strong")).toHaveCSS("font-weight", "700");
+  }
+  await expect(popup.getByRole("paragraph")).toHaveCount(0);
   const policyBody = popup.locator(".terms-policy-body");
   const scroll = await policyBody.evaluate((node) => ({
     top: node.scrollTop,
-    height: node.clientHeight,
-    contentHeight: node.scrollHeight,
     overflow: node.scrollWidth > node.clientWidth,
   }));
-  if (
-    scroll.top !== 0 ||
-    scroll.contentHeight <= scroll.height ||
-    scroll.overflow
-  )
+  if (scroll.top !== 0 || scroll.overflow)
     throw Error(
-      "The long policy must open at the top and scroll within the dialog.",
+      "The policy must open at the top without horizontal overflow.",
     );
   await policyBody.evaluate((node) => {
     node.scrollTop = node.scrollHeight;
   });
-  const finalParagraph = refund.getByText(
-    "For payment-related queries or assistance with your booking, please reach out to the Rush Republic management team through the official communication channels listed on our website.",
-    { exact: true },
-  );
-  await finalParagraph.scrollIntoViewIfNeeded();
+  await expect(clauses.last()).toBeInViewport();
   await popup.getByRole("button", { name: "Close", exact: true }).waitFor();
   await auditResponsive(page, "terms-dialog");
   const bounds = await popup.boundingBox();
