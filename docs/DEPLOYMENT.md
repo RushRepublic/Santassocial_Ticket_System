@@ -52,6 +52,14 @@ Cloudflare can front Nginx if desired. Use Full (strict) TLS with a valid origin
 
 ## Backups and operation
 
+### Cash Payment in Event Settings
+
+For an existing database, apply [the Cash Payment migration](../backend/migrations/002_public_cash_payment.sql) before using the toggle. An authorized operator can run the SQL once against the application's MySQL database, or run `npm run db:migrate` from the release checkout. Check `SHOW COLUMNS FROM events LIKE 'publicCashPaymentEnabled';` first if applying the SQL directly. Skip the standalone statement if the column already exists.
+
+The migration adds one nullable boolean to the existing event row. Until the first save, the legacy `PUBLIC_CASH_PAYMENT_ENABLED` value determines the initial state and defaults to OFF. A saved ON or OFF takes precedence over the environment value. If the release starts before the migration is applied, public checkout keeps its existing Cash Payment availability and Event Settings displays an error when saving.
+
+After the normal VPS rollout, sign in as an administrator or Staff user and open `/admin/event-settings`. Confirm the current status matches the intended checkout availability. Future changes from the dashboard take effect without a deployment or process restart.
+
 - Back up MySQL daily, and more frequently during sales/entry. Use `mysqldump --defaults-extra-file=/SECURE/PATH/mysql-client.cnf --single-transaction santa_social`, or a managed backup facility. The credentials file must be private; do not put passwords in command arguments. Encrypt backups, retain an approved schedule, copy them off the VPS, and rehearse restoration.
 - Back up secrets separately, especially `TICKET_SECRET`; a database backup alone cannot regenerate existing tickets without it. Do not commit backup files.
 - Monitor process uptime, `/api/health`, pending captures, `PAYMENT_REVIEW` bookings, failed notification jobs, storage and MySQL connection exhaustion. API errors intentionally avoid logging customer bodies, OTPs or bearer tokens.

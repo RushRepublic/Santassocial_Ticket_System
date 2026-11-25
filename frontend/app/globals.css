@@ -1804,6 +1804,16 @@ input::placeholder {
   letter-spacing: -0.5px;
   margin: 0 0 9px;
 }
+.event-settings .cash-setting-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.event-settings .cash-setting-control .button {
+  min-width: 64px;
+}
 .admin-page-heading p {
   font-size: 14px;
   color: var(--muted);

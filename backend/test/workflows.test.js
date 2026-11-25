@@ -63,7 +63,7 @@ test("public cash can be disabled without affecting existing cash QR approval", 
     assert.equal((await getBooking(db, online.id)).status, "PENDING_PAYMENT");
     assert.equal((await db.all("SELECT id FROM bookings")).length, 1);
 
-    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 67_650);
+    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), { savedAmount: 67_650 });
     const { body: existing } = await request(app).get(`/api/bookings/${cash.id}`)
       .set("Cookie", cookie).expect(200);
     assert.equal(existing.amount, 67_650);
@@ -72,6 +72,83 @@ test("public cash can be disabled without affecting existing cash QR approval", 
     await assert.rejects(checkin(db, existing.qrToken, admin, randomUUID(), 66_000, true), /match/);
     await checkin(db, existing.qrToken, admin, randomUUID(), 67_650, true);
     assert.equal((await getBooking(db, cash.id)).status, "PAID");
+  }));
+
+test("authorized event settings changes persist and govern new public cash bookings", () =>
+  fixture(async (db) => {
+    const route = "/api/admin/event-settings";
+    const password = "Local Event Settings QA password!";
+    const accounts = [
+      ["mathu.y@thinkcodesoft.com", "ADMIN"],
+      ["settings-admin@example.test", "ADMIN"],
+      ["settings-staff@example.test", "staff"],
+      ["settings-cashier@example.test", "CASHIER"],
+      ["settings-scanner@example.test", "SCANNER"],
+    ];
+    const app = createApp(db, { allowPublicCash: false });
+    async function staffCookie([email, role]) {
+      const user = await createAdmin(db, { name: "Settings QA", email, password });
+      await db.run("UPDATE users SET role = ? WHERE id = ?", [role, user.id]);
+      const response = await request(app).post("/api/auth/login")
+        .set("Origin", config.origin).send({ email, password }).expect(200);
+      return response.headers["set-cookie"].find((value) => value.startsWith("santa_staff_session=")).split(";")[0];
+    }
+    const cookies = [];
+    for (const account of accounts) cookies.push(await staffCookie(account));
+    const [mathu, admin, staffSession, cashier, scanner] = cookies;
+    const customer = `santa_session=${await signSession({ mobile: "9876543210" })}`;
+    const read = (cookie) => request(app).get(route).set("Cookie", cookie);
+    const update = (cookie, value, origin = config.origin) => request(app)
+      .put(route).set("Cookie", cookie).set("Origin", origin)
+      .send({ publicCashPaymentEnabled: value });
+    const publicState = (instance = app) => request(instance).get("/api/events").expect(200);
+    const key = randomUUID();
+    const reserve = (requestKey = key) => request(app).post("/api/bookings")
+      .set("Cookie", customer).set("Origin", config.origin)
+      .set("Idempotency-Key", requestKey).send(booking());
+
+    await read("").expect(401);
+    await update("", true).expect(401);
+    for (const cookie of [customer, cashier, scanner]) {
+      await read(cookie).expect(403);
+      await update(cookie, true).expect(403);
+    }
+    await update(staffSession, "true").expect(400);
+    await update(staffSession, true, "https://untrusted.example.test").expect(403);
+    await db.run("ALTER TABLE events DROP COLUMN publicCashPaymentEnabled");
+    await read(mathu).expect(200, { publicCashPaymentEnabled: false });
+    await update(mathu, true).expect(503);
+    await migrate(db);
+    await read(mathu).expect(200, { publicCashPaymentEnabled: false });
+    assert.equal((await publicState()).body.publicCashPaymentEnabled, false);
+    await reserve().expect(400);
+
+    for (const [cookie, enabled] of [[mathu, true], [admin, false], [staffSession, true]]) {
+      await update(cookie, enabled).expect(200, { publicCashPaymentEnabled: enabled });
+      const current = await publicState();
+      assert.equal(current.body.publicCashPaymentEnabled, enabled);
+      assert.equal(current.headers["cache-control"], "no-store");
+      await read(cookie === mathu ? staffSession : mathu)
+        .expect(200, { publicCashPaymentEnabled: enabled });
+    }
+    const { body: cash } = await reserve().expect(201);
+    assert.equal(cash.amount, 44_000);
+    assert.equal(cash.platformFee, 0);
+    assert.ok(cash.qrToken);
+    await update(admin, false).expect(200);
+    await reserve(randomUUID()).expect(400);
+    const { body: existing } = await reserve().expect(201);
+    assert.equal(existing.id, cash.id);
+    assert.equal(existing.qrToken, cash.qrToken);
+
+    const reopened = await openDatabase();
+    try {
+      await migrate(reopened);
+      const restartedApp = createApp(reopened, { allowPublicCash: true });
+      assert.equal((await publicState(restartedApp)).body.publicCashPaymentEnabled, false);
+    } finally {
+      await reopened.close();
+    }
   }));
 
 test("customer bookings require verified mobile but no email, and legacy email remains supported", () =>
@@ -159,9 +236,9 @@ test("historical cash and online bookings keep their saved price through approva
   fixture(async (db) => {
     const app = createApp(db, { allowPublicCash: true });
     const mobile = "9876543210";
-    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), 308);
+    const cash = await createBooking(db, booking({ adults: 3 }), mobile, randomUUID(), { savedAmount: 308 });
     const pending = await createBooking(
-      db, booking({ method: "RAZORPAY" }), mobile, randomUUID(), 200,
+      db, booking({ method: "RAZORPAY" }), mobile, randomUUID(), { savedAmount: 200 },
     );
     const customer = `santa_session=${await signSession({ mobile })}`;
     const read = (id) => request(app).get(`/api/bookings/${id}`).set("Cookie", customer).expect(200);

@@ -36,6 +36,8 @@ import {
   fail,
   now,
   lockEvent,
+  settings,
+  isPublicCashEnabled,
   expire,
   availability,
   createBooking,
@@ -88,10 +90,6 @@ export function createApp(
   db,
   { paymentGateway = razorpay, notify, allowPublicCash = publicCashPaymentEnabled } = {},
 ) {
-  function validatePublicPaymentMethod(method) {
-    if (method === "CASH" && !allowPublicCash)
-      fail(400, "Cash at the counter is currently unavailable for new bookings. Please pay online.");
-  }
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", "loopback");
@@ -334,14 +332,15 @@ export function createApp(
       release: "mobile-payment-return-1",
     });
   });
-  app.get("/api/events", async (_req, res) =>
+  app.get("/api/events", async (_req, res) => {
+    const event = await availability(db);
     res.json({
-      event: await availability(db),
-      publicCashPaymentEnabled: allowPublicCash,
+      event,
+      publicCashPaymentEnabled: isPublicCashEnabled(event, allowPublicCash),
       demo: paymentDemo,
       demoEventDate: paymentDemo ? config.demoDate : undefined,
-    }),
-  );
+    });
+  });
   app.get("/api/events/:id/availability", async (_req, res) =>
     res.json(await availability(db)),
   );
@@ -542,12 +541,12 @@ export function createApp(
   app.post("/api/bookings", auth(), async (req, res) => {
     if (!req.identity?.mobile) fail(403, "Verify your mobile number first.");
     const input = bookingSchema.parse(req.body);
-    validatePublicPaymentMethod(input.method);
     const b = await createBooking(
       db,
       input,
       req.identity.mobile,
       requestKey(req),
+      { publicCashDefault: allowPublicCash },
     );
     res.status(201).json(publicBooking(b));
   });
@@ -563,7 +562,6 @@ export function createApp(
     const { method } = z
       .object({ method: z.enum(["RAZORPAY", "CASH"]) })
       .parse(req.body);
-    validatePublicPaymentMethod(method);
     res.json(
       publicBooking(
         await replacePaymentMethod(
@@ -572,6 +570,7 @@ export function createApp(
           req.identity.mobile,
           method,
           requestKey(req),
+          allowPublicCash,
         ),
       ),
     );
@@ -1025,6 +1024,25 @@ export function createApp(
       );
     },
   );
+  const eventSettingsAccess = auth(["ADMIN", "staff"]);
+  app.get("/api/admin/event-settings", eventSettingsAccess, async (_req, res) =>
+    res.json({ publicCashPaymentEnabled: isPublicCashEnabled(await settings(db), allowPublicCash) }),
+  );
+  app.put("/api/admin/event-settings", eventSettingsAccess, async (req, res) => {
+    const { publicCashPaymentEnabled } = z
+      .strictObject({ publicCashPaymentEnabled: z.boolean() })
+      .parse(req.body);
+    await db.transaction(async (tx) => {
+      const event = await lockEvent(tx);
+      if (!event || !Object.hasOwn(event, "publicCashPaymentEnabled"))
+        fail(503, "Payment settings are unavailable until the database migration is applied.");
+      const enabled = Number(publicCashPaymentEnabled);
+      if (event.publicCashPaymentEnabled === enabled) return;
+      await tx.run("UPDATE events SET publicCashPaymentEnabled = ? WHERE id = ?", [enabled, event.id]);
+      await audit(tx, req.identity.userId, enabled ? "PUBLIC_CASH_ENABLED" : "PUBLIC_CASH_DISABLED", event.id);
+    });
+    res.json({ publicCashPaymentEnabled });
+  });
   app.get("/api/admin/settings", auth(["ADMIN", "staff"]), async (_req, res) =>
     res.json(await availability(db)),
   );

@@ -13,13 +13,13 @@ export function staffDestination(role, requested = "") {
   if (/^\/admin\/(payments|settings)(\/|$)/.test(path)) return home;
   if (
     role === "staff" &&
-    !/^\/(admin\/(bookings|checkins)|scanner)(\/|$)/.test(path)
+    !/^\/(admin\/(bookings|checkins|event-settings)|scanner)(\/|$)/.test(path)
   )
     return home;
   if (role === "SCANNER" && !/^\/scanner(\/|$)/.test(path)) return home;
   if (
     role === "CASHIER" &&
-    (/^\/scanner(\/|$)/.test(path) || path.startsWith("/admin/settings"))
+    (/^\/scanner(\/|$)/.test(path) || /^\/admin\/event-settings(\/|$)/.test(path))
   )
     return home;
   if (new URL(requested, "https://staff.invalid").pathname !== path)

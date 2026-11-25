@@ -629,6 +629,12 @@ function EntryAgreement({ agreed, onChange }) {
     </>
   );
 }
+function existingCashDestination({ id, status }) {
+  if (status === "PENDING_CASH") return `/booking-pending?id=${id}`;
+  if (status === "PAID") return `/ticket/${id}`;
+  return "/retrieve-ticket";
+}
+
 export function Checkout() {
   const router = useRouter();
   const [draft, setDraft] = useState(null);
@@ -654,11 +660,7 @@ export function Checkout() {
       }
       function redirectExistingCash(booking) {
         if (allowCash || booking.method !== "CASH") return false;
-        if (booking.status === "PENDING_CASH")
-          router.replace(`/booking-pending?id=${booking.id}`);
-        else if (booking.status === "PAID")
-          router.replace(`/ticket/${booking.id}`);
-        else router.replace("/retrieve-ticket");
+        router.replace(existingCashDestination(booking));
         return true;
       }
       const params = new URLSearchParams(location.search);
@@ -721,6 +723,48 @@ export function Checkout() {
     }
     void restore();
   }, [router]);
+  const hasDraft = Boolean(draft);
+  useEffect(() => {
+    if (!hasDraft || busy || checkingPayment || demoBooking) return;
+    let stopped = false;
+    let reading = false;
+    async function refreshCashAvailability() {
+      if (reading || document.hidden) return;
+      reading = true;
+      try {
+        const event = await api("/events", { cache: "no-store" });
+        if (!stopped) setCashEnabled(event.publicCashPaymentEnabled === true);
+      } catch {
+        // The booking API still verifies the setting if a refresh fails.
+      } finally {
+        reading = false;
+      }
+    }
+    const timer = setInterval(refreshCashAvailability, 15000);
+    window.addEventListener("focus", refreshCashAvailability);
+    document.addEventListener("visibilitychange", refreshCashAvailability);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      window.removeEventListener("focus", refreshCashAvailability);
+      document.removeEventListener("visibilitychange", refreshCashAvailability);
+    };
+  }, [hasDraft, busy, checkingPayment, demoBooking]);
+  useEffect(() => {
+    if (
+      cashEnabled || draft?.method !== "CASH" ||
+      busy || checkingPayment || navigating.current
+    ) return;
+    if (draft.bookingId && draft.pricing?.method === "CASH") {
+      router.replace(existingCashDestination({ id: draft.bookingId, status: draft.pricing.status }));
+      return;
+    }
+    const updated = { ...draft, method: "RAZORPAY", key: crypto.randomUUID() };
+    saveDraft(updated);
+    setDraft(updated);
+    setAgreed(false);
+    setError("Cash at the counter is currently unavailable. Review the online total before continuing.");
+  }, [cashEnabled, draft, busy, checkingPayment, router]);
   useEffect(() => {
     if (!draft?.bookingId || draft.method !== "RAZORPAY") return;
     let stopped = false;
@@ -918,6 +962,7 @@ export function Checkout() {
       checkoutRef.current = checkout;
       checkout.open();
     } catch (e) {
+      if (e.details?.code === "PUBLIC_CASH_UNAVAILABLE") setCashEnabled(false);
       setError(e.message);
       setBusy(false);
     }
@@ -1031,7 +1076,7 @@ export function Checkout() {
           )}
           <button
             className="button full"
-            disabled={!agreed || busy || checkingPayment}
+            disabled={!agreed || busy || checkingPayment || (!cashEnabled && draft.method === "CASH")}
             onClick={start}
           >
             {busy

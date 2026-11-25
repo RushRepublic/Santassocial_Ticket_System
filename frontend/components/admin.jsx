@@ -19,12 +19,14 @@ import {
   Clock,
   ArrowLeft,
   Menu,
+  Settings,
 } from "lucide-react";
 import { api, post, money, dateTime, eventDate } from "@/lib/api";
 import { discoverySources } from "@/lib/discovery-source";
 import { staffDestination } from "@/lib/staff";
 import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
 import { FreeTickets } from "./free-tickets";
+import { EventSettings } from "./event-settings";
 import { Wordmark, Notice, Loading, Status, DemoBanner } from "./common";
 export function StaffLogin() {
   const router = useRouter();
@@ -134,7 +136,8 @@ export function Admin() {
   }
   const restrictedOverview =
     identity?.role === "staff" &&
-    !["bookings", "checkins", "free-tickets"].includes(section);
+    !["bookings", "checkins", "free-tickets", "event-settings"].includes(section);
+  const canManageEventSettings = ["ADMIN", "staff"].includes(identity?.role);
   useEffect(() => {
     if (restrictedOverview) router.replace("/admin/bookings");
   }, [restrictedOverview, router]);
@@ -179,6 +182,17 @@ export function Admin() {
             >
               <Ticket size={19} />
               Free Tickets
+            </Link>
+          )}
+          {canManageEventSettings && (
+            <Link
+              href="/admin/event-settings"
+              onClick={() => setOpen(false)}
+              className={section === "event-settings" ? "active" : ""}
+              aria-current={section === "event-settings" ? "page" : undefined}
+            >
+              <Settings size={19} />
+              Event Settings
             </Link>
           )}
         </nav>
@@ -234,6 +248,12 @@ export function Admin() {
               <FreeTickets />
             ) : (
               <Notice>Your account cannot access Free Tickets.</Notice>
+            )
+          ) : section === "event-settings" ? (
+            canManageEventSettings ? (
+              <EventSettings />
+            ) : (
+              <Notice>Your account cannot access Event Settings.</Notice>
             )
           ) : (
             <Dashboard />

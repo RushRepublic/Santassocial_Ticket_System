@@ -11,6 +11,10 @@ const tables = readFileSync(
   .split(";")
   .map((s) => s.trim())
   .filter(Boolean);
+const publicCashMigration = readFileSync(
+  new URL("../migrations/002_public_cash_payment.sql", import.meta.url),
+  "utf8",
+).trim();
 export async function openDatabase() {
   if (databaseDriver === "sqlite") {
     const { DatabaseSync } = await import("node:sqlite");
@@ -95,6 +99,21 @@ export async function openDatabase() {
     close: () => pool.end(),
   };
 }
+async function addColumn(db, table, name, sql) {
+  const columns = await db.all(
+    databaseDriver === "mysql"
+      ? `SHOW COLUMNS FROM ${table} LIKE '${name}'`
+      : `PRAGMA table_info(${table})`,
+  );
+  if (columns.some((column) => (column.Field ?? column.name) === name)) return;
+  try {
+    await db.run(sql);
+  } catch (error) {
+    if (error.code !== "ER_DUP_FIELDNAME" && !/duplicate column name/i.test(error.message))
+      throw error;
+  }
+}
+
 export async function migrate(db) {
   for (const sql of tables)
     await db.run(
@@ -102,28 +121,11 @@ export async function migrate(db) {
         ? `${sql} ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         : sql,
     );
-  const bookingColumns = await db.all(
-    databaseDriver === "mysql"
-      ? "SHOW COLUMNS FROM bookings LIKE 'discoverySource'"
-      : "PRAGMA table_info(bookings)",
+  await addColumn(
+    db, "bookings", "discoverySource",
+    "ALTER TABLE bookings ADD COLUMN discoverySource VARCHAR(20) NULL",
   );
-  if (
-    !bookingColumns.some(
-      (column) => (column.Field ?? column.name) === "discoverySource",
-    )
-  ) {
-    try {
-      await db.run(
-        "ALTER TABLE bookings ADD COLUMN discoverySource VARCHAR(20) NULL",
-      );
-    } catch (error) {
-      if (
-        error.code !== "ER_DUP_FIELDNAME" &&
-        !/duplicate column name: discoverySource/i.test(error.message)
-      )
-        throw error;
-    }
-  }
+  await addColumn(db, "events", "publicCashPaymentEnabled", publicCashMigration);
   for (const [table, index, cols] of [
     ["bookings", "idx_bookings_mobile", "mobile,createdAt"],
     [

@@ -136,6 +136,29 @@ test(
         .set('Origin', process.env.FRONTEND_ORIGIN)
         .send({ email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD }).expect(200);
       const staffCookie = login.headers['set-cookie'].find((value) => value.startsWith('santa_staff_session=')).split(';')[0];
+      const eventSettings = '/api/admin/event-settings';
+      const readCash = async () => (await request(app).get('/api/events').expect(200)).body.publicCashPaymentEnabled;
+      const saveCash = (enabled) => request(app).put(eventSettings).set('Cookie', staffCookie)
+        .set('Origin', process.env.FRONTEND_ORIGIN).send({ publicCashPaymentEnabled: enabled })
+        .expect(200, { publicCashPaymentEnabled: enabled });
+      const originalCash = await readCash();
+      try {
+        for (const enabled of [true, false]) {
+          await saveCash(enabled);
+          assert.equal(await readCash(), enabled);
+          const restarted = await openDatabase();
+          try {
+            await migrate(restarted);
+            const restartedApp = createApp(restarted, { allowPublicCash: !enabled });
+            const current = await request(restartedApp).get(eventSettings).set('Cookie', staffCookie).expect(200);
+            assert.equal(current.body.publicCashPaymentEnabled, enabled);
+          } finally {
+            await restarted.close();
+          }
+        }
+      } finally {
+        await saveCash(originalCash);
+      }
       for (const date of ['all', '2026-12-05', '2026-12-06'])
         await request(app).get('/api/admin/dashboard?date=' + date).set('Cookie', staffCookie).expect(200);
       for (const suffix of ['', '?date=2026-12-05&status=PAID', '?date=2026-12-06&format=csv'])

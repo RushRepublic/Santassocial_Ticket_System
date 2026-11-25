@@ -28,6 +28,10 @@ export async function lockEvent(tx) {
     await tx.all("SELECT * FROM events WHERE id = ? FOR UPDATE", ["santa-2026"])
   )[0];
 }
+export function isPublicCashEnabled(event, initialValue) {
+  const saved = event?.publicCashPaymentEnabled;
+  return saved == null ? initialValue : Number(saved) === 1;
+}
 // Retained for existing maintenance callers. Bookings have no payment deadline.
 export async function expire(_tx) {}
 export async function availability(db) {
@@ -124,10 +128,12 @@ export async function getBooking(db, id) {
 export const complimentaryIssueAction = "COMPLIMENTARY_TICKET_ISSUED";
 
 export function createComplimentaryBooking(db, { mobile, ...input }, key, issuerId) {
-  return createBooking(db, input, mobile, key, 0, issuerId);
+  return createBooking(db, input, mobile, key, { savedAmount: 0, issuerId });
 }
 
-export async function createBooking(db, input, mobile, key, savedAmount, issuerId) {
+export async function createBooking(
+  db, input, mobile, key, { savedAmount, issuerId, publicCashDefault } = {},
+) {
   if (!issuerId) assertBookableDate(input.eventDate);
   const fingerprint = hash(
     JSON.stringify(issuerId ? [complimentaryIssueAction, issuerId, input] : input),
@@ -143,6 +149,16 @@ export async function createBooking(db, input, mobile, key, savedAmount, issuerI
         fail(409, "This request key is already in use.");
       return getBooking(tx, previous.bookingId);
     }
+    if (
+      input.method === "CASH" &&
+      publicCashDefault !== undefined &&
+      !isPublicCashEnabled(e, publicCashDefault)
+    )
+      throw new AppError(
+        400,
+        "Cash at the counter is currently unavailable for new bookings. Please pay online.",
+        { code: "PUBLIC_CASH_UNAVAILABLE" },
+      );
     if (issuerId) assertBookableDate(input.eventDate);
     const people = input.adults + input.kids;
     if (people < 1 || people > e.maxGroup)
@@ -208,7 +224,7 @@ export function assertBookableDate(date) {
       "This event date is no longer available for booking. Please choose an available date.",
     );
 }
-export async function replacePaymentMethod(db, id, mobile, method, key) {
+export async function replacePaymentMethod(db, id, mobile, method, key, publicCashDefault) {
   return db.transaction(async (tx) => {
     await lockEvent(tx);
     const original = await getBooking(tx, id);
@@ -229,12 +245,13 @@ export async function replacePaymentMethod(db, id, mobile, method, key) {
     const { ticketSubtotal } = savedBookingPricing(original);
     const { amount } = quoteSubtotal(ticketSubtotal, method);
     const nested = { transaction: (work) => work(tx) };
+    const options = { savedAmount: amount, publicCashDefault };
     const previous = await tx.all(
       "SELECT id FROM booking_requests WHERE id = ?",
       [key],
     );
     if (previous.length)
-      return createBooking(nested, input, mobile, key, amount);
+      return createBooking(nested, input, mobile, key, options);
     if (original.method === method) return original;
     if (
       !["PENDING_CASH", "PENDING_PAYMENT"].includes(original.status) ||
@@ -263,9 +280,7 @@ export async function replacePaymentMethod(db, id, mobile, method, key) {
       "UPDATE bookings SET status = 'CANCELLED', updatedAt = ? WHERE id = ?",
       [now(), id],
     );
-    const replacement = await createBooking(
-      nested, input, mobile, key, amount,
-    );
+    const replacement = await createBooking(nested, input, mobile, key, options);
     await audit(tx, null, `PAYMENT_METHOD_REPLACED:${replacement.id}`, id);
     return replacement;
   });
