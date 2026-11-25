@@ -254,7 +254,7 @@ export function Register() {
   return (
     <main className="booking-page">
       <h1 className="sr-only">Your booking</h1>
-      <h2 className="welcome-heading">Come on in, get your tickets and join the fun!</h2>
+      <h2 className="welcome-heading">Your Pass to Coimbatore’s Largest Christmas Carnival</h2>
       <div className="booking-layout registration-layout">
         <form className="form-card" noValidate onSubmit={next}>
           <div className="form-section" data-registration-field>
