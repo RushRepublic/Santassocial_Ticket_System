@@ -1065,6 +1065,10 @@ export function Checkout() {
                 By completing your purchase, you acknowledge and accept these
                 terms and conditions.
               </li>
+              <li>
+                For group bookings, all tickets must be collected in a single
+                QR scan and shared with attendees arriving separately.
+              </li>
             </ul>
             <p>
               For booking assistance or payment-related queries, please contact
