@@ -1053,16 +1053,24 @@ export function Checkout() {
             <h3>Before the Fun Kicks Off!</h3>
             <ul>
               <li>
-                Your booking is valid only for {eventDate(draft.eventDate)}.
+                Tickets are valid for the respective booked date(s) of Santa
+                Social, scheduled for 5th &amp; 6th December 2026.
               </li>
+              <li>All attendees under a group booking must enter together.</li>
               <li>
-                Group tickets admit everyone in the booking together.
-              </li>
-              <li>
-                Children under 5 must be accompanied by an adult, unless
+                Children under five must be accompanied by an adult, unless
                 otherwise permitted under an approved event policy.
               </li>
+              <li>
+                By completing your purchase, you acknowledge and accept these
+                terms and conditions.
+              </li>
             </ul>
+            <p>
+              For booking assistance or payment-related queries, please contact
+              the Rush Republic management team through the official
+              communication channels listed on our website.
+            </p>
           </div>
         </div>
       </div>

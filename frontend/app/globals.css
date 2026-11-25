@@ -1196,11 +1196,15 @@ input::placeholder {
   margin-bottom: 12px;
 }
 .entry-rules ul {
-  padding-left: 18px;
+  list-style: disc;
+  padding-inline-start: 18px;
   margin: 0;
 }
 .entry-rules li {
   margin: 8px 0;
+}
+.entry-rules > p {
+  margin: var(--space-3) 0 0;
 }
 .checkbox-label {
   display: flex;
