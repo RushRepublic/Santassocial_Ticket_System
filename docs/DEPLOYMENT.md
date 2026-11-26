@@ -68,6 +68,8 @@ Use placement-specific links for ad attribution. For example, point an Instagram
 
 The application uses the landing page's external referrer hostname when a usable source tag is absent. Apps and browsers may suppress referrers, so untagged visits can show Unknown. Historical bookings without captured attribution also show Unknown. Booking Details and the Bookings CSV include attribution for Razorpay and Cash bookings. Free tickets have no attribution, and the self-reported discovery answer remains a separate field.
 
+Point ads to the canonical `/` landing page with their UTM parameters. The legacy `/register` redirect preserves the query string and carries a usable external hostname when there is no valid UTM source. Some browsers may still have the previous permanent redirect cached. Existing bookings without captured attribution cannot be attributed reliably from their payment records.
+
 - Back up MySQL daily, and more frequently during sales/entry. Use `mysqldump --defaults-extra-file=/SECURE/PATH/mysql-client.cnf --single-transaction santa_social`, or a managed backup facility. The credentials file must be private; do not put passwords in command arguments. Encrypt backups, retain an approved schedule, copy them off the VPS, and rehearse restoration.
 - Back up secrets separately, especially `TICKET_SECRET`; a database backup alone cannot regenerate existing tickets without it. Do not commit backup files.
 - Monitor process uptime, `/api/health`, pending captures, `PAYMENT_REVIEW` bookings, failed notification jobs, storage and MySQL connection exhaustion. API errors intentionally avoid logging customer bodies, OTPs or bearer tokens.

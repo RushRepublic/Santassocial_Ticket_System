@@ -125,26 +125,53 @@ function saveDraft(draft) {
   sessionStorage.setItem("santa-draft", JSON.stringify(draft));
 }
 const leadSessionKey = "santa-lead-signals";
-let readLandingReferrer = false;
+let landingRead = false;
 
 function registrationLeadSignals() {
   const navigation = performance.getEntriesByType("navigation")[0];
-  const referrer = !readLandingReferrer && navigation?.type !== "reload"
-    ? document.referrer
-    : "";
-  readLandingReferrer = true;
+  const landing = !landingRead && navigation ? new URL(navigation.name) : null;
+  const publicLanding = landing?.origin === location.origin &&
+    ["/", "/register"].includes(landing.pathname);
+  const firstPublicRead = !landingRead && (publicLanding || !navigation);
+  const referrer = firstPublicRead ? document.referrer : "";
+  landingRead = true;
+
   const host = location.hostname;
-  const signals = readLandingSignals(location.search, referrer, host);
-  const attribution = resolveLeadAttribution(signals, host);
-  try {
-    if (attribution && (attribution.method !== "unknown" || !sessionStorage.getItem(leadSessionKey))) {
-      sessionStorage.setItem(leadSessionKey, JSON.stringify(signals));
-      return signals;
+  let signals = readLandingSignals(location.search, referrer, host);
+  let attribution = resolveLeadAttribution(signals, host);
+  if (publicLanding && landing.search !== location.search && attribution?.method !== "utm") {
+    // History changes can remove tags before React mounts. The navigation entry
+    // keeps the original document URL for this tab.
+    const original = readLandingSignals(landing.search, referrer, host);
+    const originalAttribution = resolveLeadAttribution(original, host);
+    if (originalAttribution?.method === "utm" || (!attribution && originalAttribution)) {
+      signals = original;
+      attribution = originalAttribution;
     }
-    return JSON.parse(sessionStorage.getItem(leadSessionKey));
-  } catch {
-    return attribution ? signals : null;
   }
+  if (firstPublicRead && attribution?.method !== "utm" && !signals.referrerHost) {
+    const referrerHost = new URLSearchParams(location.hash.slice(1)).get("lead-ref");
+    const forwarded = { ...signals, referrerHost };
+    const forwardedAttribution = resolveLeadAttribution(forwarded, host);
+    if (forwardedAttribution?.method === "referrer") {
+      signals = forwarded;
+      attribution = forwardedAttribution;
+    }
+  }
+
+  try {
+    if (attribution?.method !== "utm") {
+      const saved = JSON.parse(sessionStorage.getItem(leadSessionKey));
+      const savedMethod = resolveLeadAttribution(saved, host)?.method;
+      if (savedMethod && (!attribution || attribution.method === "unknown" ||
+          (navigation?.type === "reload" && savedMethod !== "unknown")))
+        return saved;
+    }
+    if (attribution) sessionStorage.setItem(leadSessionKey, JSON.stringify(signals));
+  } catch {
+    // Checkout can still carry the signals from memory when storage is unavailable.
+  }
+  return attribution ? signals : null;
 }
 
 function bookingPricing({ ticketSubtotal, platformFee, amount, method, status }) {

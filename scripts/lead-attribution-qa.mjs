@@ -44,18 +44,55 @@ try {
     await page.waitForURL("**/checkout");
   };
 
+  await online.addInitScript(() => {
+    if (location.pathname === "/" && location.search)
+      history.replaceState(history.state, "", "/");
+  });
   await online.goto(
     origin +
       "/?UTM_SOURCE=ig&utm_medium=paid_social&utm_campaign=santa_2026&utm_content=reel_01&utm_term=Coimbatore",
+    { referer: "https://l.facebook.com/" },
   );
+  await expect
+    .poll(() =>
+      online.evaluate(
+        () =>
+          JSON.parse(sessionStorage.getItem("santa-lead-signals"))?.utm?.source,
+      ),
+    )
+    .toBe("ig");
+  expect(new URL(online.url()).search).toBe("");
   await online.reload();
   await register(online, "Online Attribution QA");
-  await cash.goto(origin, {
+  const refreshed = await context.newPage();
+  await refreshed.addInitScript(() => {
+    if (
+      location.pathname === "/" &&
+      performance.getEntriesByType("navigation")[0]?.type === "reload"
+    ) {
+      Object.defineProperty(document, "referrer", {
+        value: "https://l.facebook.com/",
+      });
+    }
+  });
+  await refreshed.goto(origin);
+  await refreshed.reload();
+  await expect
+    .poll(() =>
+      refreshed.evaluate(
+        () =>
+          JSON.parse(sessionStorage.getItem("santa-lead-signals"))
+            ?.referrerHost,
+      ),
+    )
+    .toBe("l.facebook.com");
+  await refreshed.close();
+
+  await cash.goto(origin + "/register", {
     referer: "https://l.facebook.com/path?private=value",
   });
-  expect(new URL(await cash.evaluate(() => document.referrer)).hostname).toBe(
-    "l.facebook.com",
-  );
+  expect(new URL(cash.url()).pathname).toBe("/");
+  expect(new URL(cash.url()).hash).toBe("#lead-ref=l.facebook.com");
   await register(cash, "Cash Attribution QA");
   await cash.reload();
   await cash.getByRole("button", { name: /Pay cash at the counter/ }).click();
@@ -135,6 +172,28 @@ try {
   await admin.goto(`${origin}/admin/bookings/${cashId}`);
   await expect(value("Lead Source")).toHaveText("Facebook");
   await expect(value("Campaign")).toHaveCount(0);
+  for (const [query, source] of [
+    ["?utm_source=facebook&utm_medium=paid_social", "Facebook"],
+    ["?utm_source=whatsapp&utm_medium=message", "WhatsApp"],
+    ["?utm_source=google&utm_medium=cpc", "Google Ads"],
+    ["?utm_source=youtube&utm_medium=video", "YouTube"],
+    ["", "Unknown"],
+  ]) {
+    const visitor = await context.newPage();
+    const landing = source === "WhatsApp" ? "/register" : "/";
+    await visitor.goto(`${origin}${landing}${query}`);
+    await register(visitor, `${source} Attribution QA`);
+    await visitor.getByRole("checkbox").check();
+    await visitor.getByRole("button", { name: /Continue to payment/ }).click();
+    await visitor
+      .getByRole("button", { name: "Simulate successful payment" })
+      .click();
+    await visitor.waitForURL("**/ticket/*");
+    const id = new URL(visitor.url()).pathname.split("/").at(-1);
+    await admin.goto(`${origin}/admin/bookings/${id}`);
+    await expect(value("Lead Source")).toHaveText(source);
+    await visitor.close();
+  }
   await admin.goto(`${origin}/admin/bookings/${free.id}`);
   await expect(
     admin.getByRole("heading", { name: "Free Attribution QA" }),

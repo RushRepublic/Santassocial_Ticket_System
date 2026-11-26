@@ -2,7 +2,6 @@ const config = {
   devIndicators: false,
   async redirects() {
     return [
-      { source: "/register", destination: "/", permanent: true },
       { source: "/verify-otp", destination: "/", permanent: true },
       { source: "/admin/login", destination: "/login", permanent: true },
       { source: "/scanner/login", destination: "/login", permanent: true },
