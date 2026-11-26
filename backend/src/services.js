@@ -78,7 +78,9 @@ export async function activate(tx, b, status = "PAID", { notify = true } = {}) {
   if (notify) await notification(tx, b, "TICKET");
 }
 export function publicBooking(b) {
-  const { ticketNonce, qrHash, gatewayOrderId, gatewayPaymentId, ...safe } = b;
+  const {
+    ticketNonce, qrHash, gatewayOrderId, gatewayPaymentId, leadAttribution, ...safe
+  } = b;
   return {
     ...safe,
     ...savedBookingPricing(b),
@@ -132,7 +134,7 @@ export function createComplimentaryBooking(db, { mobile, ...input }, key, issuer
 }
 
 export async function createBooking(
-  db, input, mobile, key, { savedAmount, issuerId, publicCashDefault } = {},
+  db, input, mobile, key, { savedAmount, issuerId, publicCashDefault, leadAttribution } = {},
 ) {
   if (!issuerId) assertBookableDate(input.eventDate);
   const fingerprint = hash(
@@ -195,11 +197,28 @@ export async function createBooking(
       updatedAt: now(),
     };
     if (status === "PENDING_CASH") b.qrHash = hash(qrToken(b));
-    const cols = Object.keys(b);
-    await tx.run(
-      `INSERT INTO bookings (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`,
-      Object.values(b),
-    );
+    if (leadAttribution && ["CASH", "RAZORPAY"].includes(b.method))
+      b.leadAttribution = leadAttribution;
+    const insertBooking = () => {
+      const cols = Object.keys(b);
+      return tx.run(
+        `INSERT INTO bookings (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`,
+        Object.values(b),
+      );
+    };
+    try {
+      await insertBooking();
+    } catch (error) {
+      // Keep checkout working if the app is deployed before this additive migration.
+      if (
+        !b.leadAttribution ||
+        !["ER_BAD_FIELD_ERROR", "ERR_SQLITE_ERROR"].includes(error.code) ||
+        !/(?:unknown column ['`]?leadAttribution|no column named leadAttribution)/i.test(error.message)
+      )
+        throw error;
+      delete b.leadAttribution;
+      await insertBooking();
+    }
     await tx.run(
       "INSERT INTO payments (id,bookingId,amount,status) VALUES (?,?,?,?)",
       [randomUUID(), id, amount, amount === 0 ? "FREE" : "PENDING"],
@@ -245,7 +264,11 @@ export async function replacePaymentMethod(db, id, mobile, method, key, publicCa
     const { ticketSubtotal } = savedBookingPricing(original);
     const { amount } = quoteSubtotal(ticketSubtotal, method);
     const nested = { transaction: (work) => work(tx) };
-    const options = { savedAmount: amount, publicCashDefault };
+    const options = {
+      savedAmount: amount,
+      publicCashDefault,
+      leadAttribution: original.leadAttribution,
+    };
     const previous = await tx.all(
       "SELECT id FROM booking_requests WHERE id = ?",
       [key],

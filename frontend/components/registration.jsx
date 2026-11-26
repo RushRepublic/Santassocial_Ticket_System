@@ -1,5 +1,6 @@
 "use client";
 import { EVENT_DATES, EVENT_HOURS_LABEL } from "../../config/event-dates.js";
+import { readLandingSignals, resolveLeadAttribution } from "../../config/lead-attribution.js";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -123,6 +124,29 @@ function readDraft() {
 function saveDraft(draft) {
   sessionStorage.setItem("santa-draft", JSON.stringify(draft));
 }
+const leadSessionKey = "santa-lead-signals";
+let readLandingReferrer = false;
+
+function registrationLeadSignals() {
+  const navigation = performance.getEntriesByType("navigation")[0];
+  const referrer = !readLandingReferrer && navigation?.type !== "reload"
+    ? document.referrer
+    : "";
+  readLandingReferrer = true;
+  const host = location.hostname;
+  const signals = readLandingSignals(location.search, referrer, host);
+  const attribution = resolveLeadAttribution(signals, host);
+  try {
+    if (attribution && (attribution.method !== "unknown" || !sessionStorage.getItem(leadSessionKey))) {
+      sessionStorage.setItem(leadSessionKey, JSON.stringify(signals));
+      return signals;
+    }
+    return JSON.parse(sessionStorage.getItem(leadSessionKey));
+  } catch {
+    return attribution ? signals : null;
+  }
+}
+
 function bookingPricing({ ticketSubtotal, platformFee, amount, method, status }) {
   return { ticketSubtotal, platformFee, amount, method, status };
 }
@@ -176,6 +200,7 @@ export function Register() {
   const [verificationRevision, setVerificationRevision] = useState(0);
   const [openingCheckout, setOpeningCheckout] = useState(false);
   const submitting = useRef(false);
+  const leadSignals = useRef(null);
   const parsed = draftSchema.safeParse(draft);
   const issue = registrationIssue(draft, parsed, settings, verifiedMobile);
   const activeField = issue?.field === attemptedField ? attemptedField : null;
@@ -196,6 +221,7 @@ export function Register() {
     if (attemptedField && !activeField) setAttemptedField(null);
   }, [attemptedField, activeField]);
   useEffect(() => {
+    leadSignals.current = registrationLeadSignals();
     setDraft(readDraft() || { ...initial, key: crypto.randomUUID() });
     api("/events")
       .then((d) => {
@@ -238,7 +264,12 @@ export function Register() {
       if (identity.mobile !== draft.mobile) {
         throw Object.assign(new Error(verifyMobileMessage), { status: 401 });
       }
-      saveDraft({ ...draft, ...parsed.data, key: crypto.randomUUID() });
+      saveDraft({
+        ...draft,
+        ...parsed.data,
+        leadSignals: leadSignals.current || undefined,
+        key: crypto.randomUUID(),
+      });
       router.push("/checkout");
     } catch (error) {
       submitting.current = false;
@@ -811,6 +842,7 @@ export function Checkout() {
     setCheckingPayment(false);
     setDemoBooking(null);
     sessionStorage.setItem("santa-last-booking", b.id);
+    sessionStorage.removeItem(leadSessionKey);
     router.push(
       b.status === "PENDING_CASH"
         ? `/booking-pending?id=${b.id}`

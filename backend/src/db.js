@@ -15,6 +15,10 @@ const publicCashMigration = readFileSync(
   new URL("../migrations/002_public_cash_payment.sql", import.meta.url),
   "utf8",
 ).trim();
+const leadAttributionMigration = readFileSync(
+  new URL("../migrations/003_booking_lead_attribution.sql", import.meta.url),
+  "utf8",
+).trim();
 export async function openDatabase() {
   if (databaseDriver === "sqlite") {
     const { DatabaseSync } = await import("node:sqlite");
@@ -126,6 +130,7 @@ export async function migrate(db) {
     "ALTER TABLE bookings ADD COLUMN discoverySource VARCHAR(20) NULL",
   );
   await addColumn(db, "events", "publicCashPaymentEnabled", publicCashMigration);
+  await addColumn(db, "bookings", "leadAttribution", leadAttributionMigration);
   for (const [table, index, cols] of [
     ["bookings", "idx_bookings_mobile", "mobile,createdAt"],
     [

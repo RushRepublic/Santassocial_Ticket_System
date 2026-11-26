@@ -1,5 +1,6 @@
 import { receiptTickets } from "./individual-tickets.js";
 import { EVENT_DATES } from "../../config/event-dates.js";
+import { resolveLeadAttribution } from "../../config/lead-attribution.js";
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -79,6 +80,28 @@ const freeTicketSchema = bookingSchema
   .extend({ mobile: mobileSchema, eventDate: z.iso.date() });
 const requestKey = (req) =>
   z.string().min(16).max(100).parse(req.get("Idempotency-Key"));
+
+function bookingAttribution(booking) {
+  if (!["RAZORPAY", "CASH"].includes(booking.method)) return null;
+  try {
+    const attribution = JSON.parse(booking.leadAttribution);
+    if (attribution?.source) return attribution;
+  } catch {
+    // Historical records and installations without the migration have no attribution.
+  }
+  return { source: "Unknown", method: "unknown" };
+}
+
+const attributionColumns = [
+  "Lead Source", "UTM Medium", "UTM Campaign", "UTM Content", "UTM Term",
+];
+
+function csvAttribution(booking) {
+  const attribution = bookingAttribution(booking);
+  const { medium, campaign, content, term } = attribution?.utm ?? {};
+  return [attribution?.source, medium, campaign, content, term];
+}
+
 const param = (req, name = "id") => String(req.params[name]);
 const cookieOptions = {
   httpOnly: true,
@@ -541,12 +564,19 @@ export function createApp(
   app.post("/api/bookings", auth(), async (req, res) => {
     if (!req.identity?.mobile) fail(403, "Verify your mobile number first.");
     const input = bookingSchema.parse(req.body);
+    const attribution = resolveLeadAttribution(
+      req.body.leadSignals,
+      URL.parse(config.origin)?.hostname,
+    );
     const b = await createBooking(
       db,
       input,
       req.identity.mobile,
       requestKey(req),
-      { publicCashDefault: allowPublicCash },
+      {
+        publicCashDefault: allowPublicCash,
+        leadAttribution: attribution && JSON.stringify(attribution),
+      },
     );
     res.status(201).json(publicBooking(b));
   });
@@ -828,8 +858,10 @@ export function createApp(
             [b.id, complimentaryIssueAction],
           ))[0]
         : null;
+    const leadAttribution = bookingAttribution(b);
     res.json({
       booking: publicBooking(b),
+      ...(leadAttribution && { leadAttribution }),
       issuance: issuance ?? null,
       tickets: await receiptTickets(db, b),
       payments: await db.all("SELECT * FROM payments WHERE bookingId = ?", [
@@ -903,15 +935,17 @@ export function createApp(
       ];
       const quote = (v) =>
         `"${String(v ?? "")
-          .replace(/^[=+@\-\t\r]/, "'$&")
+          .replace(/^(?:[\t\r\n]|[\s\p{Cf}]*[=+@\-＝＋＠－])/u, "'$&")
           .replace(/"/g, '""')}"`;
       res
         .type("text/csv")
         .attachment("santa-social-bookings.csv")
         .send(
           [
-            columns.join(","),
-            ...all.map((r) => columns.map((c) => quote(r[c])).join(",")),
+            [...columns, ...attributionColumns].join(","),
+            ...all.map((r) =>
+              [...columns.map((c) => r[c]), ...csvAttribution(r)].map(quote).join(","),
+            ),
           ].join("\r\n"),
         );
     } else

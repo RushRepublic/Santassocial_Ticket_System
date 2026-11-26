@@ -60,6 +60,14 @@ The migration adds one nullable boolean to the existing event row. Until the fir
 
 After the normal VPS rollout, sign in as an administrator or Staff user and open `/admin/event-settings`. Confirm the current status matches the intended checkout availability. Future changes from the dashboard take effect without a deployment or process restart.
 
+### Lead attribution for paid-method bookings
+
+Before deploying the release, select the MySQL database used by the live ticket app. Run `SHOW COLUMNS FROM bookings LIKE 'leadAttribution';`. If it returns no row, apply [the attribution migration](../backend/migrations/003_booking_lead_attribution.sql) once. The migration adds a nullable column, with no booking or payment backfill. If application code is deployed first, checkout remains available and bookings created before the migration may show Unknown. After the schema is ready, deploy the release through the normal VPS workflow.
+
+Use placement-specific links for ad attribution. For example, point an Instagram placement to `https://tickets.santassocial.com/?utm_source=instagram&utm_medium=paid_social&utm_campaign=santa_tickets_2026`. Set the source for each placement or shared link. Use `utm_source=google&utm_medium=cpc` for Google search ads. A bare Google referrer is reported as Google Referral. UTM tags are visitor-provided marketing labels and can be forwarded or edited.
+
+The application uses the landing page's external referrer hostname when a usable source tag is absent. Apps and browsers may suppress referrers, so untagged visits can show Unknown. Historical bookings without captured attribution also show Unknown. Booking Details and the Bookings CSV include attribution for Razorpay and Cash bookings. Free tickets have no attribution, and the self-reported discovery answer remains a separate field.
+
 - Back up MySQL daily, and more frequently during sales/entry. Use `mysqldump --defaults-extra-file=/SECURE/PATH/mysql-client.cnf --single-transaction santa_social`, or a managed backup facility. The credentials file must be private; do not put passwords in command arguments. Encrypt backups, retain an approved schedule, copy them off the VPS, and rehearse restoration.
 - Back up secrets separately, especially `TICKET_SECRET`; a database backup alone cannot regenerate existing tickets without it. Do not commit backup files.
 - Monitor process uptime, `/api/health`, pending captures, `PAYMENT_REVIEW` bookings, failed notification jobs, storage and MySQL connection exhaustion. API errors intentionally avoid logging customer bodies, OTPs or bearer tokens.

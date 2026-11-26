@@ -1,6 +1,6 @@
 "use client";
 import { EVENT_DATES, EVENT_DATE_LABEL } from "../../config/event-dates.js";
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { usePathname, useRouter } from "next/navigation";
@@ -688,6 +688,33 @@ function BookingQr({ booking }) {
     </div>
   );
 }
+const mediumLabels = new Map([
+  ["paid_social", "Paid Social"], ["organic_social", "Organic Social"],
+  ["cpc", "CPC"], ["ppc", "PPC"], ["organic", "Organic"],
+  ["paid_search", "Paid Search"], ["referral", "Referral"],
+]);
+
+function LeadSourceDetails({ attribution: { source, utm } }) {
+  const { medium, campaign, content, term } = utm ?? {};
+  return (
+    <>
+      <dt>Lead Source</dt>
+      <dd>{source}</dd>
+      {[
+        ["Medium", mediumLabels.get(medium?.toLowerCase().replace(/[ -]/g, "_")) ?? medium],
+        ["Campaign", campaign],
+        ["Content", content],
+        ["Keyword", term],
+      ].map(([label, value]) => value && (
+        <Fragment key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 function BookingDetail({ id }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -751,6 +778,9 @@ function BookingDetail({ id }) {
                 )}
                 <dt>How did you hear about us?</dt>
                 <dd>{discoverySources[b.discoverySource] ?? "Not recorded"}</dd>
+                {data.leadAttribution && (
+                  <LeadSourceDetails attribution={data.leadAttribution} />
+                )}
                 <dt>Entry</dt>
                 <dd>
                   {b.entryMode === "INDIVIDUAL"

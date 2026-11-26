@@ -74,6 +74,86 @@ test("public cash can be disabled without affecting existing cash QR approval", 
     assert.equal((await getBooking(db, cash.id)).status, "PAID");
   }));
 
+test("lead attribution stays with paid-method bookings and is omitted from free tickets", () =>
+  fixture(async (db) => {
+    const app = createApp(db, { allowPublicCash: true });
+    const email = "mathu.y@thinkcodesoft.com";
+    const password = "Local Lead Attribution QA password!";
+    await createAdmin(db, { name: "Mathu", email, password });
+    const login = await request(app).post("/api/auth/login").set("Origin", config.origin)
+      .send({ email, password }).expect(200);
+    const admin = login.headers["set-cookie"].find((value) => value.startsWith("santa_staff_session=")).split(";")[0];
+    const mobile = "9876543210";
+    const customer = `santa_session=${await signSession({ mobile })}`;
+    const post = (path, body, cookie = customer, key = randomUUID()) => request(app)
+      .post(path).set("Cookie", cookie).set("Origin", config.origin)
+      .set("Idempotency-Key", key).send(body);
+    const detail = async (id) => (await request(app).get(`/api/admin/bookings/${id}`)
+      .set("Cookie", admin).expect(200)).body;
+    const leadSignals = {
+      utm: { source: "iG", medium: "paid_social", campaign: '=SUM(1,2), "creative"', content: "reel", term: "Christmas carnival" },
+      referrerHost: "m.facebook.com",
+    };
+
+    await db.run("ALTER TABLE bookings DROP COLUMN leadAttribution");
+    const { body: legacy } = await post("/api/bookings", booking({ name: "Historical", leadSignals })).expect(201);
+    assert.equal((await detail(legacy.id)).leadAttribution.source, "Unknown");
+    await migrate(db);
+
+    const key = randomUUID();
+    const onlineInput = booking({ name: "Online Lead", method: "RAZORPAY", leadSignals });
+    const { body: online } = await post("/api/bookings", onlineInput, customer, key).expect(201);
+    assert.equal(online.status, "PENDING_PAYMENT");
+    assert.equal(online.leadAttribution, undefined);
+    assert.equal(online.discoverySource, "word_of_mouth");
+    const { body: retry } = await post("/api/bookings", { ...onlineInput, leadSignals: { utm: { source: "yt" } } }, customer, key).expect(201);
+    assert.equal(retry.id, online.id);
+    assert.deepEqual((await detail(online.id)).leadAttribution, {
+      source: "Instagram", method: "utm", utm: leadSignals.utm,
+    });
+    await request(app).get(`/api/admin/bookings/${online.id}`).set("Cookie", customer).expect(403);
+    await post("/api/payments/razorpay/order", { bookingId: online.id }).expect(200);
+    await post("/api/payments/razorpay/verify", { bookingId: online.id }).expect(400);
+    const pending = await post("/api/payments/razorpay/status", { bookingId: online.id }).expect(200);
+    assert.equal(pending.body.status, "PENDING_PAYMENT");
+    await post("/api/demo/payments/complete", { bookingId: online.id }).expect(200);
+    const paid = await detail(online.id);
+    assert.equal(paid.booking.status, "PAID");
+    assert.equal(paid.leadAttribution.source, "Instagram");
+    assert.equal(paid.booking.leadAttribution, undefined);
+
+    const { body: cash } = await post("/api/bookings", booking({
+      name: "Cash Lead", leadSignals: { referrerHost: "l.facebook.com" },
+    })).expect(201);
+    assert.equal(cash.status, "PENDING_CASH");
+    assert.equal((await detail(cash.id)).leadAttribution.source, "Facebook");
+    await post(`/api/admin/bookings/${cash.id}/approve`, { amountReceived: cash.amount }, admin).expect(200);
+    assert.equal((await detail(cash.id)).leadAttribution.source, "Facebook");
+
+    const { body: replaceable } = await post("/api/bookings", booking({
+      name: "Replaceable Lead", method: "RAZORPAY", leadSignals: { utm: { source: "wa" } },
+    })).expect(201);
+    const { body: replacement } = await post(`/api/bookings/${replaceable.id}/payment-method`, {
+      method: "CASH", leadSignals: { utm: { source: "yt" } },
+    }).expect(200);
+    assert.equal((await detail(replacement.id)).leadAttribution.source, "WhatsApp");
+
+    const { body: free } = await post("/api/admin/free-tickets", {
+      name: "Free Guest", mobile, eventDate: "2026-12-05", adults: 1, kids: 0, leadSignals,
+    }, admin).expect(201);
+    assert.equal((await getBooking(db, free.id)).leadAttribution, null);
+    assert.equal((await detail(free.id)).leadAttribution, undefined);
+
+    const csv = await request(app).get("/api/admin/bookings?format=csv").set("Cookie", admin).expect(200);
+    const [header, ...lines] = csv.text.trimEnd().split("\r\n");
+    assert.equal(header, "reference,name,mobile,email,eventDate,adults,kids,people,amount,method,status,checkedInAt,createdAt,Lead Source,UTM Medium,UTM Campaign,UTM Content,UTM Term");
+    const row = (name) => lines.find((line) => line.includes(`,"${name}",`));
+    assert.ok(row("Historical").endsWith(',"Unknown","","","",""'));
+    assert.ok(row("Cash Lead").endsWith(',"Facebook","","","",""'));
+    assert.ok(row("Free Guest").endsWith(',"","","","",""'));
+    assert.ok(row("Online Lead").endsWith(`,"Instagram","paid_social","'=SUM(1,2), ""creative""","reel","Christmas carnival"`));
+  }));
+
 test("authorized event settings changes persist and govern new public cash bookings", () =>
   fixture(async (db) => {
     const route = "/api/admin/event-settings";
