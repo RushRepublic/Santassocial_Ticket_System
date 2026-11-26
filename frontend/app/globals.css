@@ -1804,15 +1804,66 @@ input::placeholder {
   letter-spacing: -0.5px;
   margin: 0 0 9px;
 }
-.event-settings .cash-setting-control {
-  display: flex;
+.event-settings .cash-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  gap: var(--space-4);
 }
-.event-settings .cash-setting-control .button {
-  min-width: 64px;
+.event-settings .cash-setting-copy > * {
+  margin: 0;
+}
+.event-settings #cash-payment-help {
+  margin-top: var(--space-1);
+  color: var(--muted);
+}
+.event-settings #cash-payment-status {
+  margin-top: var(--space-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.event-settings .cash-payment-switch {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+}
+.event-settings .cash-payment-track {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 30px;
+  border-radius: inherit;
+  background: var(--muted);
+  transition: background-color 180ms ease;
+}
+.event-settings .cash-payment-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--white);
+  transition: transform 180ms ease;
+}
+.event-settings .cash-payment-switch[aria-checked="true"] .cash-payment-track {
+  background: var(--red);
+}
+.event-settings .cash-payment-switch[aria-checked="true"] .cash-payment-track::after {
+  transform: translateX(24px);
+}
+.event-settings .cash-setting-feedback:not(:empty) {
+  margin-top: var(--space-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .event-settings .cash-payment-track,
+  .event-settings .cash-payment-track::after {
+    transition: none;
+  }
 }
 .admin-page-heading p {
   font-size: 14px;

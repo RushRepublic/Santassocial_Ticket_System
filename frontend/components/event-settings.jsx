@@ -68,30 +68,34 @@ export function EventSettings() {
       <div className="admin-page-heading"><h1>Event Settings</h1></div>
       <section className="admin-card event-settings" aria-labelledby="payment-settings-title">
         <h2 id="payment-settings-title">Payment Settings</h2>
-        <h3>Cash Payment</h3>
-        <p id="cash-payment-help">
-          Enable or disable the Cash Payment option on the public checkout page.
-        </p>
-        {enabled === null && !loadError && <Loading />}
-        {enabled !== null && (
-          <div className="cash-setting-control">
+        <div className="cash-setting-row">
+          <div className="cash-setting-copy">
+            <h3>Cash Payment</h3>
+            <p id="cash-payment-help">
+              Enable or disable the Cash Payment option on the public checkout page.
+            </p>
+            {enabled !== null && (
+              <p id="cash-payment-status">
+                {enabled ? "ON — Cash Payment Enabled" : "OFF — Cash Payment Disabled"}
+              </p>
+            )}
+          </div>
+          {enabled !== null && (
             <button
               type="button"
               role="switch"
-              className={`button ${enabled ? "green" : "outline"}`}
+              className="cash-payment-switch"
               aria-label="Cash Payment"
               aria-checked={enabled}
               aria-describedby="cash-payment-help cash-payment-status"
               disabled={saving || Boolean(loadError)}
               onClick={toggle}
             >
-              {enabled ? "ON" : "OFF"}
+              <span className="cash-payment-track" aria-hidden="true" />
             </button>
-            <span id="cash-payment-status">
-              {enabled ? "ON — Cash Payment Enabled" : "OFF — Cash Payment Disabled"}
-            </span>
-          </div>
-        )}
+          )}
+        </div>
+        {enabled === null && !loadError && <Loading />}
         {loadError && (
           <>
             <Notice>{loadError}</Notice>
@@ -101,7 +105,7 @@ export function EventSettings() {
           </>
         )}
         {saveError && <Notice>{saveError}</Notice>}
-        <div role="status">
+        <div className="cash-setting-feedback" role="status">
           {saving ? "Saving payment settings…" : saved ? "Payment settings saved." : ""}
         </div>
       </section>
