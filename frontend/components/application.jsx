@@ -19,6 +19,7 @@ export function Application() {
     path === "/booking-pending" ||
     path === "/booking-success";
   useEffect(() => {
+    window.santaTrackPageView?.(path);
     if (
       path.startsWith("/admin") ||
       path.startsWith("/scanner") ||

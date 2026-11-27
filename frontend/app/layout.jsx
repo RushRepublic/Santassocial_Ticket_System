@@ -1,4 +1,5 @@
 import "./globals.css";
+import { metaPixelBootstrap } from "@/components/meta-pixel";
 import { EVENT_DATE_LABEL, EVENT_HOURS_LABEL } from "../../config/event-dates.js";
 export const metadata = {
   title: {
@@ -12,6 +13,12 @@ export const metadata = {
 export default function Layout({ children }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
+      <head>
+        <script
+          id="santa-meta-pixel"
+          dangerouslySetInnerHTML={{ __html: metaPixelBootstrap }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );
