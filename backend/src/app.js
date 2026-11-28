@@ -976,6 +976,22 @@ export function createApp(
     const confirmed = rows.filter((r) => ["PAID", "FREE"].includes(r.status));
     const entered = rows.filter((r) => r.enteredPeople > 0);
     const captured = rows.filter((r) => r.paymentStatus === "CAPTURED");
+    const sourceCounts = new Map();
+    const countedBookings = new Set();
+    for (const booking of captured) {
+      if (
+        booking.status !== "PAID" ||
+        !EVENT_DATES.includes(booking.eventDate) ||
+        countedBookings.has(booking.id)
+      )
+        continue;
+      const attribution = bookingAttribution(booking);
+      if (!attribution) continue;
+      const label = typeof attribution.source === "string" ? attribution.source.trim() : "";
+      const source = label === "Direct" ? "Direct Website" : label || "Unknown";
+      countedBookings.add(booking.id);
+      sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+    }
     res.json({
       bookings: rows.length,
       attendees: sum(confirmed, "people"),
@@ -997,6 +1013,10 @@ export function createApp(
         .length,
       approvedGroupEntries: entered.filter((r) => r.isGroupTicket).length,
       entered: sum(entered, "enteredPeople"),
+      sources: Array.from(sourceCounts, ([source, bookings]) => ({
+        source,
+        bookings,
+      })).sort((a, b) => b.bookings - a.bookings || a.source.localeCompare(b.source, "en")),
       availability: await availability(db),
       demo: paymentDemo,
       notificationFailures: Number(

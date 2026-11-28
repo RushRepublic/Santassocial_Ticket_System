@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   Menu,
   Settings,
+  BarChart3,
 } from "lucide-react";
 import { api, post, money, dateTime, eventDate } from "@/lib/api";
 import { discoverySources } from "@/lib/discovery-source";
@@ -312,19 +313,6 @@ function ResourceLoading({ error, retry }) {
 }
 function Dashboard() {
   const [date, setDate] = useState("all");
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const load = useCallback(() => {
-    setError("");
-    return api(`/admin/dashboard?date=${date}`)
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, [date]);
-  useEffect(() => {
-    void load();
-    const t = setInterval(load, 30000);
-    return () => clearInterval(t);
-  }, [load]);
   return (
     <>
       <div className="admin-page-heading">
@@ -335,9 +323,55 @@ function Dashboard() {
         </div>
         <DateFilter value={date} onChange={setDate} />
       </div>
+      <DashboardStatistics key={date} date={date} />
+      <Bookings compact />
+    </>
+  );
+}
+
+function DashboardStatistics({ date }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    let loading = false;
+    async function load() {
+      if (loading) return;
+      loading = true;
+      try {
+        const result = await api(`/admin/dashboard?date=${date}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!controller.signal.aborted) {
+          setData(result);
+          setError("");
+        }
+      } catch {
+        if (!controller.signal.aborted)
+          setError("Unable to load dashboard statistics. Please try again.");
+      } finally {
+        loading = false;
+      }
+    }
+    void load();
+    const timer = setInterval(load, 30000);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [date, revision]);
+  const retry = () => {
+    setData(null);
+    setError("");
+    setRevision((value) => value + 1);
+  };
+  return (
+    <>
       {error && <Notice>{error}</Notice>}
-      {!data ? (
-        <ResourceLoading error={error} retry={load} />
+      {!data || error ? (
+        <ResourceLoading error={error} retry={retry} />
       ) : (
         <>
           <div className="stat-grid">
@@ -399,10 +433,41 @@ function Dashboard() {
               )}
             </div>
           </div>
-          <Bookings compact />
+          <SourceCard sources={data.sources ?? []} />
         </>
       )}
     </>
+  );
+}
+
+function SourceCard({ sources }) {
+  return (
+    <section className="admin-card source-card" aria-labelledby="source-heading">
+      <div className="card-heading">
+        <h2 id="source-heading">Source</h2>
+        <BarChart3 size={20} aria-hidden="true" />
+      </div>
+      {sources.length === 0 ? (
+        <p>No lead source data available yet.</p>
+      ) : (
+        <>
+          <div className="source-columns" aria-hidden="true">
+            <span>Source</span>
+            <span>Bookings</span>
+          </div>
+          <dl>
+            {sources.map(({ source, bookings }) => (
+              <div className="source-columns" key={source}>
+                <dt>{source}</dt>
+                <dd aria-label={`${bookings} ${bookings === 1 ? "booking" : "bookings"}`}>
+                  {bookings.toLocaleString("en-IN")}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+    </section>
   );
 }
 function Bookings({ compact = false }) {

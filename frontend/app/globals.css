@@ -1937,6 +1937,41 @@ input::placeholder {
   font-size: 21px;
   margin-bottom: 15px;
 }
+.source-card .card-heading {
+  margin-bottom: var(--space-4);
+}
+.source-card .card-heading svg {
+  color: var(--red);
+}
+.source-card dl {
+  margin: 0;
+}
+.source-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding-block: var(--space-2);
+}
+.source-card > .source-columns {
+  color: var(--muted);
+  font-size: 14px;
+}
+.source-card dl .source-columns {
+  border-top: 1px solid var(--line);
+}
+.source-columns dt {
+  overflow-wrap: anywhere;
+}
+.source-columns dd {
+  margin: 0;
+  color: var(--green);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.source-columns > :last-child {
+  text-align: right;
+}
 .dashboard-panels {
   display: grid;
   grid-template-columns: 1.7fr 1fr;
