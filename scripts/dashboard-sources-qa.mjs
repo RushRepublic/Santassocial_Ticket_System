@@ -86,7 +86,7 @@ try {
   const adults = guestCard.locator(".stat-adult-count");
   await expect(bookingValue).toHaveText("4 / 7");
   await expect(bookingsCard.locator("small")).toHaveText("4 group QR tickets issued");
-  await expect(card.locator("dt")).toHaveText(["Instagram", longLabel, "Unknown"]);
+  await expect(card.locator("dt")).toHaveText(["Instagram", longLabel, "Pre-Integration"]);
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
   await expect(discoveryCard.locator(".discovery-total")).toHaveText("Total bookings 7");
   await expect(discoveryCard.getByRole("button")).toHaveText([

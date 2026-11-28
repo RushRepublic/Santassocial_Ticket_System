@@ -468,7 +468,7 @@ function SourceCard({ sources }) {
           <dl>
             {sources.map(({ source, bookings }) => (
               <div className="source-columns" key={source}>
-                <dt>{source}</dt>
+                <dt>{source === "Unknown" ? "Pre-Integration" : source}</dt>
                 <dd aria-label={`${bookings} ${bookings === 1 ? "booking" : "bookings"}`}>
                   {bookings.toLocaleString("en-IN")}
                 </dd>
