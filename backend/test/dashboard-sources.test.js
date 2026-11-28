@@ -13,7 +13,7 @@ import { migrate, openDatabase } from "../src/db.js";
 const dayOne = "2026-12-05";
 const dayTwo = "2026-12-06";
 
-test("admin overview counts confirmed and total bookings and eligible sources by event day", async () => {
+test("admin overview counts discovery for all non-free bookings and preserves paid-only sources by event day", async () => {
   assert.equal(databaseDriver, "sqlite");
   const folder = await mkdtemp(join(tmpdir(), "santa-dashboard-"));
   process.env.DEMO_DB_PATH = join(folder, "overview.sqlite");
@@ -30,8 +30,10 @@ test("admin overview counts confirmed and total bookings and eligible sources by
       async all(sql, values) {
         const rows = await db.all(sql, values);
         if (duplicateRow && sql.startsWith("SELECT b.*,p.status AS paymentStatus,")) {
-          const booking = rows.find((row) => row.status === "PAID");
-          if (booking) rows.push({ ...booking });
+          for (const status of ["PAID", "PENDING_PAYMENT", "PENDING_CASH"]) {
+            const booking = rows.find((row) => row.status === status);
+            if (booking) rows.push({ ...booking });
+          }
         }
         return rows;
       },
@@ -83,10 +85,10 @@ test("admin overview counts confirmed and total bookings and eligible sources by
     await addBooking({ source: "WhatsApp", eventDate: dayTwo, people: 6, discovery: "Word of Mouth" });
     await addBooking({ source: "Google Organic", eventDate: dayTwo });
     await addBooking({ source: "linktr.ee", eventDate: dayTwo, discovery: "<invalid>" });
-    await addBooking({ source: "Pending online", status: "PENDING_PAYMENT", paymentStatus: "PENDING" });
+    await addBooking({ source: "Pending online", status: "PENDING_PAYMENT", paymentStatus: "PENDING", discovery: "instagram" });
     await addBooking({ source: "Failed online", status: "CANCELLED", paymentStatus: "FAILED" });
     await addBooking({ source: "Uncaptured online", status: "PAID", paymentStatus: "PENDING" });
-    await addBooking({ source: "Pending cash", method: "CASH", status: "PENDING_CASH", paymentStatus: "PENDING" });
+    await addBooking({ source: "Pending cash", method: "CASH", status: "PENDING_CASH", paymentStatus: "PENDING", discovery: null });
     await addBooking({ source: "Excluded free", method: "FREE", status: "FREE", paymentStatus: "FREE" });
     await addBooking({ status: "EXPIRED", paymentStatus: "PENDING" });
     await addBooking({ status: "PAYMENT_REVIEW" });
@@ -99,13 +101,21 @@ test("admin overview counts confirmed and total bookings and eligible sources by
     const responses = (count, ...labels) => labels.map((label) => ({ label, count }));
     const common = ["Friends & Referrals", "Google", "Instagram", "Not specified"];
     assert.deepEqual(bothDays.discoverySources, [
-      ...responses(2, ...common),
+      ...responses(6, "Google"),
+      ...responses(3, "Instagram", "Not specified"),
+      ...responses(2, "Friends & Referrals"),
       ...responses(1, "Already visited Santa's Social"),
     ]);
-    assert.deepEqual(firstDay.discoverySources, responses(1, "Already visited Santa's Social", ...common));
+    assert.deepEqual(firstDay.discoverySources, [
+      ...responses(5, "Google"),
+      ...responses(2, "Instagram", "Not specified"),
+      ...responses(1, "Already visited Santa's Social", "Friends & Referrals"),
+    ]);
     assert.deepEqual(secondDay.discoverySources, responses(1, ...common));
+    assert.equal(bothDays.discoveryTotal, bothDays.totalBookings - 1);
+    assert.equal(firstDay.discoveryTotal, firstDay.totalBookings - 1);
+    assert.equal(secondDay.discoveryTotal, secondDay.totalBookings);
     for (const summary of [bothDays, firstDay, secondDay]) {
-      assert.equal(summary.discoveryTotal, summary.sources.reduce((sum, row) => sum + row.bookings, 0));
       assert.equal(summary.discoveryTotal, summary.discoverySources.reduce((sum, row) => sum + row.count, 0));
     }
     assertBookingCounts(bothDays, [10, 16]);

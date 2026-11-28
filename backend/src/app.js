@@ -979,19 +979,26 @@ export function createApp(
     const captured = rows.filter((r) => r.paymentStatus === "CAPTURED");
     const totalBookingIds = new Set();
     const confirmedBookingIds = new Set();
+    const discoveryCounts = new Map();
+    let discoveryTotal = 0;
     for (const booking of rows) {
       if (date === "all" && !EVENT_DATES.includes(booking.eventDate)) continue;
+      const isOnlineOrCash = ["RAZORPAY", "CASH"].includes(booking.method);
+      if (isOnlineOrCash && !totalBookingIds.has(booking.id)) {
+        const response = discoveryResponseLabel(booking.discoverySource);
+        discoveryCounts.set(response, (discoveryCounts.get(response) ?? 0) + 1);
+        discoveryTotal++;
+      }
       totalBookingIds.add(booking.id);
       if (
         (booking.method === "FREE" && booking.status === "FREE") ||
-        (["RAZORPAY", "CASH"].includes(booking.method) &&
+        (isOnlineOrCash &&
           booking.status === "PAID" &&
           booking.paymentStatus === "CAPTURED")
       )
         confirmedBookingIds.add(booking.id);
     }
     const sourceCounts = new Map();
-    const discoveryCounts = new Map();
     const countedBookings = new Set();
     for (const booking of captured) {
       if (
@@ -1006,8 +1013,6 @@ export function createApp(
       const source = label === "Direct" ? "Direct Website" : label || "Unknown";
       countedBookings.add(booking.id);
       sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
-      const response = discoveryResponseLabel(booking.discoverySource);
-      discoveryCounts.set(response, (discoveryCounts.get(response) ?? 0) + 1);
     }
     res.json({
       bookings: rows.length,
@@ -1040,7 +1045,7 @@ export function createApp(
         label,
         count,
       })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "en")),
-      discoveryTotal: countedBookings.size,
+      discoveryTotal,
       availability: await availability(db),
       demo: paymentDemo,
       notificationFailures: Number(

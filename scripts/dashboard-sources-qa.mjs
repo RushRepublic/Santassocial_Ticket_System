@@ -26,11 +26,14 @@ const guestCounts = {
 };
 const discovery = {
   all: [
-    { label: "Instagram", count: 2 },
-    { label: "Friends & Referrals", count: 1 },
+    { label: "Instagram", count: 4 },
+    { label: "Friends & Referrals", count: 2 },
     { label: "Not specified", count: 1 },
   ],
-  "2026-12-05": [{ label: "Google", count: 1 }],
+  "2026-12-05": [
+    { label: "Instagram", count: 4 },
+    { label: "Friends & Referrals", count: 2 },
+  ],
   "2026-12-06": [{ label: "Not specified", count: 1 }],
 };
 let delayDayOne = false;
@@ -85,23 +88,23 @@ try {
   await expect(bookingsCard.locator("small")).toHaveText("4 group QR tickets issued");
   await expect(card.locator("dt")).toHaveText(["Instagram", longLabel, "Unknown"]);
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
-  await expect(discoveryCard.locator(".discovery-total")).toHaveText("Total responses 4");
+  await expect(discoveryCard.locator(".discovery-total")).toHaveText("Total bookings 7");
   await expect(discoveryCard.getByRole("button")).toHaveText([
-    "Instagram2 bookings (50%)",
-    "Friends & Referrals1 booking (25%)",
-    "Not specified1 booking (25%)",
+    "Instagram4 bookings (57.1%)",
+    "Friends & Referrals2 bookings (28.6%)",
+    "Not specified1 booking (14.3%)",
   ]);
   await expect(pie.locator("path")).toHaveCount(3);
   await pie.hover({ position: { x: 124, y: 52 } });
-  await expect(details).toHaveText(/Instagram.*2 bookings \(50%\)/);
+  await expect(details).toHaveText(/Instagram.*4 bookings \(57\.1%\)/);
   await discoveryCard.getByRole("heading").hover();
   const referrals = discoveryCard.getByRole("button", { name: /Friends & Referrals/ });
   await referrals.focus();
   await referrals.press("Enter");
-  await expect(details).toHaveText(/Friends & Referrals.*1 booking \(25%\)/);
+  await expect(details).toHaveText(/Friends & Referrals.*2 bookings \(28\.6%\)/);
   await page.setViewportSize({ width: 390, height: 900 });
   await pie.tap({ position: { x: 124, y: 52 } });
-  await expect(details).toHaveText(/Instagram.*2 bookings \(50%\)/);
+  await expect(details).toHaveText(/Instagram.*4 bookings \(57\.1%\)/);
   await expect(cards.locator(":scope > div > span")).toHaveText([
     "Confirmed guests", "Captured revenue", "Total bookings",
     "People welcomed", "A little follow-up.",
@@ -209,11 +212,16 @@ try {
   await expect(card.locator("dd")).toHaveText(["1"]);
   await expect(bookingValue).toHaveText("4 / 6");
   await expect(adults).toHaveText("4 adults");
-  await expect(pie.locator("circle")).toHaveCount(1);
-  await expect(discoveryCard.getByRole("button")).toHaveText("Google1 booking (100%)");
+  await expect(pie.locator("path")).toHaveCount(2);
+  await expect(discoveryCard.locator(".discovery-total")).toHaveText("Total bookings 6");
+  await expect(discoveryCard.getByRole("button")).toHaveText([
+    "Instagram4 bookings (66.7%)",
+    "Friends & Referrals2 bookings (33.3%)",
+  ]);
   await date("Both days").click();
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
   await expect(bookingValue).toHaveText("4 / 7");
+  await expect(discoveryCard.locator(".discovery-total")).toHaveText("Total bookings 7");
   await expect(adults).toHaveText("6 adults");
   console.log("Overview card order, guest styling, Source, and date filters passed across viewport sizes.");
 } finally {

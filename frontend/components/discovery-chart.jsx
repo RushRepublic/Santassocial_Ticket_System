@@ -85,7 +85,7 @@ export function DiscoveryChart({ sources, total }) {
       )}
       {total > 0 && (
         <p className="discovery-total">
-          Total responses <b>{number.format(total)}</b>
+          Total bookings <b>{number.format(total)}</b>
           {!hasResponses && (
             <span> · {responseTotal(total)} not specified</span>
           )}
