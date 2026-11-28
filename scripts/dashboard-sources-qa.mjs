@@ -19,6 +19,11 @@ const bookingCounts = {
   "2026-12-05": { confirmedBookings: 4, totalBookings: 6 },
   "2026-12-06": { confirmedBookings: 0, totalBookings: 1 },
 };
+const guestCounts = {
+  all: { attendees: 7, adults: 6, kids: 1 },
+  "2026-12-05": { attendees: 5, adults: 4, kids: 1 },
+  "2026-12-06": { attendees: 2, adults: 2, kids: 0 },
+};
 let delayDayOne = false;
 let releaseDayOne;
 let failDayTwo = true;
@@ -44,11 +49,12 @@ try {
     }
     return route.fulfill({
       json: {
-        bookings: 4, attendees: 7, adults: 6, kids: 1, revenue: 90200,
+        bookings: 4, revenue: 90200,
         cashRevenue: 0, onlineRevenue: 90200, entered: 0, groupTickets: 4,
         approvedGroupEntries: 0, pendingCash: 0, notificationFailures: 0,
         sources: totals[date],
         ...bookingCounts[date],
+        ...guestCounts[date],
       },
     });
   });
@@ -58,14 +64,46 @@ try {
     has: page.getByText("Total bookings", { exact: true }),
   });
   const bookingValue = bookingsCard.locator("strong");
+  const cards = page.locator(".stat-grid > .stat-card");
+  const guestCard = cards.first();
+  const adults = guestCard.locator(".stat-adult-count");
   await expect(bookingValue).toHaveText("4 / 7");
   await expect(bookingsCard.locator("small")).toHaveText("4 group QR tickets issued");
   await expect(card.locator("dt")).toHaveText(["Instagram", longLabel, "Unknown"]);
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
-  await expect(page.locator(".stat-card")).toHaveCount(5);
+  await expect(cards.locator(":scope > div > span")).toHaveText([
+    "Confirmed guests", "Captured revenue", "Total bookings",
+    "People welcomed", "A little follow-up.",
+  ]);
+  await expect(cards.locator(":scope > strong")).toHaveText([
+    "7", "₹902", "4 / 7", "0", "0",
+  ]);
+  await expect(adults).toHaveText("6 adults");
+  await expect(adults).toHaveCSS("color", "rgb(21, 53, 30)");
+  await expect(adults).toHaveCSS("font-weight", "600");
+  await expect(guestCard.locator("small")).toHaveText("6 adults · 1 kids");
+  expect(await adults.evaluate((element) => {
+    const subtitle = element.parentElement;
+    const normal = getComputedStyle(subtitle.closest(".stat-grid").querySelector(".stat-card:nth-child(2) > small"));
+    const actual = getComputedStyle(subtitle);
+    return element.nextSibling.nodeType === Node.TEXT_NODE &&
+      ["color", "font-size", "font-weight"].every((key) =>
+        actual.getPropertyValue(key) === normal.getPropertyValue(key));
+  })).toBe(true);
 
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
+    expect(await cards.evaluateAll((elements) => {
+      const rects = elements.map((element) => element.getBoundingClientRect());
+      const sourceTop = document.querySelector(".source-card").getBoundingClientRect().top;
+      return rects.every((rect, index) => {
+        const prior = rects[index - 1];
+        return rect.bottom <= sourceTop && (!prior ||
+          (rect.top === prior.top
+            ? rect.left >= prior.right && rect.height === prior.height
+            : rect.top >= prior.bottom));
+      });
+    }), `Summary card layout at ${width}px`).toBe(true);
     const geometry = await card.evaluate((section) => {
       const left = section.getBoundingClientRect().left;
       const right = section.getBoundingClientRect().right;
@@ -104,6 +142,8 @@ try {
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(card).toHaveText(/No lead source data available yet\./);
   await expect(bookingValue).toHaveText("0 / 1");
+  await expect(adults).toHaveText("2 adults");
+  await expect(guestCard.locator("small")).toHaveText("2 adults · 0 kids");
   const staleResponse = page.waitForResponse(
     (response) => new URL(response.url()).searchParams.get("date") === "2026-12-05" &&
       response.url().includes("/api/admin/dashboard"),
@@ -119,10 +159,12 @@ try {
   await expect(card.locator("dt")).toHaveText(["Instagram"]);
   await expect(card.locator("dd")).toHaveText(["1"]);
   await expect(bookingValue).toHaveText("4 / 6");
+  await expect(adults).toHaveText("4 adults");
   await date("Both days").click();
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
   await expect(bookingValue).toHaveText("4 / 7");
-  console.log("Source and Total bookings passed desktop, tablet, mobile, and date-filter checks.");
+  await expect(adults).toHaveText("6 adults");
+  console.log("Overview card order, guest styling, Source, and date filters passed across viewport sizes.");
 } finally {
   releaseDayOne?.();
   await browser.close();

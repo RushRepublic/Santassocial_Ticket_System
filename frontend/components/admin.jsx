@@ -377,16 +377,13 @@ function DashboardStatistics({ date }) {
           <div className="stat-grid">
             {[
               [
-                Ticket,
-                "Total bookings",
-                `${data.confirmedBookings} / ${data.totalBookings}`,
-                `${data.groupTickets} group QR tickets issued`,
-              ],
-              [
                 Users,
                 "Confirmed guests",
                 data.attendees,
-                `${data.adults} adults · ${data.kids} kids`,
+                <>
+                  <b className="stat-adult-count">{data.adults} adults</b>
+                  {` · ${data.kids} kids`}
+                </>,
               ],
               [
                 IndianRupee,
@@ -395,21 +392,27 @@ function DashboardStatistics({ date }) {
                 `${money(data.cashRevenue)} cash · ${money(data.onlineRevenue)} online`,
               ],
               [
+                Ticket,
+                "Total bookings",
+                `${data.confirmedBookings} / ${data.totalBookings}`,
+                `${data.groupTickets} group QR tickets issued`,
+              ],
+              [
                 CheckCircle,
                 "People welcomed",
                 data.entered,
                 `${data.approvedGroupEntries} group entries approved`,
               ],
-            ].map(([Icon, label, value, sub], i) => {
+            ].map(([Icon, label, value, sub]) => {
               const I = Icon;
               return (
-                <div className="stat-card" key={i}>
+                <div className="stat-card" key={label}>
                   <div>
                     <span>{String(label)}</span>
                     <I size={20} />
                   </div>
                   <strong>{String(value)}</strong>
-                  <small>{String(sub)}</small>
+                  <small>{sub}</small>
                 </div>
               );
             })}

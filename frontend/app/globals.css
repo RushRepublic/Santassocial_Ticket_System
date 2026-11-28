@@ -1926,6 +1926,10 @@ input::placeholder {
   font-size: 14px;
   color: var(--muted);
 }
+.stat-card .stat-adult-count {
+  color: var(--green);
+  font-weight: 600;
+}
 .admin-card {
   border: 1px solid var(--line);
   background: #fff;
