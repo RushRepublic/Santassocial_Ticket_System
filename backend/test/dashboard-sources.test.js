@@ -13,7 +13,7 @@ import { migrate, openDatabase } from "../src/db.js";
 const dayOne = "2026-12-05";
 const dayTwo = "2026-12-06";
 
-test("admin overview counts completed bookings once per source and booked event day", async () => {
+test("admin overview counts confirmed and total bookings and eligible sources by event day", async () => {
   assert.equal(databaseDriver, "sqlite");
   const folder = await mkdtemp(join(tmpdir(), "santa-dashboard-"));
   process.env.DEMO_DB_PATH = join(folder, "overview.sqlite");
@@ -42,7 +42,13 @@ test("admin overview counts completed bookings once per source and booked event 
       .send({ email, password }).expect(200);
     const dashboard = async (date = "all") =>
       (await admin.get("/api/admin/dashboard").query({ date }).expect(200)).body;
-    assert.deepEqual((await dashboard()).sources, []);
+    const assertBookingCounts = ({ confirmedBookings, totalBookings }, expected) => {
+      assert.deepEqual([confirmedBookings, totalBookings], expected);
+      assert.ok(confirmedBookings <= totalBookings);
+    };
+    const empty = await dashboard();
+    assert.deepEqual(empty.sources, []);
+    assertBookingCounts(empty, [0, 0]);
 
     async function addBooking({
       source, eventDate = dayOne, method = "RAZORPAY", status = "PAID",
@@ -80,30 +86,39 @@ test("admin overview counts completed bookings once per source and booked event 
     await addBooking({ source: "Uncaptured online", status: "PAID", paymentStatus: "PENDING" });
     await addBooking({ source: "Pending cash", method: "CASH", status: "PENDING_CASH", paymentStatus: "PENDING" });
     await addBooking({ source: "Excluded free", method: "FREE", status: "FREE", paymentStatus: "FREE" });
+    await addBooking({ status: "EXPIRED", paymentStatus: "PENDING" });
+    await addBooking({ status: "PAYMENT_REVIEW" });
     await addBooking({ source: "Earlier event", eventDate: "2026-11-21" });
 
     const count = (source, bookings = 1) => ({ source, bookings });
     const bothDays = await dashboard();
+    const firstDay = await dashboard(dayOne);
+    const secondDay = await dashboard(dayTwo);
+    assertBookingCounts(bothDays, [10, 16]);
+    assertBookingCounts(firstDay, [6, 12]);
+    assertBookingCounts(secondDay, [4, 4]);
     assert.deepEqual(bothDays.sources, [
       count("Instagram", 2), count("Direct Website"), count("Facebook"),
       count("Google Ads"), count("Google Organic"), count("linktr.ee"),
       count("Unknown"), count("WhatsApp"),
     ]);
-    assert.deepEqual((await dashboard(dayOne)).sources, [
+    assert.deepEqual(firstDay.sources, [
       count("Direct Website"), count("Facebook"), count("Google Ads"), count("Instagram"), count("Unknown"),
     ]);
-    assert.deepEqual((await dashboard(dayTwo)).sources, [
+    assert.deepEqual(secondDay.sources, [
       count("Google Organic"), count("Instagram"), count("linktr.ee"), count("WhatsApp"),
     ]);
-    assert.equal(bothDays.bookings, 15);
+    assert.equal(bothDays.bookings, 17);
     assert.equal(bothDays.attendees, 21);
     assert.equal(bothDays.pendingCash, 1);
-    assert.equal(bothDays.revenue, 220000);
+    assert.equal(bothDays.revenue, 242000);
 
     // The schema already makes payments.bookingId unique. Simulate a repeated
     // joined row to exercise the aggregation guard without weakening the schema.
     duplicateRow = true;
-    assert.deepEqual((await dashboard()).sources, bothDays.sources);
+    const withDuplicate = await dashboard();
+    assert.deepEqual(withDuplicate.sources, bothDays.sources);
+    assertBookingCounts(withDuplicate, [10, 16]);
   } finally {
     await db.close();
     await rm(folder, { recursive: true, force: true });

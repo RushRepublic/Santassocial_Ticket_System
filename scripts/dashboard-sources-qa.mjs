@@ -14,6 +14,11 @@ const totals = {
   "2026-12-05": [source("Instagram", 1)],
   "2026-12-06": [],
 };
+const bookingCounts = {
+  all: { confirmedBookings: 4, totalBookings: 7 },
+  "2026-12-05": { confirmedBookings: 4, totalBookings: 6 },
+  "2026-12-06": { confirmedBookings: 0, totalBookings: 1 },
+};
 let delayDayOne = false;
 let releaseDayOne;
 let failDayTwo = true;
@@ -43,11 +48,18 @@ try {
         cashRevenue: 0, onlineRevenue: 90200, entered: 0, groupTickets: 4,
         approvedGroupEntries: 0, pendingCash: 0, notificationFailures: 0,
         sources: totals[date],
+        ...bookingCounts[date],
       },
     });
   });
   await page.goto(origin + "/admin/dashboard");
   const card = page.getByRole("region", { name: "Source", exact: true });
+  const bookingsCard = page.locator(".stat-card").filter({
+    has: page.getByText("Total bookings", { exact: true }),
+  });
+  const bookingValue = bookingsCard.locator("strong");
+  await expect(bookingValue).toHaveText("4 / 7");
+  await expect(bookingsCard.locator("small")).toHaveText("4 group QR tickets issued");
   await expect(card.locator("dt")).toHaveText(["Instagram", longLabel, "Unknown"]);
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
   await expect(page.locator(".stat-card")).toHaveCount(5);
@@ -69,6 +81,14 @@ try {
       };
     });
     expect(geometry, `Source card at ${width}px`).toEqual({ fits: true, rowsFit: true });
+    expect(await bookingValue.evaluate((value) => {
+      const range = document.createRange();
+      range.selectNodeContents(value);
+      const text = range.getBoundingClientRect();
+      const card = value.closest(".stat-card").getBoundingClientRect();
+      return range.getClientRects().length === 1 &&
+        text.left >= card.left && text.right <= card.right;
+    }), `Booking count at ${width}px`).toBe(true);
   }
 
   const date = (name) => page.locator(".admin-page-heading").getByRole("button", { name });
@@ -83,6 +103,7 @@ try {
   );
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(card).toHaveText(/No lead source data available yet\./);
+  await expect(bookingValue).toHaveText("0 / 1");
   const staleResponse = page.waitForResponse(
     (response) => new URL(response.url()).searchParams.get("date") === "2026-12-05" &&
       response.url().includes("/api/admin/dashboard"),
@@ -91,14 +112,17 @@ try {
   releaseDayOne();
   await staleResponse;
   await expect(card).toHaveText(/No lead source data available yet\./);
+  await expect(bookingValue).toHaveText("0 / 1");
 
   delayDayOne = false;
   await date("Dec 5").click();
   await expect(card.locator("dt")).toHaveText(["Instagram"]);
   await expect(card.locator("dd")).toHaveText(["1"]);
+  await expect(bookingValue).toHaveText("4 / 6");
   await date("Both days").click();
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
-  console.log("Source card passed desktop, tablet, mobile, and date-filter checks.");
+  await expect(bookingValue).toHaveText("4 / 7");
+  console.log("Source and Total bookings passed desktop, tablet, mobile, and date-filter checks.");
 } finally {
   releaseDayOne?.();
   await browser.close();

@@ -976,6 +976,19 @@ export function createApp(
     const confirmed = rows.filter((r) => ["PAID", "FREE"].includes(r.status));
     const entered = rows.filter((r) => r.enteredPeople > 0);
     const captured = rows.filter((r) => r.paymentStatus === "CAPTURED");
+    const totalBookingIds = new Set();
+    const confirmedBookingIds = new Set();
+    for (const booking of rows) {
+      if (date === "all" && !EVENT_DATES.includes(booking.eventDate)) continue;
+      totalBookingIds.add(booking.id);
+      if (
+        (booking.method === "FREE" && booking.status === "FREE") ||
+        (["RAZORPAY", "CASH"].includes(booking.method) &&
+          booking.status === "PAID" &&
+          booking.paymentStatus === "CAPTURED")
+      )
+        confirmedBookingIds.add(booking.id);
+    }
     const sourceCounts = new Map();
     const countedBookings = new Set();
     for (const booking of captured) {
@@ -994,6 +1007,8 @@ export function createApp(
     }
     res.json({
       bookings: rows.length,
+      totalBookings: totalBookingIds.size,
+      confirmedBookings: confirmedBookingIds.size,
       attendees: sum(confirmed, "people"),
       adults: sum(confirmed, "adults"),
       kids: sum(confirmed, "kids"),

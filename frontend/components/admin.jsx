@@ -379,7 +379,7 @@ function DashboardStatistics({ date }) {
               [
                 Ticket,
                 "Total bookings",
-                data.bookings,
+                `${data.confirmedBookings} / ${data.totalBookings}`,
                 `${data.groupTickets} group QR tickets issued`,
               ],
               [
