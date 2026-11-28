@@ -48,11 +48,13 @@ test("admin overview counts confirmed and total bookings and eligible sources by
     };
     const empty = await dashboard();
     assert.deepEqual(empty.sources, []);
+    assert.deepEqual(empty.discoverySources, []);
+    assert.equal(empty.discoveryTotal, 0);
     assertBookingCounts(empty, [0, 0]);
 
     async function addBooking({
       source, eventDate = dayOne, method = "RAZORPAY", status = "PAID",
-      paymentStatus = "CAPTURED", people = 1,
+      paymentStatus = "CAPTURED", people = 1, discovery = "google",
     }) {
       const id = randomUUID();
       const createdAt = "2026-11-27T10:00:00.000Z";
@@ -63,7 +65,7 @@ test("admin overview counts confirmed and total bookings and eligible sources by
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, id, "santa-2026", eventDate, "Test customer", "9876543210", "",
           people, 0, people, method === "FREE" ? 0 : 22000, method, status,
-          createdAt, id, createdAt, createdAt, "google",
+          createdAt, id, createdAt, createdAt, discovery,
           source ? JSON.stringify({ source, method: "utm" }) : null],
       );
       await db.run(
@@ -72,15 +74,15 @@ test("admin overview counts confirmed and total bookings and eligible sources by
       );
     }
 
-    await addBooking({ source: "Instagram", people: 4 });
-    await addBooking({ source: "Facebook", method: "CASH", people: 2 });
+    await addBooking({ source: "Instagram", people: 4, discovery: " instagram " });
+    await addBooking({ source: "Facebook", method: "CASH", people: 2, discovery: "word_of_mouth" });
     await addBooking({ source: "Google Ads" });
-    await addBooking({ source: "Direct" });
-    await addBooking({});
-    await addBooking({ source: "Instagram", eventDate: dayTwo });
-    await addBooking({ source: "WhatsApp", eventDate: dayTwo, people: 6 });
+    await addBooking({ source: "Direct", discovery: "previous_visitor" });
+    await addBooking({ discovery: null });
+    await addBooking({ source: "Instagram", eventDate: dayTwo, discovery: "Instagram" });
+    await addBooking({ source: "WhatsApp", eventDate: dayTwo, people: 6, discovery: "Word of Mouth" });
     await addBooking({ source: "Google Organic", eventDate: dayTwo });
-    await addBooking({ source: "linktr.ee", eventDate: dayTwo });
+    await addBooking({ source: "linktr.ee", eventDate: dayTwo, discovery: "<invalid>" });
     await addBooking({ source: "Pending online", status: "PENDING_PAYMENT", paymentStatus: "PENDING" });
     await addBooking({ source: "Failed online", status: "CANCELLED", paymentStatus: "FAILED" });
     await addBooking({ source: "Uncaptured online", status: "PAID", paymentStatus: "PENDING" });
@@ -94,6 +96,18 @@ test("admin overview counts confirmed and total bookings and eligible sources by
     const bothDays = await dashboard();
     const firstDay = await dashboard(dayOne);
     const secondDay = await dashboard(dayTwo);
+    const responses = (count, ...labels) => labels.map((label) => ({ label, count }));
+    const common = ["Friends & Referrals", "Google", "Instagram", "Not specified"];
+    assert.deepEqual(bothDays.discoverySources, [
+      ...responses(2, ...common),
+      ...responses(1, "Already visited Santa's Social"),
+    ]);
+    assert.deepEqual(firstDay.discoverySources, responses(1, "Already visited Santa's Social", ...common));
+    assert.deepEqual(secondDay.discoverySources, responses(1, ...common));
+    for (const summary of [bothDays, firstDay, secondDay]) {
+      assert.equal(summary.discoveryTotal, summary.sources.reduce((sum, row) => sum + row.bookings, 0));
+      assert.equal(summary.discoveryTotal, summary.discoverySources.reduce((sum, row) => sum + row.count, 0));
+    }
     assertBookingCounts(bothDays, [10, 16]);
     assertBookingCounts(firstDay, [6, 12]);
     assertBookingCounts(secondDay, [4, 4]);
@@ -118,6 +132,8 @@ test("admin overview counts confirmed and total bookings and eligible sources by
     duplicateRow = true;
     const withDuplicate = await dashboard();
     assert.deepEqual(withDuplicate.sources, bothDays.sources);
+    assert.deepEqual(withDuplicate.discoverySources, bothDays.discoverySources);
+    assert.equal(withDuplicate.discoveryTotal, bothDays.discoveryTotal);
     assertBookingCounts(withDuplicate, [10, 16]);
   } finally {
     await db.close();

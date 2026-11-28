@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { api, post, money, dateTime, eventDate } from "@/lib/api";
 import { discoverySources } from "@/lib/discovery-source";
+import { DiscoveryChart } from "./discovery-chart";
 import { staffDestination } from "@/lib/staff";
 import { useStaffSession, notifyStaffLogout } from "@/lib/use-staff-session";
 import { FreeTickets } from "./free-tickets";
@@ -436,7 +437,13 @@ function DashboardStatistics({ date }) {
               )}
             </div>
           </div>
-          <SourceCard sources={data.sources ?? []} />
+          <div className="overview-analytics">
+            <SourceCard sources={data.sources ?? []} />
+            <DiscoveryChart
+              sources={data.discoverySources ?? []}
+              total={data.discoveryTotal ?? 0}
+            />
+          </div>
         </>
       )}
     </>

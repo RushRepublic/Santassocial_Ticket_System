@@ -1,6 +1,7 @@
 import { receiptTickets } from "./individual-tickets.js";
 import { EVENT_DATES } from "../../config/event-dates.js";
 import { resolveLeadAttribution } from "../../config/lead-attribution.js";
+import { discoveryResponseLabel } from "../../config/discovery-sources.js";
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -990,6 +991,7 @@ export function createApp(
         confirmedBookingIds.add(booking.id);
     }
     const sourceCounts = new Map();
+    const discoveryCounts = new Map();
     const countedBookings = new Set();
     for (const booking of captured) {
       if (
@@ -1004,6 +1006,8 @@ export function createApp(
       const source = label === "Direct" ? "Direct Website" : label || "Unknown";
       countedBookings.add(booking.id);
       sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+      const response = discoveryResponseLabel(booking.discoverySource);
+      discoveryCounts.set(response, (discoveryCounts.get(response) ?? 0) + 1);
     }
     res.json({
       bookings: rows.length,
@@ -1032,6 +1036,11 @@ export function createApp(
         source,
         bookings,
       })).sort((a, b) => b.bookings - a.bookings || a.source.localeCompare(b.source, "en")),
+      discoverySources: Array.from(discoveryCounts, ([label, count]) => ({
+        label,
+        count,
+      })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "en")),
+      discoveryTotal: countedBookings.size,
       availability: await availability(db),
       demo: paymentDemo,
       notificationFailures: Number(

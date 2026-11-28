@@ -1976,6 +1976,99 @@ input::placeholder {
 .source-columns > :last-child {
   text-align: right;
 }
+.overview-analytics {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: 25px;
+}
+.overview-analytics > .admin-card {
+  min-width: 0;
+  margin-bottom: 0;
+}
+@media (min-width: 1024px) {
+  .overview-analytics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.discovery-card .card-heading {
+  margin-bottom: var(--space-4);
+}
+.discovery-card .card-heading svg {
+  color: var(--red);
+}
+.discovery-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.discovery-visual {
+  position: relative;
+  flex: 0 1 11rem;
+  margin-inline: auto;
+  max-width: 100%;
+}
+.discovery-pie {
+  display: block;
+  width: 100%;
+}
+.discovery-pie > * {
+  cursor: pointer;
+  stroke: var(--white);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.discovery-pie:has(.active) > :not(.active) {
+  opacity: 0.65;
+}
+.discovery-detail:not(:empty) {
+  position: absolute;
+  inset-inline: 0;
+  bottom: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+  text-align: center;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.discovery-detail span,
+.discovery-legend small {
+  display: block;
+  color: var(--muted);
+}
+.discovery-legend {
+  flex: 1 1 13rem;
+  min-width: 0;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.discovery-legend button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.discovery-legend button[aria-pressed="true"] {
+  background: var(--cream);
+  border-radius: var(--radius);
+}
+.discovery-swatch {
+  width: 12px;
+  height: 12px;
+  margin-top: 0.32em;
+  border-radius: 50%;
+}
+.discovery-card .discovery-total {
+  margin-top: var(--space-4);
+  color: var(--ink);
+}
 .dashboard-panels {
   display: grid;
   grid-template-columns: 1.7fr 1fr;

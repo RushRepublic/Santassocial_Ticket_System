@@ -24,12 +24,21 @@ const guestCounts = {
   "2026-12-05": { attendees: 5, adults: 4, kids: 1 },
   "2026-12-06": { attendees: 2, adults: 2, kids: 0 },
 };
+const discovery = {
+  all: [
+    { label: "Instagram", count: 2 },
+    { label: "Friends & Referrals", count: 1 },
+    { label: "Not specified", count: 1 },
+  ],
+  "2026-12-05": [{ label: "Google", count: 1 }],
+  "2026-12-06": [{ label: "Not specified", count: 1 }],
+};
 let delayDayOne = false;
 let releaseDayOne;
 let failDayTwo = true;
 
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, hasTouch: true });
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/auth/me")
@@ -53,6 +62,8 @@ try {
         cashRevenue: 0, onlineRevenue: 90200, entered: 0, groupTickets: 4,
         approvedGroupEntries: 0, pendingCash: 0, notificationFailures: 0,
         sources: totals[date],
+        discoverySources: discovery[date],
+        discoveryTotal: discovery[date].reduce((sum, row) => sum + row.count, 0),
         ...bookingCounts[date],
         ...guestCounts[date],
       },
@@ -60,6 +71,9 @@ try {
   });
   await page.goto(origin + "/admin/dashboard");
   const card = page.getByRole("region", { name: "Source", exact: true });
+  const discoveryCard = page.getByRole("region", { name: "How did you hear about us?" });
+  const pie = discoveryCard.locator(".discovery-pie");
+  const details = discoveryCard.getByRole("status");
   const bookingsCard = page.locator(".stat-card").filter({
     has: page.getByText("Total bookings", { exact: true }),
   });
@@ -71,6 +85,23 @@ try {
   await expect(bookingsCard.locator("small")).toHaveText("4 group QR tickets issued");
   await expect(card.locator("dt")).toHaveText(["Instagram", longLabel, "Unknown"]);
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
+  await expect(discoveryCard.locator(".discovery-total")).toHaveText("Total responses 4");
+  await expect(discoveryCard.getByRole("button")).toHaveText([
+    "Instagram2 bookings (50%)",
+    "Friends & Referrals1 booking (25%)",
+    "Not specified1 booking (25%)",
+  ]);
+  await expect(pie.locator("path")).toHaveCount(3);
+  await pie.hover({ position: { x: 124, y: 52 } });
+  await expect(details).toHaveText(/Instagram.*2 bookings \(50%\)/);
+  await discoveryCard.getByRole("heading").hover();
+  const referrals = discoveryCard.getByRole("button", { name: /Friends & Referrals/ });
+  await referrals.focus();
+  await referrals.press("Enter");
+  await expect(details).toHaveText(/Friends & Referrals.*1 booking \(25%\)/);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await pie.tap({ position: { x: 124, y: 52 } });
+  await expect(details).toHaveText(/Instagram.*2 bookings \(50%\)/);
   await expect(cards.locator(":scope > div > span")).toHaveText([
     "Confirmed guests", "Captured revenue", "Total bookings",
     "People welcomed", "A little follow-up.",
@@ -93,6 +124,19 @@ try {
 
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
+    const leftCard = await card.boundingBox();
+    const rightCard = await discoveryCard.boundingBox();
+    const recent = await page.getByRole("heading", { name: /Recent bookings/ }).boundingBox();
+    expect(recent.y).toBeGreaterThan(rightCard.y + rightCard.height);
+    if (width >= 1024) {
+      expect(rightCard.x).toBeGreaterThan(leftCard.x + leftCard.width);
+      expect(rightCard.y).toBe(leftCard.y);
+      expect(Math.abs(rightCard.width - leftCard.width)).toBeLessThan(1);
+      expect(rightCard.height).toBe(leftCard.height);
+    } else {
+      expect(rightCard.x).toBe(leftCard.x);
+      expect(rightCard.y).toBeGreaterThan(leftCard.y + leftCard.height);
+    }
     expect(await cards.evaluateAll((elements) => {
       const rects = elements.map((element) => element.getBoundingClientRect());
       const sourceTop = document.querySelector(".source-card").getBoundingClientRect().top;
@@ -135,12 +179,16 @@ try {
   await expect.poll(() => typeof releaseDayOne).toBe("function");
   await expect(page.getByRole("status").filter({ hasText: "Getting things ready" })).toBeVisible();
   await expect(card).toHaveCount(0);
+  await expect(discoveryCard).toHaveCount(0);
   await date("Dec 6").click();
   await expect(page.locator(".admin-content").getByRole("alert")).toHaveText(
     "Unable to load dashboard statistics. Please try again.",
   );
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(card).toHaveText(/No lead source data available yet\./);
+  await expect(discoveryCard).toContainText("No customer discovery data available yet.");
+  await expect(discoveryCard).toContainText("1 booking not specified");
+  await expect(pie).toHaveCount(0);
   await expect(bookingValue).toHaveText("0 / 1");
   await expect(adults).toHaveText("2 adults");
   await expect(guestCard.locator("small")).toHaveText("2 adults · 0 kids");
@@ -152,6 +200,7 @@ try {
   releaseDayOne();
   await staleResponse;
   await expect(card).toHaveText(/No lead source data available yet\./);
+  await expect(discoveryCard).toContainText("1 booking not specified");
   await expect(bookingValue).toHaveText("0 / 1");
 
   delayDayOne = false;
@@ -160,6 +209,8 @@ try {
   await expect(card.locator("dd")).toHaveText(["1"]);
   await expect(bookingValue).toHaveText("4 / 6");
   await expect(adults).toHaveText("4 adults");
+  await expect(pie.locator("circle")).toHaveCount(1);
+  await expect(discoveryCard.getByRole("button")).toHaveText("Google1 booking (100%)");
   await date("Both days").click();
   await expect(card.locator("dd")).toHaveText(["2", "1", "1"]);
   await expect(bookingValue).toHaveText("4 / 7");
