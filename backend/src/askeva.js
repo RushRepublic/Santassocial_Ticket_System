@@ -17,12 +17,14 @@ export function createAskevaMessaging({
   apiKey = process.env.ASKEVA_API_KEY,
   otpTemplate = process.env.ASKEVA_OTP_TEMPLATE || "santa_social_otp",
   ticketTemplate = process.env.ASKEVA_TICKET_TEMPLATE || legacyTicketTemplate,
+  cashReservationTemplate = process.env.ASKEVA_CASH_RESERVATION_TEMPLATE || "",
   language = process.env.ASKEVA_LANGUAGE || "en",
   fetchImpl = globalThis.fetch,
 } = {}) {
   if (!apiKey?.trim()) throw Error("ASKEVA_API_KEY is required.");
   if (
     ![otpTemplate, ticketTemplate].every((v) => /^[a-z0-9_]+$/.test(v)) ||
+    (cashReservationTemplate && !/^[a-z0-9_]+$/.test(cashReservationTemplate)) ||
     !/^[a-z]{2}(?:_[A-Z]{2})?$/.test(language)
   )
     throw Error("Invalid AskEVA template name or language.");
@@ -117,15 +119,16 @@ export function createAskevaMessaging({
         currency: "INR",
       }).format(amount / 100);
       const sendConfirmedTemplate = useNewTemplate && paidConfirmation;
+      const pendingCashTemplate =
+        cashReservation && status === "PENDING_CASH" ? cashReservationTemplate : "";
       const payment =
         status === "PENDING_CASH"
-          ? `Cash due: ${money}. Approval required before entry.`
+          ? `Cash due: ${money}. ${pendingCashTemplate ? "Please pay at the cash counter." : "Approval required before entry."}`
           : status === "FREE"
             ? "Free ticket"
             : `Paid${sendConfirmedTemplate ? " – " : ": "}${money}`;
-      const template = useNewTemplate && !sendConfirmedTemplate
-        ? legacyTicketTemplate
-        : ticketTemplate;
+      const template = pendingCashTemplate ||
+        (useNewTemplate && !sendConfirmedTemplate ? legacyTicketTemplate : ticketTemplate);
       return send(mobile, template, [
         body([name, reference, date, adults, kids, payment, ticketLink]),
       ]);

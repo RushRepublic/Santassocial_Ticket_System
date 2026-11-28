@@ -14,8 +14,8 @@ if this endpoint rejects the newly generated account key.
   the same code as a body parameter and URL/copy-code button parameter, as
   documented in the PDF. AskEVA delivers the code; the website verifies it.
 - `santa_social_ticket`: Utility, TEXT, English `en`, static header
-  `Santa Social Ticket`. Keep it approved for pending cash and existing free
-  ticket notifications.
+  `Santa Social Ticket`. Keep it approved for the pending cash fallback and
+  existing free ticket notifications.
 - `santa_social_ticket_confirmation_v2`: Utility, TEXT, English `en`.
   Used for confirmed paid online and cash bookings only. Both ticket templates
   take seven ordered body variables: customer name, booking
@@ -23,10 +23,56 @@ if this endpoint rejects the newly generated account key.
   payment status with total, and full secure ticket link including the bearer
   fragment. The v2 link is a body variable, with no dynamic URL button parameter.
 
-Keep all three templates approved. Unpaid cash stays clearly marked
-due/approval required. Payment-review updates do not use a ticket
+Keep these templates approved. Unpaid cash stays clearly marked
+due. Payment-review updates do not use a ticket
 message or send a usable admission link; those updates remain retryable and
 can use the existing SMTP fallback when separately configured.
+
+## Optional cash reservation template
+
+Create a separate English (`en`) Utility TEXT template in AskEVA with the
+following body and seven ordered variables. Use synthetic sample values for
+approval, including a sample URL for variable 7.
+
+```text
+🎄 Santa’s Social – 9th Edition | Ticket Confirmation
+
+Hello {{1}}!
+
+Thank you for booking your tickets to Santa’s Social – 9th Edition! 🎅✨
+
+Your booking is confirmed. We can’t wait to welcome you and your group for a magical celebration!
+
+Your Booking Details
+
+Booking Reference: {{2}}
+Event Date: {{3}}
+Event Time: 11:00 AM – 10:00 PM
+Venue: Park Grounds, CODISSIA, Coimbatore
+Adults: {{4}}
+Children (Under 5): {{5}}
+Payment status: {{6}}
+
+🎟️ Your Group QR Ticket
+
+View and download your QR ticket here:
+{{7}}
+
+A few things to remember:
+
+* Your QR ticket is valid only for the registered event date.
+* All guests included in the booking must enter together using the Group QR Ticket.
+
+Get ready for a wonderful day filled with festive cheer, delightful experiences and Christmas magic!
+
+See you at Santa’s Social! 🧑‍🎄🎄
+```
+
+After approval, set `ASKEVA_CASH_RESERVATION_TEMPLATE` to the exact approved
+name in the server environment. The adapter supplies variable 6 as
+`Cash due: ₹220.00. Please pay at the cash counter.` with the actual cash
+amount. The booking still requires cash collection and approval before entry.
+Leaving the setting empty retains the existing pending cash template.
 
 ## Hostinger, after this code is deployed
 
@@ -76,7 +122,7 @@ Notification failure never rolls back a payment or delays the ticket response.
 
 The recipient is the verified customer mobile persisted on the booking. Paid
 online notifications are enqueued at server-confirmed capture. Cash
-reservations queue a legacy message showing the amount due. With v2 configured,
+reservations queue a message showing the amount due. With v2 configured,
 cash collection queues one paid confirmation atomically with payment approval.
 If cash is collected before the reservation message is processed, the paid
 confirmation replaces that unsent message. Scan approval of an already-paid

@@ -20,6 +20,7 @@ function fixture(
   response = { messages: [{ id: "wamid.synthetic" }] },
   ok = true,
   ticketTemplate,
+  cashReservationTemplate = "",
 ) {
   const calls = [];
   return {
@@ -27,6 +28,7 @@ function fixture(
     provider: createAskevaMessaging({
       apiKey: "synthetic-secret",
       ticketTemplate,
+      cashReservationTemplate,
       fetchImpl: async (url, options) => {
         calls.push({ url, options, payload: JSON.parse(options.body) });
         return { ok, json: async () => response };
@@ -64,6 +66,26 @@ test("confirmed-ticket v2 sends only paid confirmations with seven English body 
     ...confirmed, type: "CASH_CONFIRMED", status: "PENDING_CASH",
   }));
   assert.equal(calls.length, 4);
+});
+
+test("an approved cash reservation template is used only while cash is due", async () => {
+  const confirmedTemplate = "santa_social_ticket_confirmation_v2";
+  const reservationTemplate = "sample_cash_reservation";
+  const { provider, calls } = fixture(undefined, true, confirmedTemplate, reservationTemplate);
+  const reservation = { ...ticket, type: "CASH_PENDING", status: "PENDING_CASH", amount: 22000 };
+  await provider.sendNotification(reservation);
+  await provider.sendNotification({ ...reservation, status: "PAID" });
+  await provider.sendNotification({ ...reservation, type: "CASH_CONFIRMED", status: "PAID" });
+  await provider.sendNotification(ticket);
+  await provider.sendNotification({ ...ticket, status: "FREE", amount: 0 });
+  assert.deepEqual(calls.map(({ payload }) => payload.template.name), [
+    reservationTemplate, "santa_social_ticket", confirmedTemplate, confirmedTemplate, "santa_social_ticket",
+  ]);
+  assert.deepEqual(
+    calls[0].payload.template.components[0].parameters.map(({ text }) => text),
+    [ticket.name, ticket.reference, "Saturday, 5 December 2026", "2", "1",
+      "Cash due: ₹220.00. Please pay at the cash counter.", ticket.ticketLink],
+  );
 });
 
 test("AskEVA OTP uses the documented body and copy-code button with country code", async () => {
