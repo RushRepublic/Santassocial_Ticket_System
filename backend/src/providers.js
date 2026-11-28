@@ -2,7 +2,9 @@ import Razorpay from "razorpay";
 import nodemailer from "nodemailer";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { demo, whatsappDemo, paymentDemo, config } from "./config.js";
+import {
+  demo, whatsappDemo, paymentDemo, config, usesAskevaConfirmedTicketTemplate,
+} from "./config.js";
 import {
   AppError,
   getBooking,
@@ -61,7 +63,7 @@ async function emailFallback(b, type) {
   const active = ["PAID", "FREE"].includes(b.status);
   const text = [
     `Santa Social 9th Edition`,
-    type === "TICKET" && active
+    ["TICKET", "CASH_CONFIRMED"].includes(type) && active
       ? "Your tickets are ready."
       : "Your booking update",
     `Booking: ${b.reference}`,
@@ -83,11 +85,21 @@ async function emailFallback(b, type) {
   });
 }
 async function isObsoleteCashNotification(db, booking, job) {
+  const newTemplateEnabled = usesAskevaConfirmedTicketTemplate();
+  if (job.type === "CASH_CONFIRMED")
+    return !newTemplateEnabled || booking.method !== "CASH" || booking.status !== "PAID";
   if (booking.method !== "CASH" || !["TICKET", "CASH_PENDING"].includes(job.type))
     return false;
   if (!["PENDING_CASH", "PAID"].includes(booking.status)) return true;
   const original = job.type === "CASH_PENDING";
   if (!original && booking.status !== "PAID") return true;
+  if (newTemplateEnabled && booking.status === "PAID") {
+    const [confirmation] = await db.all(
+      "SELECT id FROM notification_logs WHERE bookingId = ? AND type = ?",
+      [booking.id, "CASH_CONFIRMED"],
+    );
+    if (confirmation) return true;
+  }
   // Old releases queued a second job at cash approval. Prefer the reservation
   // job unless it was superseded, and honour any delivery already recorded.
   const [other] = await db.all(

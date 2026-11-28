@@ -1,6 +1,8 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { EVENT_DATES } from "../../config/event-dates.js";
-import { paymentDemo, production, config } from "./config.js";
+import {
+  paymentDemo, production, config, usesAskevaConfirmedTicketTemplate,
+} from "./config.js";
 import { hash, qrToken } from "./security.js";
 import { quoteBooking, quoteSubtotal, savedBookingPricing } from "./pricing.js";
 import {
@@ -396,8 +398,9 @@ export async function approveCashInTransaction(tx, id, amount, userId) {
       p.id,
     ],
   );
-  // The cash reservation already queued its ticket link when it was created.
   await activate(tx, b, "PAID", { notify: false });
+  if (usesAskevaConfirmedTicketTemplate())
+    await notification(tx, b, "CASH_CONFIRMED");
   await audit(tx, userId, "CASH_APPROVED", id);
   return publicBooking(await getBooking(tx, id));
 }

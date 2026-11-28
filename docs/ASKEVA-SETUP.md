@@ -14,13 +14,17 @@ if this endpoint rejects the newly generated account key.
   the same code as a body parameter and URL/copy-code button parameter, as
   documented in the PDF. AskEVA delivers the code; the website verifies it.
 - `santa_social_ticket`: Utility, TEXT, English `en`, static header
-  `Santa Social Ticket`. Seven ordered body variables: customer name, booking
+  `Santa Social Ticket`. Keep it approved for pending cash and existing free
+  ticket notifications.
+- `santa_social_ticket_confirmation_v2`: Utility, TEXT, English `en`.
+  Used for confirmed paid online and cash bookings only. Both ticket templates
+  take seven ordered body variables: customer name, booking
   reference, full selected event date with weekday, adults, children under 5,
-  payment status, full secure ticket link.
+  payment status with total, and full secure ticket link including the bearer
+  fragment. The v2 link is a body variable, with no dynamic URL button parameter.
 
-Both templates must be approved. The ticket template accommodates paid online,
-paid cash, free tickets and unpaid cash reservations; unpaid cash stays clearly
-marked due/approval required. Payment-review updates do not use this ticket
+Keep all three templates approved. Unpaid cash stays clearly marked
+due/approval required. Payment-review updates do not use a ticket
 message or send a usable admission link; those updates remain retryable and
 can use the existing SMTP fallback when separately configured.
 
@@ -35,7 +39,7 @@ PAYMENT_MODE=live
 WHATSAPP_MODE=live
 ASKEVA_API_KEY=<your privately saved AskEVA API key>
 ASKEVA_OTP_TEMPLATE=santa_social_otp
-ASKEVA_TICKET_TEMPLATE=santa_social_ticket
+ASKEVA_TICKET_TEMPLATE=santa_social_ticket_confirmation_v2
 ASKEVA_LANGUAGE=en
 ```
 
@@ -51,6 +55,11 @@ return `paymentMode: "live"`, `otpMode: "live"`, `whatsappMode: "live"`,
 `database: "mysql"`, and release `automatic-ticket-whatsapp-1`. The top-level `mode` remains
 `demo` because APP_MODE remains demo; this does not simulate live payments or
 WhatsApp when their independent modes are live.
+On the VPS, deploy the updated code before setting the new template name and
+restarting or reloading the application with the updated environment. The
+previous release uses that setting for unpaid cash too. Keep any separate cron
+worker on the same release and environment. An unset template setting retains
+the legacy behaviour.
 
 ## Notification maintenance
 
@@ -65,12 +74,14 @@ A crash or lost provider acknowledgement can still cause a later at-least-once
 retry; no provider idempotency capability is documented in the supplied API.
 Notification failure never rolls back a payment or delays the ticket response.
 
-The recipient is the verified customer mobile persisted on the booking. Online
-notifications are enqueued only after server-confirmed captured PAID/FREE
-activation. Cash reservations queue one confirmation when created. It shows
-the amount due while payment is pending. If cash has already been collected
-before the first successful send, the same job uses the paid wording.
-Cash collection and ticket approval do not enqueue a confirmation.
+The recipient is the verified customer mobile persisted on the booking. Paid
+online notifications are enqueued at server-confirmed capture. Cash
+reservations queue a legacy message showing the amount due. With v2 configured,
+cash collection queues one paid confirmation atomically with payment approval.
+If cash is collected before the reservation message is processed, the paid
+confirmation replaces that unsent message. Scan approval of an already-paid
+booking does not send another confirmation. Existing Free Ticket notification
+behaviour is retained. Previously approved cash bookings are not backfilled.
 The QR and secure ticket route stay the same:
 `https://tickets.santassocial.com/ticket/<id>#<bearer>`.
 This opens the customer's receipt directly on another browser; the bare domain

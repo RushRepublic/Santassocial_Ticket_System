@@ -1,8 +1,10 @@
 import { AppError } from "./services.js";
+import { askevaConfirmedTicketTemplate } from "./config.js";
 
 // Supplied AskEVA PDF, pages 2-7 and 28-34. Never log the URL: its
 // token query parameter is a credential. No redirects or automatic OTP retries.
 const endpoint = "https://backend.askeva.io/v1/message/send-message";
+const legacyTicketTemplate = "santa_social_ticket";
 const text = (value) => ({ type: "text", text: String(value) });
 const body = (values) => ({ type: "body", parameters: values.map(text) });
 const deliveryError = () =>
@@ -14,7 +16,7 @@ const deliveryError = () =>
 export function createAskevaMessaging({
   apiKey = process.env.ASKEVA_API_KEY,
   otpTemplate = process.env.ASKEVA_OTP_TEMPLATE || "santa_social_otp",
-  ticketTemplate = process.env.ASKEVA_TICKET_TEMPLATE || "santa_social_ticket",
+  ticketTemplate = process.env.ASKEVA_TICKET_TEMPLATE || legacyTicketTemplate,
   language = process.env.ASKEVA_LANGUAGE || "en",
   fetchImpl = globalThis.fetch,
 } = {}) {
@@ -90,12 +92,13 @@ export function createAskevaMessaging({
         ticketLink,
         type,
       } = message;
-      // PAYMENT_REVIEW is not an issued ticket and must never receive this template.
-      if (
-        !["TICKET", "CASH_PENDING"].includes(type) ||
-        !["PAID", "FREE", "PENDING_CASH"].includes(status) ||
-        !ticketLink
-      )
+      const useNewTemplate = ticketTemplate === askevaConfirmedTicketTemplate;
+      const paidConfirmation = status === "PAID" &&
+        (type === "TICKET" || (type === "CASH_CONFIRMED" && useNewTemplate));
+      const freeTicket = type === "TICKET" && status === "FREE";
+      const cashReservation = type === "CASH_PENDING" &&
+        ["PENDING_CASH", "PAID"].includes(status);
+      if (!(paidConfirmation || freeTicket || cashReservation) || !ticketLink)
         throw Error("No deliverable ticket for this booking update.");
       const link = new URL(ticketLink);
       if (link.protocol !== "https:" || !/^#ss_[a-f0-9]{64}$/.test(link.hash))
@@ -113,13 +116,17 @@ export function createAskevaMessaging({
         style: "currency",
         currency: "INR",
       }).format(amount / 100);
+      const sendConfirmedTemplate = useNewTemplate && paidConfirmation;
       const payment =
         status === "PENDING_CASH"
           ? `Cash due: ${money}. Approval required before entry.`
           : status === "FREE"
             ? "Free ticket"
-            : `Paid: ${money}`;
-      return send(mobile, ticketTemplate, [
+            : `Paid${sendConfirmedTemplate ? " – " : ": "}${money}`;
+      const template = useNewTemplate && !sendConfirmedTemplate
+        ? legacyTicketTemplate
+        : ticketTemplate;
+      return send(mobile, template, [
         body([name, reference, date, adults, kids, payment, ticketLink]),
       ]);
     },

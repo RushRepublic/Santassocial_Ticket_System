@@ -19,12 +19,14 @@ const ticket = {
 function fixture(
   response = { messages: [{ id: "wamid.synthetic" }] },
   ok = true,
+  ticketTemplate,
 ) {
   const calls = [];
   return {
     calls,
     provider: createAskevaMessaging({
       apiKey: "synthetic-secret",
+      ticketTemplate,
       fetchImpl: async (url, options) => {
         calls.push({ url, options, payload: JSON.parse(options.body) });
         return { ok, json: async () => response };
@@ -32,6 +34,37 @@ function fixture(
     }),
   };
 }
+
+test("confirmed-ticket v2 sends only paid confirmations with seven English body variables", async () => {
+  const templateName = "santa_social_ticket_confirmation_v2";
+  const { provider, calls } = fixture(undefined, true, templateName);
+  const confirmed = { ...ticket, eventDate: "2026-12-06", amount: 22550 };
+  await provider.sendNotification(confirmed);
+  await provider.sendNotification({ ...confirmed, type: "CASH_CONFIRMED" });
+  await provider.sendNotification({
+    ...confirmed, type: "CASH_PENDING", status: "PENDING_CASH",
+  });
+  await provider.sendNotification({ ...confirmed, status: "FREE", amount: 0 });
+  for (const { payload } of calls.slice(0, 2)) {
+    assert.equal(payload.template.name, templateName);
+    assert.equal(payload.template.language.code, "en");
+    assert.equal(payload.template.components.length, 1);
+    assert.equal(payload.template.components[0].type, "body");
+    assert.deepEqual(
+      payload.template.components[0].parameters.map(({ text }) => text),
+      [ticket.name, ticket.reference, "Sunday, 6 December 2026", "2", "1",
+        "Paid – ₹225.50", ticket.ticketLink],
+    );
+  }
+  for (const { payload } of calls.slice(2))
+    assert.equal(payload.template.name, "santa_social_ticket");
+  for (const status of ["PENDING_PAYMENT", "PENDING_CASH", "CANCELLED", "EXPIRED", "PAYMENT_REVIEW"])
+    await assert.rejects(provider.sendNotification({ ...confirmed, status }));
+  await assert.rejects(provider.sendNotification({
+    ...confirmed, type: "CASH_CONFIRMED", status: "PENDING_CASH",
+  }));
+  assert.equal(calls.length, 4);
+});
 
 test("AskEVA OTP uses the documented body and copy-code button with country code", async () => {
   const { provider, calls } = fixture();

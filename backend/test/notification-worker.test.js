@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import request from "supertest";
 import { config } from "../src/config.js";
+import { createAskevaMessaging } from "../src/askeva.js";
 
 const input = {
   name: "Delivery Guest",
@@ -146,6 +147,58 @@ test("cash and captured online bookings each send once, even after scanner appro
     assert.equal(delivered.length, 2);
     assert.equal((await db.all("SELECT id FROM checkins")).length, 2);
   }));
+
+test("v2 sends one paid cash confirmation per approval and preserves the reservation message", async () => {
+  const previous = process.env.ASKEVA_TICKET_TEMPLATE;
+  const previousOrigin = config.origin;
+  process.env.ASKEVA_TICKET_TEMPLATE = "santa_social_ticket_confirmation_v2";
+  config.origin = "https://tickets.example.test";
+  try {
+    await fixture(async (db) => {
+      const [admin] = await db.all("SELECT id FROM users WHERE role = 'ADMIN'");
+      const sent = [];
+      const provider = createAskevaMessaging({
+        apiKey: "synthetic-secret",
+        fetchImpl: async (_url, options) => {
+          sent.push(JSON.parse(options.body).template);
+          return { ok: true, json: async () => ({ messages: [{ id: "mock" }] }) };
+        },
+      });
+      const cash = await createBooking(db, input, "9876543210", randomUUID());
+      const unpaidOnline = await createBooking(db, { ...input, method: "RAZORPAY" }, "9876543210", randomUUID());
+      const online = await createBooking(db, { ...input, method: "RAZORPAY" }, "9876543210", randomUUID());
+      await db.run("UPDATE payments SET status = 'FAILED' WHERE bookingId = ?", [unpaidOnline.id]);
+      await dispatchNotifications(db, provider);
+      assert.deepEqual(sent.map(({ name }) => name), ["santa_social_ticket"]);
+
+      const fastCash = await createBooking(db, input, "9876543210", randomUUID());
+      for (const booking of [cash, fastCash]) {
+        await approveCash(db, booking.id, booking.amount, admin.id);
+        await approveCash(db, booking.id, booking.amount, admin.id);
+      }
+      await db.run("UPDATE payments SET orderId = ? WHERE bookingId = ?", ["order_mock_v2", online.id]);
+      const capture = () => settleCaptured(db, "order_mock_v2", "pay_mock_v2", online.amount, "INR", {
+        id: "evt_mock_v2", type: "payment.captured",
+      });
+      await capture();
+      await capture();
+      await Promise.all([dispatchNotifications(db, provider), dispatchNotifications(db, provider)]);
+      await dispatchNotifications(db, provider);
+
+      const confirmations = sent.slice(1);
+      assert.equal(confirmations.length, 3);
+      assert.ok(confirmations.every(({ name }) => name === process.env.ASKEVA_TICKET_TEMPLATE));
+      const values = confirmations.map(({ components }) => components[0].parameters.map(({ text }) => text));
+      assert.deepEqual(values.map((body) => body[1]).sort(), [cash.reference, fastCash.reference, online.reference].sort());
+      for (const booking of [cash, fastCash, online])
+        assert.ok(values.find((body) => body[1] === booking.reference)[6].endsWith(`#${qrToken(booking)}`));
+    });
+  } finally {
+    config.origin = previousOrigin;
+    if (previous === undefined) delete process.env.ASKEVA_TICKET_TEMPLATE;
+    else process.env.ASKEVA_TICKET_TEMPLATE = previous;
+  }
+});
 
 test("legacy cash outbox rows send at most one confirmation and preserve a sole pending delivery", () =>
   fixture(async (db) => {

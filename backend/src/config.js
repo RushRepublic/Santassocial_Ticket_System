@@ -15,6 +15,10 @@ export const whatsappMode =
 if (!["demo", "live"].includes(whatsappMode))
   throw Error("WHATSAPP_MODE must be demo or live.");
 export const whatsappDemo = whatsappMode === "demo";
+export const askevaConfirmedTicketTemplate = "santa_social_ticket_confirmation_v2";
+export const usesAskevaConfirmedTicketTemplate = () =>
+  !process.env.ASKEVA_ADAPTER_MODULE &&
+  process.env.ASKEVA_TICKET_TEMPLATE === askevaConfirmedTicketTemplate;
 if (
   !whatsappDemo &&
   !process.env.ASKEVA_ADAPTER_MODULE &&
